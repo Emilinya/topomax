@@ -1,0 +1,20 @@
+{
+    "objective": "minimize_power",
+    "width": 1,
+    "height": 1,
+    "fraction": 0.5,
+    "flows": [
+        {
+            "side": "left",
+            "center": 0.5,
+            "length": 1,
+            "rate": 1
+        },
+        {
+            "side": "right",
+            "center": 0.5,
+            "length": 0.333333333333333,
+            "rate": -3
+        }
+    ]
+}

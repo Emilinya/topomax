@@ -1,0 +1,13 @@
+{
+    "objective": "minimize_compliance",
+    "width": 3,
+    "height": 1,
+    "fraction": 0.5,
+    "flows": [],
+    "fixed_sides": ["left"],
+    "force_region": {
+        "center": [2.9, 0.5],
+        "size": [0, 0],
+        "value": [0, -1]
+    }
+}
