@@ -6,6 +6,8 @@ from src.utils import MeshFunctionWrapper
 
 
 class Problem:
+    """Class that creates a reduced objective function for a topology optimization problem."""
+
     def init(
         self, control_filter: Filter, mesh: dfa.Mesh, parameters: SolverParameters
     ):

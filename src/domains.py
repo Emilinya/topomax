@@ -44,4 +44,3 @@ class PointDomain(df.SubDomain):
 
     def inside(self, pos, _):
         return df.near(pos[0], self.point[0]) and df.near(pos[1], self.point[1])
-

@@ -5,12 +5,13 @@ import numpy as np
 
 
 def alpha(rho):
+    """Solid isotropic material penalization (SIMP)."""
     alpha_min = 1e-6
     return alpha_min + rho**3 * (1 - alpha_min)
 
 
 def constrain(number, space):
-    """Constrain a number so it fits within a given number of characters"""
+    """Constrain a number so it fits within a given number of characters."""
     try:
         if number == 0:
             return f"{number:.{space - 1}f}"

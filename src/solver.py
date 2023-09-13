@@ -16,19 +16,24 @@ df.parameters["std_out_all_processes"] = False
 
 
 def expit(x):
+    """Sigmoid function."""
     return 1.0 / (1.0 + np.exp(-x))
 
 
 def expit_diff(x):
+    """Derivative of the sigmoid function."""
     expit_val = expit(x)
     return expit_val * (1 - expit_val)
 
 
 def logit(x):
+    """Inverse sigmoid function."""
     return np.log(x / (1.0 - x))
 
 
 class Solver:
+    """Class that solves a given topology optimization problem using a magical algorithm."""
+
     def __init__(self, design_file: str, N: int, problem: Problem):
         self.problem = problem
         self.design_file = design_file
@@ -57,18 +62,18 @@ class Solver:
             control_filter, self.mesh, self.parameters
         )
 
-    def zero_solver(self, half_step, volume):
-        # solve 'expit(half_step + c) * df.dx = volume' with newtons method
+    def zero_solver(self, half_step, volume: float):
+        """solve '∫expit(half_step + c)dx = volume' for c using Newton's method."""
 
         expit_integral_func = dfa.Function(self.problem.control_space)
         expit_diff_integral_func = dfa.Function(self.problem.control_space)
 
-        def evaluate(c):
+        def evaluate(c: float):
             expit_integral_func.vector()[:] = expit(half_step + c)
             expit_diff_integral_func.vector()[:] = expit_diff(half_step + c)
 
-            error = dfa.assemble(expit_integral_func * df.dx) - volume
-            gradient = dfa.assemble(expit_diff_integral_func * df.dx)
+            error = float(dfa.assemble(expit_integral_func * df.dx) - volume)
+            gradient = float(dfa.assemble(expit_diff_integral_func * df.dx))
 
             return error, gradient
 
@@ -93,6 +98,7 @@ class Solver:
         return half_step + c
 
     def solve(self):
+        """Solve the given topology optimization problem."""
         itol = 1e-2
         ntol = 1e-5
 
@@ -114,7 +120,7 @@ class Solver:
             self.rho.vector()[:] = expit(psi)
             objective = float(self.objective_function(self.rho.vector()[:]))
 
-            self.save_control(self.rho, objective, k)
+            self.save_rho(self.rho, objective, k)
             k += 1
 
             # create dfa functions from psi and prev_psi to calculate error
@@ -126,7 +132,7 @@ class Solver:
 
             error = np.sqrt(dfa.assemble((psi_func - prev_psi_func) ** 2 * df.dx))
 
-    def save_control(self, rho, objective, k):
+    def save_rho(self, rho, objective, k):
         design = os.path.splitext(os.path.basename(self.design_file))[0]
         filename = f"output/{design}/data/N={self.N}_{k=}.mat"
 

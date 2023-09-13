@@ -1,10 +1,14 @@
 import dolfin as df
 import dolfin_adjoint as dfa
 
+
 class Filter:
+    """A class that filters a given design function to remove high frequency elements."""
+
     def apply(self, input_rho):
         print("Filter can't be used directly, use one on the subclasses")
         exit(1)
+
 
 class HelmholtzFilter(Filter):
     def __init__(self, N):

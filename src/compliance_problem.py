@@ -3,10 +3,8 @@ import dolfin_adjoint as dfa
 from pyadjoint.reduced_functional_numpy import ReducedFunctionalNumPy
 
 from src.utils import alpha
-from src.filter import Filter
 from src.problem import Problem
 from src.domains import SidesDomain
-from designs.design_parser import SolverParameters
 
 
 class BodyForce(dfa.UserExpression):
@@ -30,6 +28,8 @@ class BodyForce(dfa.UserExpression):
 
 
 class ComplianceProblem(Problem):
+    """Elastic compliance topology optimization problem."""
+
     def __init__(self):
         self.Young_modulus = 4 / 3
         self.Poisson_ratio = 1 / 3
