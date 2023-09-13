@@ -1,4 +1,5 @@
 {
+    "problem": "fluid",
     "objective": "minimize_power",
     "width": 1.5,
     "height": 1,
