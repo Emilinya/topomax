@@ -6,8 +6,8 @@ import dolfin as df
 import dolfin_adjoint as dfa
 
 from designs.design_parser import parse_design
-from src.compliance_problem import Problem
 from src.filter import HelmholtzFilter
+from src.problem import Problem
 from src.utils import constrain
 
 df.set_log_level(df.LogLevel.ERROR)
