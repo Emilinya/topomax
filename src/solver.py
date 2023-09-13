@@ -37,7 +37,7 @@ class Solver:
     def __init__(self, design_file: str, N: int, problem: Problem):
         self.problem = problem
         self.design_file = design_file
-        self.parameters, *_ = parse_design(self.design_file)
+        self.parameters, *extra_data = parse_design(self.design_file)
 
         # define domain
         self.N = N
@@ -59,7 +59,7 @@ class Solver:
 
         control_filter = HelmholtzFilter(self.N)
         self.rho, self.objective_function = self.problem.init(
-            control_filter, self.mesh, self.parameters
+            control_filter, self.mesh, self.parameters, extra_data
         )
 
     def zero_solver(self, half_step, volume: float):
@@ -119,13 +119,13 @@ class Solver:
 
             prev_psi = psi
             psi = self.step(prev_psi, self.step_size(k))
+            k += 1
 
             self.rho.vector()[:] = expit(psi)
             objective = float(self.objective_function(self.rho.vector()[:]))
 
-            if k % 10 == 0:
+            if k % 10 == 1:
                 self.save_rho(self.rho, objective, k)
-            k += 1
 
             # create dfa functions from psi and prev_psi to calculate error
             prev_psi_func = dfa.Function(self.problem.control_space)

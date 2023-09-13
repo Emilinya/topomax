@@ -1,3 +1,5 @@
+import numpy as np
+
 import dolfin as df
 import dolfin_adjoint as dfa
 from pyadjoint.reduced_functional_numpy import ReducedFunctionalNumPy
@@ -18,16 +20,18 @@ class BodyForce(dfa.UserExpression):
 
     def eval(self, values, pos):
         values[0] = 0.0
-        values[1] = -1 * self.rho(pos)
+        values[1] = 0.0
 
-        if df.near(pos[0], 2.9) and df.near(pos[1], 0.5):
-            values[1] += 0
+        center = (2.9, 0.5)
+        distance = np.sqrt((pos[0] - center[0]) ** 2 + (pos[1] - center[1]) ** 2)
+        if distance < 0.1:
+            values[1] = -1
 
     def value_shape(self):
         return (2,)
 
 
-class ComplianceProblem(Problem):
+class ElasticityProblem(Problem):
     """Elastic compliance topology optimization problem."""
 
     def __init__(self):
@@ -80,10 +84,10 @@ class ComplianceProblem(Problem):
             ),
         ]
 
-    def create_function_spaces(self, mesh: dfa.Mesh):
-        self.control_space = df.FunctionSpace(mesh, "DG", 0)
-        displacement_element = df.VectorElement("CG", mesh.ufl_cell(), 2)
-        self.solution_space = df.FunctionSpace(mesh, displacement_element)
+    def create_function_spaces(self):
+        self.control_space = df.FunctionSpace(self.mesh, "DG", 0)
+        displacement_element = df.VectorElement("CG", self.mesh.ufl_cell(), 2)
+        self.solution_space = df.FunctionSpace(self.mesh, displacement_element)
 
     def create_rho(self):
         self.rho = dfa.Function(self.control_space)

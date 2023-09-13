@@ -1,7 +1,7 @@
 import os
 import sys
 from src.solver import Solver
-from src.compliance_problem import ComplianceProblem
+from elasisity_problem import ElasticityProblem
 
 if __name__ == "__main__":
     if len(sys.argv) == 3:
@@ -23,7 +23,7 @@ if __name__ == "__main__":
             print("This program is used as follows:")
             print(f"  python3 {sys.argv[0]} <design file> <domain size (N)>")
         else:
-            problem = ComplianceProblem()
+            problem = ElasticityProblem()
             solver = Solver(design_file, N, problem)
             solver.solve()
     else:

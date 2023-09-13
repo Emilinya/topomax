@@ -9,14 +9,20 @@ class Problem:
     """Class that creates a reduced objective function for a topology optimization problem."""
 
     def init(
-        self, control_filter: Filter, mesh: dfa.Mesh, parameters: SolverParameters
+        self,
+        control_filter: Filter,
+        mesh: dfa.Mesh,
+        parameters: SolverParameters,
+        extra_data,
     ):
-        self.volume_fraction = parameters.fraction
+        self.mesh = mesh
+        self.data = extra_data
         self.control_filter = control_filter
+        self.volume_fraction = parameters.fraction
         self.domain_size = (parameters.width, parameters.height)
-        self.marker = MeshFunctionWrapper(mesh)
+        self.marker = MeshFunctionWrapper(self.mesh)
 
-        self.create_function_spaces(mesh)
+        self.create_function_spaces()
         self.create_boundary_conditions()
         self.create_rho()
 
@@ -30,7 +36,7 @@ class Problem:
         print("Problem can't be used directly, use one on the subclasses")
         exit(1)
 
-    def create_function_spaces(self, mesh: dfa.Mesh):
+    def create_function_spaces(self):
         print("Problem can't be used directly, use one on the subclasses")
         exit(1)
 
