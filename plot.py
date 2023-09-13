@@ -13,9 +13,10 @@ except ModuleNotFoundError:
     def tqdm(values):
         N = len(values)
         if N == 0:
-            return []
+            return
         if N == 1:
-            return [values[0]]
+            yield values[0]
+            return
 
         terminal_size = os.get_terminal_size().columns - 1
         for i, v in enumerate(values):
