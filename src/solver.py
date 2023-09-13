@@ -86,16 +86,19 @@ class Solver:
 
         return c - err / grad
 
-    def step(self, prev_psi, alpha):
+    def step(self, prev_psi, step_size):
         # Latent space gradient descent
         objective_gradient = self.objective_function.derivative()
-        half_step = prev_psi - alpha * objective_gradient
+        half_step = prev_psi - step_size * objective_gradient
 
         # Compute Lagrange multiplier
         c = self.zero_solver(half_step, self.volume)
 
         # Latent space feasibility forrection
         return half_step + c
+
+    def step_size(self, k: int):
+        return 25 * k
 
     def solve(self):
         """Solve the given topology optimization problem."""
@@ -111,16 +114,17 @@ class Solver:
         print("──────────┼───────────┼──────────")
 
         k = 0
-        while error > min(ntol, itol):
+        while error > min(self.step_size(k)*ntol, itol):
             print(f"{k:^9} │ {constrain(objective, 9)} │ {constrain(error, 9)}")
 
             prev_psi = psi
-            psi = self.step(prev_psi, 1)
+            psi = self.step(prev_psi, self.step_size(k))
 
             self.rho.vector()[:] = expit(psi)
             objective = float(self.objective_function(self.rho.vector()[:]))
 
-            self.save_rho(self.rho, objective, k)
+            if k % 10 == 0:
+                self.save_rho(self.rho, objective, k)
             k += 1
 
             # create dfa functions from psi and prev_psi to calculate error
@@ -139,7 +143,7 @@ class Solver:
         Nx, Ny = int(self.width * self.N), int(self.height * self.N)
         data = np.array(
             [
-                [rho((0.5 + xi) / Nx, (0.5 + yi) / Ny) for xi in range(Nx)]
+                [rho((0.5 + xi) / self.N, (0.5 + yi) / self.N) for xi in range(Nx)]
                 for yi in range(Ny)
             ]
         )
