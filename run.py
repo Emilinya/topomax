@@ -1,13 +1,9 @@
 import os
 import sys
-from src.compliance_solver import ComplianceSolver
-
+from src.solver import Solver
+from src.compliance_problem import ComplianceProblem
 
 if __name__ == "__main__":
-    solver = ComplianceSolver("designs/cantilever.json", 10)
-    solver.solve()
-    exit()
-
     if len(sys.argv) == 3:
         got_error = False
 
@@ -27,7 +23,8 @@ if __name__ == "__main__":
             print("This program is used as follows:")
             print(f"  python3 {sys.argv[0]} <design file> <domain size (N)>")
         else:
-            solver = FluidSolver(design_file, N)
+            problem = ComplianceProblem()
+            solver = Solver(design_file, N, problem)
             solver.solve()
     else:
         print("Got an invalid number of arguments. This program is used as follows:")
