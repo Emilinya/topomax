@@ -18,6 +18,7 @@ class Problem:
         self.mesh = mesh
         self.data = extra_data
         self.control_filter = control_filter
+        self.objective = parameters.objective
         self.volume_fraction = parameters.fraction
         self.domain_size = (parameters.width, parameters.height)
         self.marker = MeshFunctionWrapper(self.mesh)

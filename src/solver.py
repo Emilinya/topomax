@@ -62,40 +62,46 @@ class Solver:
             control_filter, self.mesh, self.parameters, extra_data
         )
 
-    def zero_solver(self, half_step, volume: float):
-        """solve '∫expit(half_step + c)dx = volume' for c using Newton's method."""
+    def project(self, half_step, volume: float):
+        """
+        Project half_step so the volume constraint is fulfilled by
+        solving '∫expit(half_step + c)dx = volume' for c using Newton's method,
+        and then adding c to half_step.
+        """
 
         expit_integral_func = dfa.Function(self.problem.control_space)
         expit_diff_integral_func = dfa.Function(self.problem.control_space)
 
-        def evaluate(c: float):
+        c = 0
+        max_iterations = 10
+        for _ in range(max_iterations):
             expit_integral_func.vector()[:] = expit(half_step + c)
             expit_diff_integral_func.vector()[:] = expit_diff(half_step + c)
 
             error = float(dfa.assemble(expit_integral_func * df.dx) - volume)
-            gradient = float(dfa.assemble(expit_diff_integral_func * df.dx))
+            derivative = float(dfa.assemble(expit_diff_integral_func * df.dx))
+            if derivative == 0.0:
+                print("Warning: Got derivative equal to zero during gradient descent.")
+                raise ValueError("Can't project psi")
 
-            return error, gradient
+            newton_step = error / derivative
+            c = c - newton_step
+            if abs(newton_step) < 1e-12:
+                break
+        else:
+            print(
+                "Warning: Projection reached maximum iteration "
+                + "without converging. Result may not be accurate."
+            )
 
-        # is 0 a good initial guess?
-        c = 0
-        err, grad = evaluate(c)
-        while abs(err) > 1e-6:
-            c = c - err / grad
-            err, grad = evaluate(c)
+        return half_step + c
 
-        return c - err / grad
-
-    def step(self, prev_psi, step_size):
+    def step(self, previous_psi, step_size):
+        """Take a entropic mirror descent step with a given step size."""
         # Latent space gradient descent
         objective_gradient = self.objective_function.derivative()
-        half_step = prev_psi - step_size * objective_gradient
-
-        # Compute Lagrange multiplier
-        c = self.zero_solver(half_step, self.volume)
-
-        # Latent space feasibility forrection
-        return half_step + c
+        half_step = previous_psi - step_size * objective_gradient
+        return self.project(half_step, self.volume)
 
     def step_size(self, k: int):
         return 25 * k
@@ -106,7 +112,7 @@ class Solver:
         ntol = 1e-5
 
         psi = logit(self.rho.vector()[:])
-        prev_psi = None
+        previous_psi = None
 
         error = float("Infinity")
         objective = float(self.objective_function(self.rho.vector()[:]))
@@ -114,11 +120,11 @@ class Solver:
         print("──────────┼───────────┼──────────")
 
         k = 0
-        while error > min(self.step_size(k)*ntol, itol):
+        while error > min(self.step_size(k) * ntol, itol):
             print(f"{k:^9} │ {constrain(objective, 9)} │ {constrain(error, 9)}")
 
-            prev_psi = psi
-            psi = self.step(prev_psi, self.step_size(k))
+            previous_psi = psi
+            psi = self.step(previous_psi, self.step_size(k))
             k += 1
 
             self.rho.vector()[:] = expit(psi)
@@ -127,14 +133,14 @@ class Solver:
             if k % 10 == 1:
                 self.save_rho(self.rho, objective, k)
 
-            # create dfa functions from psi and prev_psi to calculate error
-            prev_psi_func = dfa.Function(self.problem.control_space)
-            prev_psi_func.vector()[:] = prev_psi
+            # create dfa functions from psi and previous_psi to calculate error
+            previous_psi_func = dfa.Function(self.problem.control_space)
+            previous_psi_func.vector()[:] = previous_psi
 
             psi_func = dfa.Function(self.problem.control_space)
             psi_func.vector()[:] = psi
 
-            error = np.sqrt(dfa.assemble((psi_func - prev_psi_func) ** 2 * df.dx))
+            error = np.sqrt(dfa.assemble((psi_func - previous_psi_func) ** 2 * df.dx))
 
     def save_rho(self, rho, objective, k):
         design = os.path.splitext(os.path.basename(self.design_file))[0]

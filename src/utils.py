@@ -4,10 +4,19 @@ import dolfin_adjoint as dfa
 import numpy as np
 
 
-def alpha(rho):
+def elastisity_alpha(rho):
     """Solid isotropic material penalization (SIMP)."""
     alpha_min = 1e-6
     return alpha_min + rho**3 * (1 - alpha_min)
+
+
+def fluid_alpha(rho):
+    """Does this have a name?"""
+    q = 0.1
+    alpha_min = 2.5 / 100**2
+    alpha_max = 2.5 / 0.01**2
+
+    return alpha_min + (alpha_max - alpha_min) * rho * (q + 1) / (q + rho)
 
 
 def constrain(number, space):

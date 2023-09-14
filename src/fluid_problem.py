@@ -4,9 +4,9 @@ import dolfin as df
 import dolfin_adjoint as dfa
 from pyadjoint.reduced_functional_numpy import ReducedFunctionalNumPy
 
-from src.utils import alpha
 from src.problem import Problem
-from designs.design_parser import Flow
+from src.utils import fluid_alpha
+from designs.design_parser import Side, Flow
 from src.domains import SidesDomain, RegionDomain, PointDomain
 
 
@@ -27,14 +27,20 @@ class FlowBoundaryConditions(dfa.UserExpression):
         values[0] = 0.0
 
         for side, center, length, rate in self.flows:
-            if side == "left" and pos[0] == 0.0:
-                values[0] += self.get_flow(pos[1], center, length, rate)
-            elif side == "right" and pos[0] == self.domain_size[0]:
-                values[0] -= self.get_flow(pos[1], center, length, rate)
-            elif side == "top" and pos[1] == self.domain_size[1]:
-                values[1] -= self.get_flow(pos[0], center, length, rate)
-            elif side == "bottom" and pos[1] == 0:
-                values[1] += self.get_flow(pos[0], center, length, rate)
+            if side == Side.LEFT:
+                if pos[0] == 0.0:
+                    values[0] += self.get_flow(pos[1], center, length, rate)
+            elif side == Side.RIGHT:
+                if pos[0] == self.domain_size[0]:
+                    values[0] -= self.get_flow(pos[1], center, length, rate)
+            elif side == Side.TOP:
+                if pos[1] == self.domain_size[1]:
+                    values[1] -= self.get_flow(pos[0], center, length, rate)
+            elif side == Side.BOTTOM:
+                if pos[1] == 0:
+                    values[1] += self.get_flow(pos[0], center, length, rate)
+            else:
+                raise ValueError(f"Malformed side: {side}")
 
     def value_shape(self):
         return (2,)
@@ -52,13 +58,14 @@ class FluidProblem(Problem):
     def create_objective(self):
         """get reduced objective function ϕ(rho)"""
         dfa.set_working_tape(dfa.Tape())
-        u = self.forward(self.rho)
-        if self.parameters.objective == "minimize_power":
+        (u, _) = df.split(self.forward(self.rho))
+
+        if self.objective == "minimize_power":
             objective = dfa.assemble(
-                0.5 * df.inner(alpha(self.rho) * u, u) * df.dx
+                0.5 * df.inner(fluid_alpha(self.rho) * u, u) * df.dx
                 + 0.5 * self.viscosity * df.inner(df.grad(u), df.grad(u)) * df.dx
             )
-        elif self.parameters.objective == "maximize_flow":
+        elif self.objective == "maximize_flow":
             subdomain_data, subdomain_idx = self.marker.get("max")
             ds = df.Measure("dS", domain=self.mesh, subdomain_data=subdomain_data)
             objective = dfa.assemble(
@@ -75,7 +82,7 @@ class FluidProblem(Problem):
         (v, q) = df.TestFunctions(self.solution_space)
 
         F = (
-            self.alpha(rho) * df.inner(u, v)
+            fluid_alpha(rho) * df.inner(u, v)
             + df.inner(df.grad(u), df.grad(v))
             + df.inner(df.grad(p), v)
             + df.inner(df.div(u), q)
@@ -86,7 +93,7 @@ class FluidProblem(Problem):
         return w
 
     def create_boundary_conditions(self):
-        flows, no_slip, zero_pressure, max_region = self.extra_data
+        flows, no_slip, zero_pressure, max_region = self.data
 
         flow_sides = [flow.side for flow in flows]
         self.marker.add(SidesDomain(self.domain_size, flow_sides), "flow")
@@ -103,7 +110,7 @@ class FluidProblem(Problem):
             self.marker.add(SidesDomain(self.domain_size, no_slip.sides), "no_slip")
         else:
             # assume no slip conditions where there is no flow
-            all_sides = ["left", "right", "top", "bottom"]
+            all_sides = [Side.LEFT, Side.RIGHT, Side.TOP, Side.BOTTOM]
             no_slip_sides = list(set(all_sides).difference(flow_sides))
             self.marker.add(SidesDomain(self.domain_size, no_slip_sides), "no_slip")
 

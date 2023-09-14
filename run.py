@@ -2,8 +2,8 @@ import os
 import sys
 import json
 from src.solver import Solver
-from fluid_problem import FluidProblem
-from elasisity_problem import ElasticityProblem
+from src.fluid_problem import FluidProblem
+from src.elasisity_problem import ElasticityProblem
 
 
 def get_problem(design_file):
@@ -18,7 +18,7 @@ def get_problem(design_file):
             print("Got a domain size that is not an integer!")
             return None
 
-    if design.get("Problem"):
+    if design.get("problem"):
         if design["problem"] == "elasticity":
             return ElasticityProblem()
         elif design["problem"] == "fluid":

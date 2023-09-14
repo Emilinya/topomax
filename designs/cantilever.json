@@ -4,11 +4,11 @@
     "width": 3,
     "height": 1,
     "fraction": 0.5,
-    "flows": [],
     "fixed_sides": ["left"],
+    "traction": [0, 0],
     "force_region": {
+        "radius": 0.1,
         "center": [2.9, 0.5],
-        "size": [0, 0],
         "value": [0, -1]
     }
 }

@@ -1,5 +1,28 @@
 from dataclasses import dataclass
+from enum import Enum, auto
 import json
+
+
+class Side(Enum):
+    LEFT = auto()
+    RIGHT = auto()
+    TOP = auto()
+    BOTTOM = auto()
+
+    @classmethod
+    def from_string(cls, string: str):
+        if string == "left":
+            return cls.LEFT
+        elif string == "right":
+            return cls.RIGHT
+        elif string == "top":
+            return cls.TOP
+        elif string == "bottom":
+            return cls.BOTTOM
+        else:
+            print(f"Side.from_string: Malformed side: '{string}'")
+            print(f"Legal sides are: 'left', ''right', 'top' or 'bottom'")
+            raise ValueError(f"Malformed side: '{string}'")
 
 
 @dataclass
@@ -12,7 +35,7 @@ class SolverParameters:
 
 @dataclass
 class Flow:
-    side: str
+    side: Side
     center: float
     length: float
     rate: float
@@ -22,77 +45,43 @@ class Flow:
 
 
 @dataclass
-class Sides:
-    sides: list[str]
-
-
-@dataclass
 class Region:
     center: tuple[float, float]
     size: tuple[float, float]
 
 
+@dataclass
+class ForceRegion:
+    radius: float
+    center: tuple[float, float]
+    value: tuple[float, float]
+
+
 def get_elasticity_arguments(design):
-    return None, None, None, None
+    force_region = ForceRegion(
+        design["force_region"]["radius"],
+        design["force_region"]["center"],
+        design["force_region"]["value"],
+    )
+
+    fixed_sides = None
+    if design.get("fixed_sides"):
+        sides: list[Side] = []
+        for side in design["fixed_sides"]:
+            sides.append(Side.from_string(side))
+        fixed_sides = sides
+
+    traction = design.get("traction")
+
+    return force_region, fixed_sides, traction
 
 
 def get_fluid_arguments(design):
-    legal_directions = ["left", "right", "top", "bottom"]
-
-    no_slip = None
-    if design.get("no_slip"):
-        sides = []
-        for side in design["no_slip"]:
-            if side not in legal_directions:
-                print(f"Error: Got design with malformed no slip side: '{side}'")
-                print(f"Legal sides are: {', '.join(legal_directions)}")
-                exit(1)
-            sides.append(side)
-        no_slip = Sides(sides)
-
-    zero_pressure = None
-    if design.get("zero_pressure"):
-        sides = []
-        for side in design["zero_pressure"]:
-            if side not in legal_directions:
-                print(f"Error: Got design with malformed zero pressure side: '{side}'")
-                print(f"Legal sides are: {', '.join(legal_directions)}")
-                exit(1)
-            sides.append(side)
-        zero_pressure = Sides(sides)
-
-    max_region = None
-    if design.get("max_region"):
-        center = design["max_region"]["center"]
-        cx, cy = float(center[0]), float(center[1])
-
-        size = design["max_region"]["size"]
-        w, h = float(size[0]), float(size[1])
-
-        max_region = Region((cx, cy), (w, h))
-    elif parameters.objective == "maximize_flow":
-        print("Error: Got maximize flow objective with no max region!")
-        exit(1)
-
-    return flows, no_slip, zero_pressure, max_region
-
-
-def parse_design(filename: str):
-    with open(filename, "r") as design_file:
-        design = json.load(design_file)
-
     flows: list[Flow] = []
-    legal_directions = ["left", "right", "top", "bottom"]
     for flow_dict in design["flows"]:
-        if not flow_dict["side"] in legal_directions:
-            print(
-                f"Error: Got design with malformed flow direction: '{flow_dict['side']}'"
-            )
-            print(f"Legal directions are: {', '.join(legal_directions)}")
-            exit(1)
         flows.append(
             Flow(
-                flow_dict["side"],
+                Side.from_string(flow_dict["side"]),
                 flow_dict["center"],
                 flow_dict["length"],
                 flow_dict["rate"],
@@ -107,6 +96,40 @@ def parse_design(filename: str):
         if abs(total_flow) > 1e-14:
             print(f"Error: Illegal design: total flow is {total_flow}, not 0!")
             exit(1)
+
+    no_slip = None
+    if design.get("no_slip"):
+        sides: list[Side] = []
+        for side in design["no_slip"]:
+            sides.append(Side.from_string(side))
+        no_slip = sides
+
+    zero_pressure = None
+    if design.get("zero_pressure"):
+        sides: list[Side] = []
+        for side in design["zero_pressure"]:
+            sides.append(Side.from_string(side))
+        zero_pressure = sides
+
+    max_region = None
+    if design.get("max_region"):
+        center = design["max_region"]["center"]
+        cx, cy = float(center[0]), float(center[1])
+
+        size = design["max_region"]["size"]
+        w, h = float(size[0]), float(size[1])
+
+        max_region = Region((cx, cy), (w, h))
+    elif design["objective"] == "maximize_flow":
+        print("Error: Got maximize flow objective with no max region!")
+        exit(1)
+
+    return flows, no_slip, zero_pressure, max_region
+
+
+def parse_design(filename: str):
+    with open(filename, "r") as design_file:
+        design = json.load(design_file)
 
     legal_objectives = ["minimize_power", "maximize_flow", "minimize_compliance"]
     if not design["objective"] in legal_objectives:

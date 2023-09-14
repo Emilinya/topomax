@@ -4,9 +4,10 @@ import dolfin as df
 import dolfin_adjoint as dfa
 from pyadjoint.reduced_functional_numpy import ReducedFunctionalNumPy
 
-from src.utils import alpha
 from src.problem import Problem
 from src.domains import SidesDomain
+from src.utils import elastisity_alpha
+from designs.design_parser import Side
 
 
 class BodyForce(dfa.UserExpression):
@@ -66,7 +67,7 @@ class ElasticityProblem(Problem):
 
         sigma = lda * df.div(u) * df.Identity(d) + 2 * mu * df.sym(df.grad(u))
 
-        a = df.inner(alpha(rho) * sigma, df.sym(df.grad(v))) * df.dx
+        a = df.inner(elastisity_alpha(rho) * sigma, df.sym(df.grad(v))) * df.dx
         L = df.dot(self.body_force, v) * df.dx + df.dot(traction, v) * df.ds
 
         dfa.solve(a == L, w, bcs=self.boundary_conditions)
@@ -74,7 +75,7 @@ class ElasticityProblem(Problem):
         return w
 
     def create_boundary_conditions(self):
-        self.marker.add(SidesDomain(self.domain_size, ["left"]), "fixed")
+        self.marker.add(SidesDomain(self.domain_size, [Side.LEFT]), "fixed")
 
         self.boundary_conditions = [
             dfa.DirichletBC(

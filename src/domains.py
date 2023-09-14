@@ -1,6 +1,6 @@
 import dolfin as df
 
-from designs.design_parser import Region
+from designs.design_parser import Side, Region
 
 
 class SidesDomain(df.SubDomain):
@@ -14,14 +14,17 @@ class SidesDomain(df.SubDomain):
             return False
 
         for side in self.sides:
-            if side == "left" and df.near(pos[0], 0.0):
-                return True
-            elif side == "right" and df.near(pos[0], self.domain_size[0]):
-                return True
-            elif side == "top" and df.near(pos[1], self.domain_size[1]):
-                return True
-            elif side == "bottom" and df.near(pos[1], 0.0):
-                return True
+            if side == Side.LEFT:
+                return df.near(pos[0], 0.0)
+            elif side == Side.RIGHT:
+                return df.near(pos[0], self.domain_size[0])
+            elif side == Side.TOP:
+                return df.near(pos[1], self.domain_size[1])
+            elif side == Side.BOTTOM:
+                return df.near(pos[1], 0.0)
+            else:
+                raise ValueError(f"Malformed side: {side}")
+
         return False
 
 
