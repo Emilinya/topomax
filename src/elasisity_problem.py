@@ -7,13 +7,14 @@ from pyadjoint.reduced_functional_numpy import ReducedFunctionalNumPy
 from src.problem import Problem
 from src.domains import SidesDomain
 from src.utils import elastisity_alpha
-from designs.design_parser import Side
+from designs.design_parser import ForceRegion
 
 
 class BodyForce(dfa.UserExpression):
     def __init__(self, **kwargs):
         super().__init__(kwargs)
         self.rho = kwargs["rho"]
+        self.force_region: ForceRegion = kwargs["force_region"]
         self.domain_size: tuple[float, float] = kwargs["domain_size"]
 
     def set_rho(self, rho):
@@ -23,10 +24,10 @@ class BodyForce(dfa.UserExpression):
         values[0] = 0.0
         values[1] = 0.0
 
-        center = (2.9, 0.5)
+        center = self.force_region.center
         distance = np.sqrt((pos[0] - center[0]) ** 2 + (pos[1] - center[1]) ** 2)
-        if distance < 0.1:
-            values[1] = -1
+        if distance < self.force_region.radius:
+            values[0], values[1] = self.force_region.value
 
     def value_shape(self):
         return (2,)
@@ -61,21 +62,27 @@ class ElasticityProblem(Problem):
         v = df.TestFunction(self.solution_space)
         d = u.geometric_dimension()
 
-        traction = dfa.Constant((0, 0))
         lda = self.Young_modulus * (1 + self.Poisson_ratio)
         mu = lda * self.Poisson_ratio / (1 - 2 * self.Poisson_ratio)
 
         sigma = lda * df.div(u) * df.Identity(d) + 2 * mu * df.sym(df.grad(u))
 
         a = df.inner(elastisity_alpha(rho) * sigma, df.sym(df.grad(v))) * df.dx
-        L = df.dot(self.body_force, v) * df.dx + df.dot(traction, v) * df.ds
+        L = df.dot(self.body_force, v) * df.dx + df.dot(self.traction, v) * df.ds
 
         dfa.solve(a == L, w, bcs=self.boundary_conditions)
 
         return w
 
     def create_boundary_conditions(self):
-        self.marker.add(SidesDomain(self.domain_size, [Side.LEFT]), "fixed")
+        force_region, fixed_sides, traction = self.data
+
+        self.traction = dfa.Constant(traction)
+        self.body_force = BodyForce(
+            domain_size=self.domain_size, force_region=force_region, rho=None
+        )
+
+        self.marker.add(SidesDomain(self.domain_size, fixed_sides), "fixed")
 
         self.boundary_conditions = [
             dfa.DirichletBC(
@@ -95,4 +102,3 @@ class ElasticityProblem(Problem):
         self.rho.vector()[:] = self.volume_fraction / (
             self.domain_size[0] * self.domain_size[1]
         )
-        self.body_force = BodyForce(domain_size=self.domain_size, rho=self.rho)
