@@ -17,13 +17,30 @@ def test_HelmholtzFilter():
     )
 
     control_space = df.FunctionSpace(mesh, "DG", 0)
+    design_filter = HelmholtzFilter(1)
+
+    np.random.seed(198)
     rho = dfa.Function(control_space)
-    k = len(rho.vector()[:])
+    rho.vector()[:] = np.random.random(len(rho.vector()[:]))
 
-    rho.vector()[:] = np.random.random(k)
-
-    design_filter = HelmholtzFilter(10)
+    # if epsilon is 0, filter should not do anything
     design_filter.epsilon = 0
     filtered_rho = design_filter.apply(rho)
+    assert df.errornorm(rho, filtered_rho, "L2", degree_rise=2) < 1e-14
 
-    assert abs(np.average(rho.vector()[:] - filtered_rho.vector()[:])) < 1e-14
+    # if rho = (8ε²π² + 1)cos(2π x)cos(2π y), then filtered_rho = cos(2π y)cos(2π x)
+    design_filter.epsilon = np.random.random() * 5
+    rho_expression = dfa.Expression(
+        "(8*eps*eps*pi*pi + 1)*cos(2*pi*x[0])*cos(2*pi*x[1])",
+        eps=design_filter.epsilon,
+        degree=2,
+    )
+    filtered_rho_expression = dfa.Expression("cos(2*pi*x[0])*cos(2*pi*x[1])", degree=2)
+
+    rho.interpolate(rho_expression)
+    filtered_rho = design_filter.apply(rho)
+
+    error = df.errornorm(
+        filtered_rho, filtered_rho_expression, "L2", degree_rise=2, mesh=mesh
+    )
+    assert error < 1e-14
