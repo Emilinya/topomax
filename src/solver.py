@@ -114,35 +114,48 @@ class Solver:
         psi = logit(self.rho.vector()[:])
         previous_psi = None
 
-        error = float("Infinity")
+        difference = float("Infinity")
         objective = float(self.objective_function(self.rho.vector()[:]))
-        print("Iteration │ Objective │   Error  ")
-        print("──────────┼───────────┼──────────")
+        objective_difference = None
+
+        print("Iteration │ Objective │ ΔObjective │     Δρ    ")
+        print("──────────┼───────────┼────────────┼───────────")
+
+        def print_values(k, objective, objective_difference, difference):
+            print(
+                f"{k:^9} │ {constrain(objective, 9)} │ "
+                + f"{constrain(objective_difference, 10)} │ "
+                + f"{constrain(difference, 9)}"
+            )
 
         k = 0
-        while error > min(self.step_size(k) * ntol, itol):
-            print(f"{k:^9} │ {constrain(objective, 9)} │ {constrain(error, 9)}")
+        for _ in range(500 + 1):
+            print_values(k, objective, objective_difference, difference)
             if k % 10 == 0:
                 self.save_rho(self.rho, objective, k)
 
-            previous_psi = psi
+            previous_psi = psi.copy()
             psi = self.step(previous_psi, self.step_size(k))
             k += 1
 
             self.rho.vector()[:] = expit(psi)
+            previous_objective = objective
             objective = float(self.objective_function(self.rho.vector()[:]))
+            objective_difference = abs(objective - previous_objective)
 
-            # create dfa functions from psi and previous_psi to calculate error
-            previous_psi_func = dfa.Function(self.problem.control_space)
-            previous_psi_func.vector()[:] = previous_psi
+            # create dfa functions from previous_psi to calculate difference
+            previous_rho = dfa.Function(self.problem.control_space)
+            previous_rho.vector()[:] = expit(previous_psi)
 
-            psi_func = dfa.Function(self.problem.control_space)
-            psi_func.vector()[:] = psi
+            difference = np.sqrt(dfa.assemble((self.rho - previous_rho) ** 2 * df.dx))
 
-            error = np.sqrt(dfa.assemble((psi_func - previous_psi_func) ** 2 * df.dx))
+            if difference < min(self.step_size(k) * ntol, itol) and False:
+                print("EXIT: Optimal solution found")
+                break
+        else:
+            print("EXIT: Iteration did not converge")
 
-        print(f"{k:^9} │ {constrain(objective, 9)} │ {constrain(error, 9)}")
-        print("EXIT: Optimal solution found")
+        print_values(k, objective, objective_difference, difference)
         self.save_rho(self.rho, objective, k)
 
     def save_rho(self, rho, objective, k):

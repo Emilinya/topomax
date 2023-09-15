@@ -22,7 +22,7 @@ class HelmholtzFilter(Filter):
         test_rho = df.TestFunction(rho_space)
 
         lhs = (
-            -self.epsilon**2 * df.inner(df.grad(trial_rho), df.grad(test_rho))
+            self.epsilon**2 * df.inner(df.grad(trial_rho), df.grad(test_rho))
             + df.inner(trial_rho, test_rho)
         ) * df.dx
         rhs = df.inner(input_rho, test_rho) * df.dx
