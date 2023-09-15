@@ -99,6 +99,4 @@ class ElasticityProblem(Problem):
 
     def create_rho(self):
         self.rho = dfa.Function(self.control_space)
-        self.rho.vector()[:] = self.volume_fraction / (
-            self.domain_size[0] * self.domain_size[1]
-        )
+        self.rho.vector()[:] = self.volume_fraction

@@ -105,7 +105,7 @@ class Solver:
         return self.project(half_step, self.volume)
 
     def step_size(self, k: int):
-        return 25 * k
+        return 25 * (k + 1)
 
     def solve(self):
         """Solve the given topology optimization problem."""
@@ -129,15 +129,13 @@ class Solver:
                 + f"{constrain(difference, 9)}"
             )
 
-        k = 0
-        for _ in range(500 + 1):
+        for k in range(500 + 1):
             print_values(k, objective, objective_difference, difference)
             if k % 10 == 0:
                 self.save_rho(self.rho, objective, k)
 
             previous_psi = psi.copy()
             psi = self.step(previous_psi, self.step_size(k))
-            k += 1
 
             self.rho.vector()[:] = expit(psi)
             previous_objective = objective
