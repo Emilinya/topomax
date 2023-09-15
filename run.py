@@ -32,7 +32,7 @@ def get_problem(design_file):
 
 
 if __name__ == "__main__":
-    if len(sys.argv) == 3:
+    if len(sys.argv) == 3 or len(sys.argv) == 4:
         got_error = False
 
         design_file = sys.argv[1]
@@ -51,7 +51,12 @@ if __name__ == "__main__":
             print("This program is used as follows:")
             print(f"  python3 {sys.argv[0]} <design file> <domain size (N)>")
         else:
-            solver = Solver(design_file, N, problem)
+            if len(sys.argv) == 4:
+                data_path = sys.argv[3]
+            else:
+                data_path = "output"
+
+            solver = Solver(design_file, N, problem, data_path)
             solver.solve()
     else:
         print("Got an invalid number of arguments. This program is used as follows:")

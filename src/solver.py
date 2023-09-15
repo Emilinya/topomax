@@ -34,8 +34,9 @@ def logit(x):
 class Solver:
     """Class that solves a given topology optimization problem using a magical algorithm."""
 
-    def __init__(self, design_file: str, N: int, problem: Problem):
+    def __init__(self, design_file: str, N: int, problem: Problem, data_path: str):
         self.problem = problem
+        self.data_path = data_path
         self.design_file = design_file
         self.parameters, *extra_data = parse_design(self.design_file)
 
@@ -160,7 +161,7 @@ class Solver:
 
     def save_rho(self, rho, objective, k):
         design = os.path.splitext(os.path.basename(self.design_file))[0]
-        filename = f"output/{design}/data/N={self.N}_{k=}.mat"
+        filename = self.data_path+f"/{design}/data/N={self.N}_{k=}.mat"
 
         Nx, Ny = int(self.width * self.N), int(self.height * self.N)
         data = np.array(
