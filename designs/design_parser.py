@@ -57,11 +57,22 @@ class ForceRegion:
     value: tuple[float, float]
 
 
+def to_tuple(ray: list[float], length: int):
+    if len(ray) != length:
+        print(
+            f"Got array that should have had {length} elements, "
+            + f"but had {len(ray)} instead: '{ray}'"
+        )
+        raise ValueError(f"Malformed list: '{ray}'")
+
+    return tuple([float(v) for v in ray])
+
+
 def get_elasticity_arguments(design):
     force_region = ForceRegion(
-        design["force_region"]["radius"],
-        design["force_region"]["center"],
-        design["force_region"]["value"],
+        float(design["force_region"]["radius"]),
+        to_tuple(design["force_region"]["center"], 2),
+        to_tuple(design["force_region"]["value"], 2),
     )
 
     fixed_sides = None
@@ -71,7 +82,7 @@ def get_elasticity_arguments(design):
             sides.append(Side.from_string(side))
         fixed_sides = sides
 
-    traction = design.get("traction")
+    traction: tuple[float, float] = to_tuple(design.get("traction"), 2)
 
     return force_region, fixed_sides, traction
 
