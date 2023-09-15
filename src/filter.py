@@ -12,7 +12,7 @@ class Filter:
 
 class HelmholtzFilter(Filter):
     def __init__(self, N):
-        self.epsilon = 4 / N
+        self.epsilon = 0.02
 
     def apply(self, input_rho):
         # solve -ε²Δξ + ξ = ρ, ∇ξ·n = 0 on ∂Ω

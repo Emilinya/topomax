@@ -7,7 +7,7 @@
     "fixed_sides": ["left"],
     "traction": [0, 0],
     "force_region": {
-        "radius": 0.1,
+        "radius": 0.05,
         "center": [2.9, 0.5],
         "value": [0, -1]
     }
