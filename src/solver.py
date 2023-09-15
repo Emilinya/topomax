@@ -122,6 +122,8 @@ class Solver:
         k = 0
         while error > min(self.step_size(k) * ntol, itol):
             print(f"{k:^9} │ {constrain(objective, 9)} │ {constrain(error, 9)}")
+            if k % 10 == 0:
+                self.save_rho(self.rho, objective, k)
 
             previous_psi = psi
             psi = self.step(previous_psi, self.step_size(k))
@@ -129,9 +131,6 @@ class Solver:
 
             self.rho.vector()[:] = expit(psi)
             objective = float(self.objective_function(self.rho.vector()[:]))
-
-            if k % 10 == 1:
-                self.save_rho(self.rho, objective, k)
 
             # create dfa functions from psi and previous_psi to calculate error
             previous_psi_func = dfa.Function(self.problem.control_space)
@@ -141,6 +140,10 @@ class Solver:
             psi_func.vector()[:] = psi
 
             error = np.sqrt(dfa.assemble((psi_func - previous_psi_func) ** 2 * df.dx))
+
+        print(f"{k:^9} │ {constrain(objective, 9)} │ {constrain(error, 9)}")
+        print("EXIT: Optimal solution found")
+        self.save_rho(self.rho, objective, k)
 
     def save_rho(self, rho, objective, k):
         design = os.path.splitext(os.path.basename(self.design_file))[0]
