@@ -58,10 +58,20 @@ class Solver:
             )
         )
 
+        self.inverse_mass_diagonal = self.generate_mass_matrix(self.mesh)
+
         control_filter = HelmholtzFilter(self.N)
         self.rho, self.objective_function = self.problem.init(
             control_filter, self.mesh, self.parameters, extra_data
         )
+
+    def generate_mass_matrix(self, mesh):
+        V1 = df.FunctionSpace(mesh, "CG", 1)
+        v = df.TestFunction(V1)
+        u = df.TrialFunction(V1)
+
+        M_vect = df.assemble(df.action(v * u * df.dx, df.Constant(1)))
+        return 1 / M_vect.get_local()
 
     def project(self, half_step, volume: float):
         """
@@ -101,6 +111,10 @@ class Solver:
         """Take a entropic mirror descent step with a given step size."""
         # Latent space gradient descent
         objective_gradient = self.objective_function.derivative()
+
+        # scale gradient with inverse of mass matrix (ish)
+        objective_gradient *= 2 * self.N**2
+
         half_step = previous_psi - step_size * objective_gradient
         return self.project(half_step, self.volume)
 
@@ -129,7 +143,7 @@ class Solver:
                 + f"{constrain(difference, 9)}"
             )
 
-        for k in range(500 + 1):
+        for k in range(500):
             print_values(k, objective, objective_difference, difference)
             if k % 10 == 0:
                 self.save_rho(self.rho, objective, k)
@@ -148,7 +162,7 @@ class Solver:
 
             difference = np.sqrt(dfa.assemble((self.rho - previous_rho) ** 2 * df.dx))
 
-            if difference < min(self.step_size(k) * ntol, itol) and False:
+            if difference < min(self.step_size(k) * ntol, itol):
                 print("EXIT: Optimal solution found")
                 break
         else:
@@ -159,7 +173,7 @@ class Solver:
 
     def save_rho(self, rho, objective, k):
         design = os.path.splitext(os.path.basename(self.design_file))[0]
-        filename = self.data_path+f"/{design}/data/N={self.N}_{k=}.mat"
+        filename = self.data_path + f"/{design}/data/N={self.N}_{k=}.mat"
 
         Nx, Ny = int(self.width * self.N), int(self.height * self.N)
         data = np.array(
