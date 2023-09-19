@@ -1,9 +1,8 @@
 import os
 
 import numpy as np
-from scipy import io
 import dolfin as df
-import dolfin_adjoint as dfa
+from scipy import io
 
 from designs.design_parser import parse_design
 from src.filter import HelmholtzFilter
@@ -48,8 +47,8 @@ class Solver:
         volume_fraction = self.parameters.fraction
         self.volume = self.width * self.height * volume_fraction
 
-        self.mesh = dfa.Mesh(
-            dfa.RectangleMesh(
+        self.mesh = df.Mesh(
+            df.RectangleMesh(
                 df.MPI.comm_world,
                 df.Point(0.0, 0.0),
                 df.Point(self.width, self.height),
@@ -58,17 +57,18 @@ class Solver:
             )
         )
 
-        self.inverse_mass_diagonal = self.generate_mass_matrix(self.mesh)
+        self.control_space = df.FunctionSpace(self.mesh, "DG", 0)
+        self.inverse_mass_diagonal = self.generate_mass_matrix()
+
+        self.rho = df.Function(self.control_space)
+        self.rho.vector()[:] = volume_fraction
 
         control_filter = HelmholtzFilter(self.N)
-        self.rho, self.objective_function = self.problem.init(
-            control_filter, self.mesh, self.parameters, extra_data
-        )
+        self.problem.init(control_filter, self.mesh, self.parameters, extra_data)
 
-    def generate_mass_matrix(self, mesh):
-        V1 = df.FunctionSpace(mesh, "CG", 1)
-        v = df.TestFunction(V1)
-        u = df.TrialFunction(V1)
+    def generate_mass_matrix(self):
+        v = df.TestFunction(self.control_space)
+        u = df.TrialFunction(self.control_space)
 
         M_vect = df.assemble(df.action(v * u * df.dx, df.Constant(1)))
         return 1 / M_vect.get_local()
@@ -80,8 +80,8 @@ class Solver:
         and then adding c to half_step.
         """
 
-        expit_integral_func = dfa.Function(self.problem.control_space)
-        expit_diff_integral_func = dfa.Function(self.problem.control_space)
+        expit_integral_func = df.Function(self.control_space)
+        expit_diff_integral_func = df.Function(self.control_space)
 
         c = 0
         max_iterations = 10
@@ -89,11 +89,11 @@ class Solver:
             expit_integral_func.vector()[:] = expit(half_step + c)
             expit_diff_integral_func.vector()[:] = expit_diff(half_step + c)
 
-            error = float(dfa.assemble(expit_integral_func * df.dx) - volume)
-            derivative = float(dfa.assemble(expit_diff_integral_func * df.dx))
+            error = float(df.assemble(expit_integral_func * df.dx) - volume)
+            derivative = float(df.assemble(expit_diff_integral_func * df.dx))
             if derivative == 0.0:
                 print("Warning: Got derivative equal to zero during gradient descent.")
-                raise ValueError("Can't project psi")
+                raise ValueError("Got derivative equal to zero while projecting psi")
 
             newton_step = error / derivative
             c = c - newton_step
@@ -110,10 +110,10 @@ class Solver:
     def step(self, previous_psi, step_size):
         """Take a entropic mirror descent step with a given step size."""
         # Latent space gradient descent
-        objective_gradient = self.objective_function.derivative()
+        objective_gradient = self.problem.calculate_objective_gradient().vector()[:]
 
         # scale gradient with inverse of mass matrix (ish)
-        objective_gradient *= 2 * self.N**2
+        # objective_gradient *= self.inverse_mass_diagonal
 
         half_step = previous_psi - step_size * objective_gradient
         return self.project(half_step, self.volume)
@@ -130,7 +130,7 @@ class Solver:
         previous_psi = None
 
         difference = float("Infinity")
-        objective = float(self.objective_function(self.rho.vector()[:]))
+        objective = float(self.problem.calculate_objective(self.rho))
         objective_difference = None
 
         print("Iteration │ Objective │ ΔObjective │     Δρ    ")
@@ -153,22 +153,28 @@ class Solver:
 
             self.rho.vector()[:] = expit(psi)
             previous_objective = objective
-            objective = float(self.objective_function(self.rho.vector()[:]))
-            objective_difference = abs(objective - previous_objective)
+            objective = float(self.problem.calculate_objective(self.rho))
+            objective_difference = previous_objective - objective
+
+            if objective_difference < 0:
+                print_values(k + 1, objective, objective_difference, difference)
+                print("EXIT: Step increased objective value")
+                break
 
             # create dfa functions from previous_psi to calculate difference
-            previous_rho = dfa.Function(self.problem.control_space)
+            previous_rho = df.Function(self.control_space)
             previous_rho.vector()[:] = expit(previous_psi)
 
-            difference = np.sqrt(dfa.assemble((self.rho - previous_rho) ** 2 * df.dx))
+            difference = np.sqrt(df.assemble((self.rho - previous_rho) ** 2 * df.dx))
 
             if difference < min(self.step_size(k) * ntol, itol):
+                print_values(k + 1, objective, objective_difference, difference)
                 print("EXIT: Optimal solution found")
                 break
         else:
+            print_values(k + 1, objective, objective_difference, difference)
             print("EXIT: Iteration did not converge")
 
-        print_values(k, objective, objective_difference, difference)
         self.save_rho(self.rho, objective, k)
 
     def save_rho(self, rho, objective, k):

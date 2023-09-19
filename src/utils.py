@@ -1,5 +1,4 @@
 import dolfin as df
-import dolfin_adjoint as dfa
 
 import numpy as np
 
@@ -8,6 +7,12 @@ def elastisity_alpha(rho):
     """Solid isotropic material penalization (SIMP)."""
     alpha_min = 1e-6
     return alpha_min + rho**3 * (1 - alpha_min)
+
+
+def elastisity_alpha_derivative(rho):
+    """SIMP derivative"""
+    alpha_min = 1e-6
+    return 3 * rho**2 * (1 - alpha_min)
 
 
 def fluid_alpha(rho):
@@ -43,7 +48,7 @@ class MeshFunctionWrapper:
     domain indexes for you.
     """
 
-    def __init__(self, mesh: dfa.Mesh):
+    def __init__(self, mesh: df.Mesh):
         self.mesh_function = df.cpp.mesh.MeshFunctionSizet(mesh, 1)
         self.mesh_function.set_all(0)
         self.label_to_idx: dict[str, int] = {}

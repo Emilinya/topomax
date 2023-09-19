@@ -1,16 +1,14 @@
 import numpy as np
 
 import dolfin as df
-import dolfin_adjoint as dfa
-from pyadjoint.reduced_functional_numpy import ReducedFunctionalNumPy
 
 from src.problem import Problem
 from src.domains import SidesDomain
-from src.utils import elastisity_alpha
 from designs.design_parser import ForceRegion
+from src.utils import elastisity_alpha, elastisity_alpha_derivative
 
 
-class BodyForce(dfa.UserExpression):
+class BodyForce(df.UserExpression):
     def __init__(self, **kwargs):
         super().__init__(kwargs)
         self.rho = kwargs["rho"]
@@ -40,24 +38,46 @@ class ElasticityProblem(Problem):
         self.Young_modulus = 4 / 3
         self.Poisson_ratio = 1 / 3
 
-    def get_rho(self):
-        return self.rho
+        self.filtered_rho = None
+        self.u = None
 
-    def create_objective(self):
+    def calculate_objective_gradient(self):
+        """
+        Filter -α'(ξ) (λ|∇⋅u|² + 2μ|ε(u)|²),
+        where w̃ is the filtered objective gradient, ξ is the filtered rho
+        and ε(u) = (∇u + ∇uᵀ)/2 is the symmetric gradient of u.
+        """
+
+        if self.filtered_rho is None or self.u is None:
+            raise ValueError(
+                "You must call calculate_objective "
+                + "before calling calculate_objective_gradient"
+            )
+
+        lda = self.Young_modulus * (1 + self.Poisson_ratio)
+        mu = lda * self.Poisson_ratio / (1 - 2 * self.Poisson_ratio)
+
+        gradient = -elastisity_alpha_derivative(self.filtered_rho) * (
+            lda * df.div(self.u) ** 2 + 2 * mu * df.sym(df.grad(self.u)) ** 2
+        )
+        return self.filter.apply(gradient, self.filtered_rho.function_space())
+
+    def calculate_objective(self, rho):
         """get reduced objective function ϕ(rho)"""
-        dfa.set_working_tape(dfa.Tape())
-        filtered_rho = self.control_filter.apply(self.rho)
-        u = self.forward(filtered_rho)
-        objective = dfa.assemble(df.inner(u, self.body_force) * df.dx)
-
-        control = dfa.Control(self.rho)
-        return ReducedFunctionalNumPy(objective, control)
-
-    def forward(self, rho):
-        """Solve the forward problem for a given density distribution rho(x)."""
         self.body_force.set_rho(rho)
+        self.filtered_rho = self.filter.apply(rho)
+        self.u = self.forward(self.filtered_rho)
+        objective = df.assemble(df.inner(self.u, self.body_force) * df.dx)
 
-        w = dfa.Function(self.solution_space)
+        return objective
+
+    def forward(self, filtered_rho):
+        """
+        Solve the state equation (λα(ξ)∇⋅u, ∇⋅v) + (2μα(ξ)ε(u), ε(v)) = (f, v),
+        where ξ is the filtered rho and ε(u) is the symmetric gradient of u
+        """
+
+        w = df.Function(self.solution_space)
         u = df.TrialFunction(self.solution_space)
         v = df.TestFunction(self.solution_space)
         d = u.geometric_dimension()
@@ -67,17 +87,17 @@ class ElasticityProblem(Problem):
 
         sigma = lda * df.div(u) * df.Identity(d) + 2 * mu * df.sym(df.grad(u))
 
-        a = df.inner(elastisity_alpha(rho) * sigma, df.sym(df.grad(v))) * df.dx
+        a = df.inner(elastisity_alpha(filtered_rho) * sigma, df.sym(df.grad(v))) * df.dx
         L = df.dot(self.body_force, v) * df.dx + df.dot(self.traction, v) * df.ds
 
-        dfa.solve(a == L, w, bcs=self.boundary_conditions)
+        df.solve(a == L, w, bcs=self.boundary_conditions)
 
         return w
 
     def create_boundary_conditions(self):
         force_region, fixed_sides, traction = self.data
 
-        self.traction = dfa.Constant(traction)
+        self.traction = df.Constant(traction)
         self.body_force = BodyForce(
             domain_size=self.domain_size, force_region=force_region, rho=None
         )
@@ -85,18 +105,14 @@ class ElasticityProblem(Problem):
         self.marker.add(SidesDomain(self.domain_size, fixed_sides), "fixed")
 
         self.boundary_conditions = [
-            dfa.DirichletBC(
+            df.DirichletBC(
                 self.solution_space,
-                dfa.Constant((0.0, 0.0)),
+                df.Constant((0.0, 0.0)),
                 *self.marker.get("fixed"),
             ),
         ]
 
     def create_function_spaces(self):
-        self.control_space = df.FunctionSpace(self.mesh, "DG", 0)
         displacement_element = df.VectorElement("CG", self.mesh.ufl_cell(), 2)
         self.solution_space = df.FunctionSpace(self.mesh, displacement_element)
 
-    def create_rho(self):
-        self.rho = dfa.Function(self.control_space)
-        self.rho.vector()[:] = self.volume_fraction

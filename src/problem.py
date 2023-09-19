@@ -1,23 +1,28 @@
-import dolfin_adjoint as dfa
+from abc import ABC, abstractmethod
+
+import dolfin as df
 
 from src.filter import Filter
 from designs.design_parser import SolverParameters
 from src.utils import MeshFunctionWrapper
 
 
-class Problem:
-    """Class that creates a reduced objective function for a topology optimization problem."""
+class Problem(ABC):
+    """
+    Abstract base class for problems that define the state equation and the
+    adjoint equation for topology optimization problems.
+    """
 
     def init(
         self,
-        control_filter: Filter,
-        mesh: dfa.Mesh,
+        input_filter: Filter,
+        mesh: df.Mesh,
         parameters: SolverParameters,
         extra_data,
     ):
         self.mesh = mesh
         self.data = extra_data
-        self.control_filter = control_filter
+        self.filter = input_filter
         self.objective = parameters.objective
         self.volume_fraction = parameters.fraction
         self.domain_size = (parameters.width, parameters.height)
@@ -25,26 +30,23 @@ class Problem:
 
         self.create_function_spaces()
         self.create_boundary_conditions()
-        self.create_rho()
 
-        return self.get_rho(), self.create_objective()
-
-    def get_rho(self):
-        print("Problem can't be used directly, use one on the subclasses")
-        exit(1)
-
-    def create_objective(self):
-        print("Problem can't be used directly, use one on the subclasses")
-        exit(1)
-
+    @abstractmethod
     def create_function_spaces(self):
-        print("Problem can't be used directly, use one on the subclasses")
-        exit(1)
+        ...
 
+    @abstractmethod
+    def calculate_objective_gradient(self):
+        ...
+
+    @abstractmethod
+    def calculate_objective(self, rho):
+        ...
+
+    @abstractmethod
+    def forward(self, rho):
+        ...
+
+    @abstractmethod
     def create_boundary_conditions(self):
-        print("Problem can't be used directly, use one on the subclasses")
-        exit(1)
-
-    def create_rho(self):
-        print("Problem can't be used directly, use one on the subclasses")
-        exit(1)
+        ...
