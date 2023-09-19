@@ -140,7 +140,7 @@ class Solver:
             print(
                 f"{k:^9} │ {constrain(objective, 9)} │ "
                 + f"{constrain(objective_difference, 10)} │ "
-                + f"{constrain(difference, 9)}"
+                + f"{constrain(difference, 9)}", flush=True
             )
 
         for k in range(500):

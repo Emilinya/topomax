@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import dolfin as df
 
 from designs.design_parser import Side, Region
