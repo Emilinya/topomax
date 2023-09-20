@@ -1,34 +1,73 @@
+from abc import ABC, abstractmethod
+
 import dolfin as df
 
 
-class Filter:
+class Filter(ABC):
     """A class that filters a given design function to remove high frequency elements."""
 
+    @abstractmethod
     def apply(self, input_rho):
-        print("Filter can't be used directly, use one on the subclasses")
-        exit(1)
+        ...
 
 
 class HelmholtzFilter(Filter):
-    def __init__(self, N):
-        self.epsilon = 0.02
+    """
+    A filter what uses the equation -ε²Δξ + ξ = ρ,
+    where ρ is the input and ξ is the output, to filter a function
+    """
 
-    def apply(self, input_funcion, function_space=None):
-        # solve -ε²Δξ + ξ = ρ, ∇ξ·n = 0 on ∂Ω
-        # where ρ is the input and ξ is the output
+    def __init__(self, epsilon: float | None = None, N: int | None = None):
+        """
+        Create a HelmholtzFilter with a given epsilon value. If epsilon is None,
+        epsilon is instead set to 4 / N. If N is also None, a ValueError is raised.
+        """
+        if epsilon is not None:
+            self.epsilon = epsilon
+        elif N is not None:
+            self.epsilon = 4 / N
+        else:
+            raise ValueError(
+                "Tried to create HelmholtzFilter with neither epsilon nor N!"
+            )
+
+    def apply(self, input_function, function_space=None):
+        """
+        solve -ε²Δξ + ξ = ρ, ∇ξ·n = 0 on ∂Ω,
+        where ρ is the input and ξ is the output,
+        using the weak form (ϵ²∇ξ, ∇v) + (ξ, v) = (ρ, v) ∀v
+        """
 
         if function_space is None:
-            function_space = input_funcion.function_space()
-        trial_function = df.TrialFunction(function_space)
-        test_function = df.TestFunction(function_space)
+            function_space = input_function.function_space()
+        trial = df.TrialFunction(function_space)
+        test = df.TestFunction(function_space)
 
         lhs = (
-            self.epsilon**2 * df.inner(df.grad(trial_function), df.grad(test_function))
-            + df.inner(trial_function, test_function)
+            self.epsilon**2 * df.inner(df.grad(trial), df.grad(test))
+            + df.inner(trial, test)
         ) * df.dx
-        rhs = df.inner(input_funcion, test_function) * df.dx
+        rhs = df.inner(input_function, test) * df.dx
 
-        filtered_rho = df.Function(function_space)
-        df.solve(lhs == rhs, filtered_rho)
+        filtered_function = df.Function(function_space)
+        df.solve(lhs == rhs, filtered_function)
 
-        return filtered_rho
+        return filtered_function
+
+
+class IdentityFilter(Filter):
+    def apply(self, input_function, function_space=None):
+        # solve ξ = ρ, where ρ is the input and ξ is the output
+
+        if function_space is None:
+            function_space = input_function.function_space()
+        trial = df.TrialFunction(function_space)
+        test = df.TestFunction(function_space)
+
+        lhs = df.inner(trial, test) * df.dx
+        rhs = df.inner(input_function, test) * df.dx
+
+        filtered_function = df.Function(function_space)
+        df.solve(lhs == rhs, filtered_function)
+
+        return filtered_function

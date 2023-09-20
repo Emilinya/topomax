@@ -58,20 +58,12 @@ class Solver:
         )
 
         self.control_space = df.FunctionSpace(self.mesh, "DG", 0)
-        self.inverse_mass_diagonal = self.generate_mass_matrix()
 
         self.rho = df.Function(self.control_space)
         self.rho.vector()[:] = volume_fraction
 
-        control_filter = HelmholtzFilter(self.N)
+        control_filter = HelmholtzFilter(epsilon=0.02)
         self.problem.init(control_filter, self.mesh, self.parameters, extra_data)
-
-    def generate_mass_matrix(self):
-        v = df.TestFunction(self.control_space)
-        u = df.TrialFunction(self.control_space)
-
-        M_vect = df.assemble(df.action(v * u * df.dx, df.Constant(1)))
-        return 1 / M_vect.get_local()
 
     def project(self, half_step, volume: float):
         """
@@ -112,9 +104,6 @@ class Solver:
         # Latent space gradient descent
         objective_gradient = self.problem.calculate_objective_gradient().vector()[:]
 
-        # scale gradient with inverse of mass matrix (ish)
-        # objective_gradient *= self.inverse_mass_diagonal
-
         half_step = previous_psi - step_size * objective_gradient
         return self.project(half_step, self.volume)
 
@@ -133,14 +122,16 @@ class Solver:
         objective = float(self.problem.calculate_objective(self.rho))
         objective_difference = None
 
-        print("Iteration │ Objective │ ΔObjective │     Δρ    ")
-        print("──────────┼───────────┼────────────┼───────────")
+        print("Iteration │ Objective │ ΔObjective │     Δρ    │  Δρ-tol  ")
+        print("──────────┼───────────┼────────────┼───────────┼──────────")
 
         def print_values(k, objective, objective_difference, difference):
             print(
                 f"{k:^9} │ {constrain(objective, 9)} │ "
                 + f"{constrain(objective_difference, 10)} │ "
-                + f"{constrain(difference, 9)}", flush=True
+                + f"{constrain(difference, 9)} │ "
+                + f"{constrain(difference - min(self.step_size(k) * ntol, itol), 10)}",
+                flush=True,
             )
 
         for k in range(500):
@@ -175,7 +166,7 @@ class Solver:
             print_values(k + 1, objective, objective_difference, difference)
             print("EXIT: Iteration did not converge")
 
-        self.save_rho(self.rho, objective, k)
+        self.save_rho(self.rho, objective, k + 1)
 
     def save_rho(self, rho, objective, k):
         design = os.path.splitext(os.path.basename(self.design_file))[0]

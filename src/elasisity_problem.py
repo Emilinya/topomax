@@ -44,8 +44,7 @@ class ElasticityProblem(Problem):
 
     def calculate_objective_gradient(self):
         """
-        Filter -α'(ξ) (λ|∇⋅u|² + 2μ|ε(u)|²),
-        where w̃ is the filtered objective gradient, ξ is the filtered rho
+        Filter -α'(ξ) (λ|∇⋅u|² + 2μ|ε(u)|²), where ξ is the filtered rho
         and ε(u) = (∇u + ∇uᵀ)/2 is the symmetric gradient of u.
         """
 
@@ -68,7 +67,7 @@ class ElasticityProblem(Problem):
         self.body_force.set_rho(rho)
         self.filtered_rho = self.filter.apply(rho)
         self.u = self.forward(self.filtered_rho)
-        objective = df.assemble(df.inner(self.u, self.body_force) * df.dx)
+        objective = float(df.assemble(df.inner(self.u, self.body_force) * df.dx))
 
         return objective
 
@@ -116,4 +115,3 @@ class ElasticityProblem(Problem):
     def create_function_spaces(self):
         displacement_element = df.VectorElement("CG", self.mesh.ufl_cell(), 2)
         self.solution_space = df.FunctionSpace(self.mesh, displacement_element)
-
