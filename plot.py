@@ -34,27 +34,33 @@ except ModuleNotFoundError:
             yield v
         print()
 
-# create a colormap from black to white to light blue
-traa_blue = [91 / 255, 206 / 255, 250 / 255]
-cdict = {
-    "red": [
-        [0.0] + [traa_blue[0]] * 2,
-        [0.5] + [1.0] * 2,
-        [1.0] + [0.0] * 2,
-    ],
-    "green": [
-        [0.0] + [traa_blue[1]] * 2,
-        [0.5] + [1.0] * 2,
-        [1.0] + [0.0] * 2,
-    ],
-    "blue": [
-        [0.0] + [traa_blue[2]] * 2,
-        [0.5] + [1.0] * 2,
-        [1.0] + [0.0] * 2,
-    ],
-}
-black2blue = colors.LinearSegmentedColormap("testCmap", segmentdata=cdict)
+def create_cmap(start, middle, end, name):
+    cdict = {
+        "red": [
+            [0.0] + [start[0]] * 2,
+            [0.5] + [middle[0]] * 2,
+            [1.0] + [end[0]] * 2,
+        ],
+        "green": [
+            [0.0] + [start[1]] * 2,
+            [0.5] + [middle[1]] * 2,
+            [1.0] + [end[1]] * 2,
+        ],
+        "blue": [
+            [0.0] + [start[2]] * 2,
+            [0.5] + [middle[2]] * 2,
+            [1.0] + [end[2]] * 2,
+        ],
+    }
+    return colors.LinearSegmentedColormap(name, segmentdata=cdict)
 
+# create a colormap from light blue to white to light red
+traa_blue = [91 / 255, 206 / 255, 250 / 255]
+traa_red = [245 / 255, 169 / 255, 184 / 255]
+traa_cmap = create_cmap(traa_blue, (1, 1, 1), traa_red, "traa")
+
+# create a colormap from white to black
+boring_cmap = create_cmap((1, 1, 1), (0.5, 0.5, 0.5), (0, 0, 0), "boring")
 
 def plot_design(design, data_path, N, k):
     mat = io.loadmat(data_path)
@@ -64,13 +70,14 @@ def plot_design(design, data_path, N, k):
     parameters, *_ = parse_design(os.path.join("designs", design) + ".json")
     w, h = parameters.width, parameters.height
 
-    Nx, Ny = int(N * w), int(N * h)
+    multiple = int(np.sqrt(data.size / (w * h * N ** 2)))
+    Nx, Ny = int(N * w * multiple), int(N * h * multiple)
 
     plt.figure(figsize=(6.4 * w / h, 4.8))
     plt.rcParams.update({"font.size": 10 * np.sqrt(w / h)})
 
     X, Y = np.meshgrid(np.linspace(0, w, Nx), np.linspace(0, h, Ny))
-    plt.pcolormesh(X, Y, data, cmap=black2blue, vmin=0, vmax=1)
+    plt.pcolormesh(X, Y, data, cmap=traa_cmap, vmin=0, vmax=1)
     plt.colorbar(label=r"$\rho(x, y)$ []")
     plt.xlim(0, w)
     plt.ylim(0, h)

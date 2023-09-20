@@ -122,21 +122,21 @@ class Solver:
         objective = float(self.problem.calculate_objective(self.rho))
         objective_difference = None
 
-        print("Iteration │ Objective │ ΔObjective │     Δρ    │  Δρ-tol  ")
-        print("──────────┼───────────┼────────────┼───────────┼──────────")
+        print("Iteration │ Objective │ ΔObjective │     Δρ    │ Tolerance ")
+        print("──────────┼───────────┼────────────┼───────────┼───────────")
 
         def print_values(k, objective, objective_difference, difference):
             print(
                 f"{k:^9} │ {constrain(objective, 9)} │ "
                 + f"{constrain(objective_difference, 10)} │ "
                 + f"{constrain(difference, 9)} │ "
-                + f"{constrain(difference - min(self.step_size(k) * ntol, itol), 10)}",
+                + f"{constrain(min(self.step_size(k) * ntol, itol), 9)}",
                 flush=True,
             )
 
-        for k in range(500):
+        for k in range(100):
             print_values(k, objective, objective_difference, difference)
-            if k % 10 == 0:
+            if k % 7 == 0:
                 self.save_rho(self.rho, objective, k)
 
             previous_psi = psi.copy()
@@ -166,16 +166,17 @@ class Solver:
             print_values(k + 1, objective, objective_difference, difference)
             print("EXIT: Iteration did not converge")
 
-        self.save_rho(self.rho, objective, k + 1)
+        self.save_rho(self.rho, objective, k + 1, 3)
 
-    def save_rho(self, rho, objective, k):
+    def save_rho(self, rho, objective, k, multiple=1):
         design = os.path.splitext(os.path.basename(self.design_file))[0]
         filename = self.data_path + f"/{design}/data/N={self.N}_{k=}.mat"
 
-        Nx, Ny = int(self.width * self.N), int(self.height * self.N)
+        N = self.N * multiple
+        Nx, Ny = int(self.width * N), int(self.height * N)
         data = np.array(
             [
-                [rho((0.5 + xi) / self.N, (0.5 + yi) / self.N) for xi in range(Nx)]
+                [rho((0.5 + xi) / N, (0.5 + yi) / N) for xi in range(Nx)]
                 for yi in range(Ny)
             ]
         )
