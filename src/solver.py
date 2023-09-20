@@ -57,7 +57,7 @@ class Solver:
             )
         )
 
-        self.control_space = df.FunctionSpace(self.mesh, "DG", 0)
+        self.control_space = df.FunctionSpace(self.mesh, "CG", 1)
 
         self.rho = df.Function(self.control_space)
         self.rho.vector()[:] = volume_fraction
