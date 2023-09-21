@@ -136,7 +136,7 @@ class Solver:
 
         for k in range(100):
             print_values(k, objective, objective_difference, difference)
-            if k % 7 == 0:
+            if k % 9 == 0:
                 self.save_rho(self.rho, objective, k)
 
             previous_psi = psi.copy()
