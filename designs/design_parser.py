@@ -100,7 +100,7 @@ def get_elasticity_arguments(design):
                 Traction(
                     Side.from_string(traction["side"]),
                     float(traction["center"]),
-                    float(traction["value"]),
+                    float(traction["length"]),
                     to_tuple(traction["value"], 2),
                 )
             )
