@@ -1,0 +1,13 @@
+{
+    "problem": "elasticity",
+    "objective": "minimize_compliance",
+    "width": 3,
+    "height": 1,
+    "fraction": 0.5,
+    "fixed_sides": ["left"],
+    "force_region": {
+        "radius": 0.05,
+        "center": [2.9, 0.5],
+        "value": [0, -1, 0]
+    }
+}

@@ -1,0 +1,33 @@
+{
+    "problem": "fluid",
+    "objective": "minimize_power",
+    "width": 1.5,
+    "height": 1,
+    "fraction": 0.33333333333333,
+    "flows": [
+        {
+            "side": "left",
+            "center": 0.25,
+            "length": 0.1666666666667,
+            "rate": 1
+        },
+        {
+            "side": "left",
+            "center": 0.75,
+            "length": 0.1666666666667,
+            "rate": 1
+        },
+        {
+            "side": "right",
+            "center": 0.25,
+            "length": 0.1666666666667,
+            "rate": -1
+        },
+        {
+            "side": "right",
+            "center": 0.75,
+            "length": 0.1666666666667,
+            "rate": -1
+        }
+    ]
+}
