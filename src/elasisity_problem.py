@@ -5,8 +5,8 @@ import dolfin as df
 
 from src.problem import Problem
 from src.domains import SidesDomain
-from designs.design_parser import ForceRegion
-from src.utils import elastisity_alpha, elastisity_alpha_derivative
+from designs.design_parser import ForceRegion, Traction
+from src.utils import elastisity_alpha, elastisity_alpha_derivative, MeshFunctionWrapper
 
 
 class BodyForce(df.UserExpression):
@@ -30,6 +30,38 @@ class BodyForce(df.UserExpression):
 
     def value_shape(self):
         return (2,)
+
+
+class TractionTerm:
+    def __init__(self, domain_size, tractions: list[Traction], mesh: df.Mesh) -> None:
+        self.values = []
+        self.ds_list = []
+        self.marker = MeshFunctionWrapper(mesh)
+
+        for i, traction in enumerate(tractions):
+            traction_region = (
+                traction.center - traction.length / 2,
+                traction.center + traction.length / 2,
+            )
+            self.marker.add(
+                SidesDomain(domain_size, [traction.side], [traction_region]), i
+            )
+            self.values.append(traction.value)
+
+        self.ds = df.Measure(
+            "dS", domain=mesh, subdomain_data=self.marker.mesh_function
+        )
+
+    def __call__(self, v):
+        if len(self.values) == 0:
+            return 0
+
+        result = 0
+        for i, tracion in enumerate(self.values):
+            _, subdomain_idx = self.marker.get(i)
+            result += df.dot(tracion, v) * self.ds(subdomain_idx)
+
+        return result
 
 
 class ElasticityProblem(Problem):
@@ -64,7 +96,8 @@ class ElasticityProblem(Problem):
 
     def calculate_objective(self, rho):
         """get reduced objective function ϕ(rho)"""
-        self.body_force.set_rho(rho)
+        if self.body_force != (0, 0):
+            self.body_force.set_rho(rho)
         self.filtered_rho = self.filter.apply(rho)
         self.u = self.forward(self.filtered_rho)
         objective = float(df.assemble(df.inner(self.u, self.body_force) * df.dx))
@@ -88,7 +121,7 @@ class ElasticityProblem(Problem):
         sigma = lda * df.div(u) * df.Identity(d) + 2 * mu * df.sym(df.grad(u))
 
         a = df.inner(elastisity_alpha(filtered_rho) * sigma, df.sym(df.grad(v))) * df.dx
-        L = df.dot(self.body_force, v) * df.dx + df.dot(self.traction, v) * df.ds
+        L = df.dot(self.body_force, v) * df.dx + self.traction_term(v)
 
         df.solve(a == L, w, bcs=self.boundary_conditions)
 
@@ -97,13 +130,15 @@ class ElasticityProblem(Problem):
     def create_boundary_conditions(self):
         force_region, fixed_sides, traction = self.data
 
-        self.traction = df.Constant(traction)
-        self.body_force = BodyForce(
-            domain_size=self.domain_size, force_region=force_region, rho=None
-        )
+        self.body_force = (0, 0)
+        if force_region is not None:
+            self.body_force = BodyForce(
+                domain_size=self.domain_size, force_region=force_region, rho=None
+            )
+
+        self.traction_term = TractionTerm(self.domain_size, traction, self.mesh)
 
         self.marker.add(SidesDomain(self.domain_size, fixed_sides), "fixed")
-
         self.boundary_conditions = [
             df.DirichletBC(
                 self.solution_space,

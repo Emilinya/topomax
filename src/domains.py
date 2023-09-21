@@ -6,24 +6,40 @@ from designs.design_parser import Side, Region
 
 
 class SidesDomain(df.SubDomain):
-    def __init__(self, domain_size: tuple[float, float], sides: list[str]):
+    def __init__(
+        self,
+        domain_size: tuple[float, float],
+        sides: list[Side],
+        regions: list[tuple[float, float]] | None = None,
+    ):
         super().__init__()
-        self.domain_size = domain_size
+        self.w, self.h = domain_size
         self.sides = sides
+
+        if regions is None:
+            self.regions = []
+            for side in self.sides:
+                if side == Side.TOP or side == Side.BOTTOM:
+                    self.regions.append((0, self.w))
+                elif side == Side.LEFT or side == Side.RIGHT:
+                    self.regions.append((0, self.h))
+        else:
+            self.regions = regions
+            assert len(sides) == len(regions)
 
     def inside(self, pos, on_boundary):
         if not on_boundary:
             return False
 
-        for side in self.sides:
+        for side, region in zip(self.sides, self.regions):
             if side == Side.LEFT:
-                return df.near(pos[0], 0.0)
+                return df.near(pos[0], 0.0) and df.between(pos[1], region)
             elif side == Side.RIGHT:
-                return df.near(pos[0], self.domain_size[0])
+                return df.near(pos[0], self.w) and df.between(pos[1], region)
             elif side == Side.TOP:
-                return df.near(pos[1], self.domain_size[1])
+                return df.near(pos[1], self.h) and df.between(pos[0], region)
             elif side == Side.BOTTOM:
-                return df.near(pos[1], 0.0)
+                return df.near(pos[1], 0.0) and df.between(pos[0], region)
             else:
                 raise ValueError(f"Malformed side: {side}")
 

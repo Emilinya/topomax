@@ -18,7 +18,7 @@ def test_parse_design():
     assert len(fixed_sides) == 1
     assert fixed_sides[0] == Side.LEFT
 
-    assert traction == (0, 0)
+    assert traction == []
 
     # test fluids
 

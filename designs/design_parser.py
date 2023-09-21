@@ -58,6 +58,17 @@ class ForceRegion:
     value: tuple[float, float]
 
 
+@dataclass
+class Traction:
+    side: Side
+    center: float
+    length: float
+    value: tuple[float, float]
+
+    def __iter__(self):
+        return iter((self.side, self.center, self.length, self.value))
+
+
 def to_tuple(ray: list[float], length: int):
     if len(ray) != length:
         print(
@@ -70,22 +81,31 @@ def to_tuple(ray: list[float], length: int):
 
 
 def get_elasticity_arguments(design):
-    force_region = ForceRegion(
-        float(design["force_region"]["radius"]),
-        to_tuple(design["force_region"]["center"], 2),
-        to_tuple(design["force_region"]["value"], 2),
-    )
+    force_region = None
+    if region := design.get("force_region"):
+        force_region = ForceRegion(
+            float(region["radius"]),
+            to_tuple(region["center"], 2),
+            to_tuple(region["value"], 2),
+        )
 
-    fixed_sides = None
-    if design.get("fixed_sides"):
-        sides: list[Side] = []
-        for side in design["fixed_sides"]:
-            sides.append(Side.from_string(side))
-        fixed_sides = sides
+    fixed_sides: list[Side] = []
+    for side in design["fixed_sides"]:
+        fixed_sides.append(Side.from_string(side))
 
-    traction: tuple[float, float] = to_tuple(design.get("traction"), 2)
+    tractions: list[Traction] = []
+    if design_tractions := design.get("tractions"):
+        for traction in design_tractions:
+            tractions.append(
+                Traction(
+                    Side.from_string(traction["side"]),
+                    float(traction["center"]),
+                    float(traction["value"]),
+                    to_tuple(traction["value"], 2),
+                )
+            )
 
-    return force_region, fixed_sides, traction
+    return force_region, fixed_sides, tractions
 
 
 def get_fluid_arguments(design):
