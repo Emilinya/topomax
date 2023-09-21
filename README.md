@@ -2,13 +2,12 @@
 
 # Topomax
 
-This is a flexible topology optimization program. It uses design files that let you define your problem
-in an easy to read way. 
+This is a topology optimization program based on the paper *Proximal Galerkin: A structure-preserving finite element method for pointwise bound constraints* by Brendan Keith and Thomas M. Surowiec. It uses design files to define the boundary conditions and other parameters for your optimization problem in an easy-to-read way.
 
 ## Usage/Examples
 
 ### Running
-The program is run using `run.py`. This program takes in two command line arguments; a design file and a domain size. The folder `designs` contains some design files, and you can easily make a custom design using those files as a template. If the design is `path/to/design.json`, the output of the program is saved to `output/design/data`. The produced data can be visualized with `plot.py`, which automatically reads all the data files, and produces corresponding figures in `output/design/figures`. `plot.py` can also take a list of designs as an argument to limit which designs it will plot. For instance,
+The program is run using `run.py`. This program takes in two command line arguments; a design file and the number of finite elements in a unit length. The folder `designs` contains some design files, and you can easily make a custom design using those files as a template. If the design is `path/to/design.json`, the output of the program is saved to `output/design/data`. The produced data can be visualized with `plot.py`, which automatically reads all the data files, and produces corresponding figures in `output/design/figures`. `plot.py` can also take a list of designs as an argument to limit which designs it will plot. For instance,
 ```bash
 python3 plot.py design1 design2
 ```
@@ -31,7 +30,7 @@ python3 run.py designs/twin_pipe.json 40
 ## Design file format
 The design files are written in json, and the settings are:
 1. objective \
-    Allowed values: "minimize_power" or "maximize_flow" \
+    Allowed values: "minimize_compliance", "minimize_power" or "maximize_flow". \
     Description: Decides the objective function to be minimized.
 2. width \
     Allowed values: `float` \
@@ -42,7 +41,23 @@ The design files are written in json, and the settings are:
 4. fraction \
     Allowed values: `float` \
     Description: The fraction of the domain that is allowed to be empty, the volume fraction.
-5. flows \
+
+The options for elasticity are
+
+5. fixed_sides \
+    Allowed values: list with values "left", "right", "top", or "bottom". \
+    Description: The sides of the domain that are fixed, that is, the sides with no displacement.
+
+6. force_region \
+    Allowed values: \
+    - radius: `float`
+    - center: (`float`, `float`)
+    - value: (`float`, `float`)
+    Description: The value and domain of the body force. It is zero everywhere else.
+
+The options for fluids (currently unimplemented) are
+
+8. flows \
     Allowed values: list of flows, where a flow has the following values:
     - side: "left", "right", "top", or "bottom"
     - center: `float`
@@ -50,16 +65,16 @@ The design files are written in json, and the settings are:
     - rate: `float`
 
     Description: Defines the boundary conditions on the velocity field. Each flow describes a parabolic flow pattern. A positive rate indicates flow into the domain, and a negative flow pattern indicates flow out of the domain.
-7. max_region \
+9. max_region \
     Allowed values: 
     - center: `(float, float)`
     - size: `(float, float)`
 
     Description: The region where you want to maximize flow. Mandatory for the "maximize_flow" objective, does nothing for the "minimize_power" objective. The desired flow direction is currently hard coded to (-1, 0).
-6. no_slip (optional) \
+10. no_slip (optional) \
     Allowed values: List containing values of "left", "right", "top", or "bottom" \
     Description: The sides where there is no flow (velocity is 0). Defaults to all sides with no defined flow.
-7. zero_pressure (optional) \
+11. zero_pressure (optional) \
     Allowed values: List containing values of "left", "right", "top", or "bottom" \
     Description: The sides where there is no pressure. If not set, pressure is 0 at (0, 0).
 
