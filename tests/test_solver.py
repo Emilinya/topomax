@@ -22,7 +22,7 @@ def test_elasticity_problem(cleanup):
     solver = Solver("designs/triangle.json", 10, problem, "tests/test_data")
     solver.solve()
 
-    solver_out = "tests/test_data/triangle/data/N=10_k=26.mat"
+    solver_out = "tests/test_data/triangle/data/N=10_k=22.mat"
     assert os.path.isfile(solver_out)
 
     solver_mat = io.loadmat(solver_out)
