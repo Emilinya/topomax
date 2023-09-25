@@ -74,6 +74,12 @@ class ElasticityProblem(Problem):
         self.Young_modulus = 4 / 3
         self.Poisson_ratio = 1 / 3
 
+        # Calculate Lamé parameters from material properties
+        self.lamé_lda = self.Young_modulus / (1 + self.Poisson_ratio)
+        self.lamé_mu = self.lamé_lda * self.Poisson_ratio / (1 - 2 * self.Poisson_ratio)
+
+        assert abs(self.lamé_lda - 1) < 1e-14 and abs(self.lamé_mu - 1) < 1e-14
+
         self.filtered_rho = None
         self.u = None
 
@@ -89,11 +95,9 @@ class ElasticityProblem(Problem):
                 + "before calling calculate_objective_gradient"
             )
 
-        lda = self.Young_modulus * (1 + self.Poisson_ratio)
-        mu = lda * self.Poisson_ratio / (1 - 2 * self.Poisson_ratio)
-
         gradient = -elastisity_alpha_derivative(self.filtered_rho) * (
-            lda * df.div(self.u) ** 2 + 2 * mu * df.sym(df.grad(self.u)) ** 2
+            self.lamé_lda * df.div(self.u) ** 2
+            + 2 * self.lamé_mu * df.sym(df.grad(self.u)) ** 2
         )
         return self.filter.apply(gradient, self.filtered_rho.function_space())
 
@@ -103,9 +107,12 @@ class ElasticityProblem(Problem):
             self.body_force.set_rho(rho)
         self.filtered_rho = self.filter.apply(rho)
         self.u = self.forward(self.filtered_rho)
-        objective = float(df.assemble(
-            df.inner(self.u, self.body_force) * df.dx + df.inner(self.u, self.traction_term) * df.ds
-        ))
+        objective = float(
+            df.assemble(
+                df.inner(self.u, self.body_force) * df.dx
+                + df.inner(self.u, self.traction_term) * df.ds
+            )
+        )
 
         return objective
 
@@ -120,10 +127,9 @@ class ElasticityProblem(Problem):
         v = df.TestFunction(self.solution_space)
         d = u.geometric_dimension()
 
-        lda = self.Young_modulus * (1 + self.Poisson_ratio)
-        mu = lda * self.Poisson_ratio / (1 - 2 * self.Poisson_ratio)
-
-        sigma = lda * df.div(u) * df.Identity(d) + 2 * mu * df.sym(df.grad(u))
+        sigma = self.lamé_lda * df.div(u) * df.Identity(d) + 2 * self.lamé_mu * df.sym(
+            df.grad(u)
+        )
 
         a = df.inner(elastisity_alpha(filtered_rho) * sigma, df.sym(df.grad(v))) * df.dx
         L = df.dot(self.body_force, v) * df.dx + df.dot(self.traction_term, v) * df.ds
