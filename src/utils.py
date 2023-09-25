@@ -28,7 +28,7 @@ def constrain(number, space):
     """Constrain a number so it fits within a given number of characters."""
     try:
         if number == 0:
-            return f"{number:.{space - 1}f}"
+            return f"{number:.{space - 2}f}"
 
         is_negative = number < 0
         obj_digits = int(np.log10(abs(number))) + 1

@@ -32,15 +32,11 @@ class Problem(ABC):
         self.create_boundary_conditions()
 
     @abstractmethod
-    def create_function_spaces(self):
-        ...
-
-    @abstractmethod
     def calculate_objective_gradient(self):
         ...
 
     @abstractmethod
-    def calculate_objective(self, rho):
+    def calculate_objective(self, rho) -> float:
         ...
 
     @abstractmethod
@@ -49,4 +45,8 @@ class Problem(ABC):
 
     @abstractmethod
     def create_boundary_conditions(self):
+        ...
+
+    @abstractmethod
+    def create_function_spaces(self):
         ...
