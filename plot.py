@@ -104,18 +104,22 @@ def plot_design(design, data_path: str, N: int, k: int, cmap):
 
 
 def multiplot(design: str, N: int, vals: list[tuple[str, int]], cmap):
+    *_, w, h = get_design_data(design, vals[0][0])
     fig, axss = plt.subplots(
         2,
         3,
-        figsize=(6.4 * 5 / 2, 4.8),
+        figsize=(6.4 * w / h, 4.8),
         sharex=True,
         sharey=True,
         gridspec_kw={"wspace": 0.04, "hspace": 0.05, "width_ratios": [1, 1, 1.25]},
     )
-    plt.rcParams.update({"font.size": 18})
+    plt.rcParams.update({"font.size": 9 + 3 * w / h})
 
-    if len(ks) > 6:
+    if len(ks) < 6:
+        return
+    elif len(ks) > 6:
         ks[5] = ks[-1]
+
     for ax, (data_path, k) in zip(axss.flat, vals):
         ax.axis("off")
         ax.set_aspect("equal", "box")
@@ -139,7 +143,7 @@ highlight_cmap = create_cmap((1, 1, 1), (1, 0, 0), (0, 0, 0), "highlight")
 boring_cmap = create_cmap((1, 1, 1), (0.5, 0.5, 0.5), (0, 0, 0), "boring")
 
 if __name__ == "__main__":
-    cmap = traa_cmap
+    cmap = highlight_cmap
 
     selected_designs = None
     if len(sys.argv) > 1:
