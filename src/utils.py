@@ -21,7 +21,7 @@ def fluid_alpha(rho):
     alpha_min = 2.5 / 100**2
     alpha_max = 2.5 / 0.01**2
 
-    return alpha_min + (alpha_max - alpha_min) * rho * (q + 1) / (q + rho)
+    return alpha_max + (alpha_min - alpha_max) * rho * (1 + q) / (rho + q)
 
 
 def constrain(number, space):

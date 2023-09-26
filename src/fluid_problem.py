@@ -1,10 +1,7 @@
 from __future__ import annotations
 
 import numpy as np
-
 import dolfin as df
-import dolfin_adjoint as dfa
-from pyadjoint.reduced_functional_numpy import ReducedFunctionalNumPy
 
 from src.problem import Problem
 from src.utils import fluid_alpha
@@ -12,7 +9,7 @@ from designs.design_parser import Side, Flow
 from src.domains import SidesDomain, RegionDomain, PointDomain
 
 
-class FlowBoundaryConditions(dfa.UserExpression):
+class FlowBoundaryConditions(df.UserExpression):
     def __init__(self, **kwargs):
         super().__init__(kwargs)
         self.domain_size: tuple[float, float] = kwargs["domain_size"]
@@ -52,34 +49,34 @@ class FluidProblem(Problem):
     """Elastic compliance topology optimization problem."""
 
     def __init__(self):
-        self.viscosity = dfa.Constant(1.0)
+        self.viscosity = 1.0
 
-    def get_rho(self):
-        return self.rho
+    def calculate_objective_gradient(self):
+        """
+        self.viscosity * lda * phi * df.dx + fluid_alpha(rho) * lda * phi * df.dx = -F'_rho(u, rho)
+        """
+        return self.u
 
-    def create_objective(self):
+    def calculate_objective(self, rho):
         """get reduced objective function ϕ(rho)"""
-        dfa.set_working_tape(dfa.Tape())
-        (u, _) = df.split(self.forward(self.rho))
+        (self.u, self.p) = df.split(self.forward(rho))
 
         if self.objective == "minimize_power":
-            objective = dfa.assemble(
-                0.5 * df.inner(fluid_alpha(self.rho) * u, u) * df.dx
-                + 0.5 * self.viscosity * df.inner(df.grad(u), df.grad(u)) * df.dx
-            )
+            t1 = 0.5 * df.inner(fluid_alpha(rho) * self.u, self.u) * df.dx
+            t2 = self.viscosity * df.inner(df.grad(self.u), df.grad(self.u)) * df.dx
+            objective = df.assemble(t1 + t2)
         elif self.objective == "maximize_flow":
             subdomain_data, subdomain_idx = self.marker.get("max")
             ds = df.Measure("dS", domain=self.mesh, subdomain_data=subdomain_data)
-            objective = dfa.assemble(
-                df.inner(df.avg(u), dfa.Constant((1.0, 0))) * ds(subdomain_idx)
+            objective = df.assemble(
+                -df.inner(self.u, df.Constant((-1.0, 0))) * ds(subdomain_idx)
             )
 
-        control = dfa.Control(self.rho)
-        return ReducedFunctionalNumPy(objective, control)
+        return objective
 
     def forward(self, rho):
         """Solve the forward problem for a given density distribution rho(x)."""
-        w = dfa.Function(self.solution_space)
+        w = df.Function(self.solution_space)
         (u, p) = df.TrialFunctions(self.solution_space)
         (v, q) = df.TestFunctions(self.solution_space)
 
@@ -90,7 +87,7 @@ class FluidProblem(Problem):
             + df.inner(df.div(u), q)
         ) * df.dx
 
-        dfa.solve(df.lhs(F) == df.rhs(F), w, bcs=self.boundary_conditions)
+        df.solve(df.lhs(F) == df.rhs(F), w, bcs=self.boundary_conditions)
 
         return w
 
@@ -120,33 +117,28 @@ class FluidProblem(Problem):
             self.marker.add(RegionDomain(max_region), "max")
 
         self.boundary_conditions = [
-            dfa.DirichletBC(
+            df.DirichletBC(
                 self.solution_space.sub(0),
                 FlowBoundaryConditions(
                     degree=2, domain_size=self.domain_size, flows=flows
                 ),
                 *self.marker.get("flow"),
             ),
-            dfa.DirichletBC(
+            df.DirichletBC(
                 self.solution_space.sub(1),
-                dfa.Constant(0.0),
+                df.Constant(0.0),
                 *self.marker.get("zero_pressure"),
             ),
-            dfa.DirichletBC(
+            df.DirichletBC(
                 self.solution_space.sub(0),
-                dfa.Constant((0.0, 0.0)),
+                df.Constant((0.0, 0.0)),
                 *self.marker.get("no_slip"),
             ),
         ]
 
     def create_function_spaces(self):
-        self.control_space = df.FunctionSpace(self.mesh, "DG", 0)
         velocity_space = df.VectorElement("CG", self.mesh.ufl_cell(), 2)
         pressure_space = df.FiniteElement("CG", self.mesh.ufl_cell(), 1)
         self.solution_space = df.FunctionSpace(
             self.mesh, velocity_space * pressure_space
         )
-
-    def create_rho(self):
-        self.rho = dfa.Function(self.control_space)
-        self.rho.vector()[:] = self.volume_fraction
