@@ -33,14 +33,26 @@ def logit(x):
 class Solver:
     """Class that solves a given topology optimization problem using a magical algorithm."""
 
-    def __init__(self, design_file: str, N: int, problem: Problem, data_path: str):
+    def __init__(
+        self,
+        N: int,
+        design_file: str,
+        problem: Problem,
+        data_path: str = "data",
+        data_multiple: int = 1,
+        skip_frequency: int = 0,
+        final_data_multiple: int = 3,
+    ):
+        self.N = N
         self.problem = problem
         self.data_path = data_path
         self.design_file = design_file
+        self.data_multiple = data_multiple
+        self.skip_frequency = skip_frequency
+        self.final_data_multiple = final_data_multiple
         self.parameters, *extra_data = parse_design(self.design_file)
 
         # define domain
-        self.N = N
         self.width = self.parameters.width
         self.height = self.parameters.height
 
@@ -136,8 +148,8 @@ class Solver:
 
         for k in range(100):
             print_values(k, objective, objective_difference, difference)
-            if k % 9 == 0:
-                self.save_rho(self.rho, objective, k)
+            if k % (self.skip_frequency + 1) == 0:
+                self.save_rho(self.rho, objective, k, self.data_multiple)
 
             previous_psi = psi.copy()
             psi = self.step(previous_psi, self.step_size(k))
@@ -166,9 +178,9 @@ class Solver:
             print_values(k + 1, objective, objective_difference, difference)
             print("EXIT: Iteration did not converge")
 
-        self.save_rho(self.rho, objective, k + 1, 3)
+        self.save_rho(self.rho, objective, k + 1, self.final_data_multiple)
 
-    def save_rho(self, rho, objective, k, multiple=1):
+    def save_rho(self, rho, objective, k, multiple):
         design = os.path.splitext(os.path.basename(self.design_file))[0]
         filename = self.data_path + f"/{design}/data/N={self.N}_{k=}.mat"
 

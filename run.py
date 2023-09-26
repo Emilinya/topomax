@@ -1,22 +1,14 @@
 import os
 import sys
 import json
+import argparse
 from src.solver import Solver
 from src.fluid_problem import FluidProblem
 from src.elasisity_problem import ElasticityProblem
 
 
 def get_problem(design_file):
-    if not os.path.isfile(design_file):
-        print("Got a design path that is not a file!")
-        return None
-
-    with open(design_file, "r") as data:
-        try:
-            design = json.load(data)
-        except:
-            print("Got a domain size that is not an integer!")
-            return None
+    design = json.load(design_file)
 
     if design.get("problem"):
         if design["problem"] == "elasticity":
@@ -25,39 +17,83 @@ def get_problem(design_file):
             return FluidProblem()
         else:
             print(f"Got design with unknown problem: '{design['problem']}'")
-            return None
+            exit()
     else:
         print(f"Got design without problem!")
-        return None
+        exit()
 
 
 if __name__ == "__main__":
-    if len(sys.argv) == 3 or len(sys.argv) == 4:
-        got_error = False
+    parser = argparse.ArgumentParser()
 
-        design_file = sys.argv[1]
-        problem = get_problem(design_file)
-        if not problem:
-            got_error = True
+    parser.add_argument(
+        "design_file",
+        type=argparse.FileType("r"),
+        help="path to a json file where your problem is defined. See readme for more information",
+    )
+    parser.add_argument(
+        "N",
+        metavar="element_count",
+        type=int,
+        help="the number of finite elements in a unit length",
+    )
+    parser.add_argument(
+        "-d",
+        "--data_path",
+        required=False,
+        default="output",
+        help="the folder where the data output is stored (default: 'output')",
+    )
+    parser.add_argument(
+        "-k",
+        "--skip_frequency",
+        type=int,
+        required=False,
+        default=1,
+        help="how many iterations are skipped before data is stored. "
+        + "Last iteration is always stored. (default: 0)",
+    )
+    parser.add_argument(
+        "-s",
+        "--data_size",
+        type=str,
+        required=False,
+        choices=["small", "medium", "large"],
+        default="small",
+        help="How many points are sampled when producing output data. "
+        + "'small' gives one point per cell for most data, and 9 points per cell for the final data. "
+        + "'medium' gives 9 points for most data, and 25 points form the final data. "
+        + "'large' gives 25 points for most data, and 49 points from the final data. "
+        + "(default: 'small')",
+    )
 
-        N = sys.argv[2]
-        try:
-            N = int(N)
-        except:
-            print("Got a domain size that is not an integer!")
-            got_error = True
+    args = parser.parse_args()
 
-        if got_error:
-            print("This program is used as follows:")
-            print(f"  python3 {sys.argv[0]} <design file> <domain size (N)>")
-        else:
-            if len(sys.argv) == 4:
-                data_path = sys.argv[3]
-            else:
-                data_path = "output"
+    N = args.N
+    data_path = args.data_path
+    skip_frequency = args.skip_frequency
+    design_filename = args.design_file.name
 
-            solver = Solver(design_file, N, problem, data_path)
-            solver.solve()
-    else:
-        print("Got an invalid number of arguments. This program is used as follows:")
-        print(f"  python3 {sys.argv[0]} <design file> <domain size (N)>")
+    if args.data_size == "smal":
+        data_multiple = 1
+        final_data_multiple = 3
+    elif args.data_size == "medium":
+        data_multiple = 3
+        final_data_multiple = 5
+    elif args.data_size == "large":
+        data_multiple = 5
+        final_data_multiple = 9
+
+    problem = get_problem(args.design_file)
+    args.design_file.close()
+
+    solver = Solver(
+        N,
+        design_filename,
+        problem,
+        data_path,
+        data_multiple,
+        skip_frequency,
+        final_data_multiple,
+    )
+    solver.solve()

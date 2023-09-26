@@ -19,7 +19,7 @@ def cleanup():
 
 def test_elasticity_problem(cleanup):
     problem = ElasticityProblem()
-    solver = Solver("designs/triangle.json", 10, problem, "tests/test_data")
+    solver = Solver(10, "designs/triangle.json", problem, data_path="tests/test_data")
     solver.solve()
 
     solver_out = "tests/test_data/triangle/data/N=10_k=22.mat"
