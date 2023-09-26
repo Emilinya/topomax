@@ -159,11 +159,6 @@ class Solver:
             objective = float(self.problem.calculate_objective(self.rho))
             objective_difference = previous_objective - objective
 
-            if objective_difference < 0:
-                print_values(k + 1, objective, objective_difference, difference)
-                print("EXIT: Step increased objective value")
-                break
-
             # create dfa functions from previous_psi to calculate difference
             previous_rho = df.Function(self.control_space)
             previous_rho.vector()[:] = expit(previous_psi)
