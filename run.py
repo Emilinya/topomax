@@ -74,7 +74,7 @@ if __name__ == "__main__":
     skip_frequency = args.skip_frequency
     design_filename = args.design_file.name
 
-    if args.data_size == "smal":
+    if args.data_size == "small":
         data_multiple = 1
         final_data_multiple = 3
     elif args.data_size == "medium":
