@@ -4,16 +4,16 @@ import numpy as np
 import dolfin as df
 
 from src.problem import Problem
-from src.utils import fluid_alpha
 from designs.design_parser import Side, Flow
+from src.utils import fluid_alpha, fluid_alpha_derivative
 from src.domains import SidesDomain, RegionDomain, PointDomain
 
 
-class FlowBoundaryConditions(df.UserExpression):
-    def __init__(self, **kwargs):
-        super().__init__(kwargs)
-        self.domain_size: tuple[float, float] = kwargs["domain_size"]
-        self.flows: list[Flow] = kwargs["flows"]
+class BoundaryFlows(df.UserExpression):
+    def __init__(self, domain_size: tuple[float, float], flows: list[Flow], **kwargs):
+        super().__init__(**kwargs)
+        self.domain_size = domain_size
+        self.flows = flows
 
     def get_flow(self, position: float, center: float, length: float, rate: float):
         t = position - center
@@ -52,25 +52,21 @@ class FluidProblem(Problem):
         self.viscosity = 1.0
 
     def calculate_objective_gradient(self):
-        """
-        self.viscosity * lda * phi * df.dx + fluid_alpha(rho) * lda * phi * df.dx = -F'_rho(u, rho)
-        """
-        return self.u
+        """does this equation work?."""
+
+        return df.project(
+            0.5 * fluid_alpha_derivative(self.rho) * self.u**2,
+            self.rho.function_space(),
+        )
 
     def calculate_objective(self, rho):
         """get reduced objective function ϕ(rho)"""
-        (self.u, self.p) = df.split(self.forward(rho))
+        self.rho = rho
+        (self.u, _) = df.split(self.forward(rho))
 
-        if self.objective == "minimize_power":
-            t1 = 0.5 * df.inner(fluid_alpha(rho) * self.u, self.u) * df.dx
-            t2 = self.viscosity * df.inner(df.grad(self.u), df.grad(self.u)) * df.dx
-            objective = df.assemble(t1 + t2)
-        elif self.objective == "maximize_flow":
-            subdomain_data, subdomain_idx = self.marker.get("max")
-            ds = df.Measure("dS", domain=self.mesh, subdomain_data=subdomain_data)
-            objective = df.assemble(
-                -df.inner(self.u, df.Constant((-1.0, 0))) * ds(subdomain_idx)
-            )
+        t1 = fluid_alpha(rho) * self.u**2
+        t2 = self.viscosity * df.grad(self.u) ** 2
+        objective = df.assemble(0.5 * (t1 + t2) * df.dx)
 
         return objective
 
@@ -119,9 +115,7 @@ class FluidProblem(Problem):
         self.boundary_conditions = [
             df.DirichletBC(
                 self.solution_space.sub(0),
-                FlowBoundaryConditions(
-                    degree=2, domain_size=self.domain_size, flows=flows
-                ),
+                BoundaryFlows(self.domain_size, flows, degree=2),
                 *self.marker.get("flow"),
             ),
             df.DirichletBC(
