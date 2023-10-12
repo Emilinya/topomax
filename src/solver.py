@@ -40,7 +40,7 @@ class Solver:
         problem: Problem,
         data_path: str = "data",
         data_multiple: int = 1,
-        skip_multiple: int = 0,
+        skip_multiple: int = 1,
         final_data_multiple: int = 3,
     ):
         self.N = N
