@@ -139,16 +139,16 @@ def sample_function(
 
     domain_samples = [int(s * N * multiplier) for s in domain_size]
     domain_rays = [np.linspace(0, s, Ns) for s, Ns in zip(domain_size, domain_samples)]
-    output_grid = np.zeros(domain_samples + [output_size])
+    output_grid = np.zeros(domain_samples[::-1] + [output_size])
 
-    for yi in range(domain_samples[0]):
-        for xi in range(domain_samples[1]):
+    for yi in range(domain_samples[1]):
+        for xi in range(domain_samples[0]):
             if sample_type == "center":
                 x = (0.5 + xi) / (multiplier * N)
                 y = (0.5 + yi) / (multiplier * N)
             elif sample_type == "edges":
-                x = xi / (multiplier * N - 1)
-                y = yi / (multiplier * N - 1)
+                x = xi / (multiplier * N - 1 / domain_size[0])
+                y = yi / (multiplier * N - 1 / domain_size[1])
             else:
                 raise ValueError(
                     f"Unknown sample_type: {sample_type}. "
