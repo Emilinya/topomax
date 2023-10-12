@@ -5,8 +5,8 @@ import dolfin as df
 
 from src.problem import Problem
 from src.domains import SidesDomain
+from src.penalizers import ElasticPenalizer
 from designs.design_parser import Side, ForceRegion, Traction
-from src.penalizers import elastisity_alpha, elastisity_alpha_derivative
 
 
 class BodyForce(df.UserExpression):
@@ -95,7 +95,7 @@ class ElasticityProblem(Problem):
                 + "before calling calculate_objective_gradient"
             )
 
-        gradient = -elastisity_alpha_derivative(self.filtered_rho) * (
+        gradient = -ElasticPenalizer.derivative(self.filtered_rho) * (
             self.lamé_lda * df.div(self.u) ** 2
             + 2 * self.lamé_mu * df.sym(df.grad(self.u)) ** 2
         )
@@ -131,7 +131,10 @@ class ElasticityProblem(Problem):
             df.grad(u)
         )
 
-        a = df.inner(elastisity_alpha(filtered_rho) * sigma, df.sym(df.grad(v))) * df.dx
+        a = (
+            df.inner(ElasticPenalizer.eval(filtered_rho) * sigma, df.sym(df.grad(v)))
+            * df.dx
+        )
         L = df.dot(self.body_force, v) * df.dx + df.dot(self.traction_term, v) * df.ds
 
         df.solve(a == L, w, bcs=self.boundary_conditions)

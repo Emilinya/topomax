@@ -4,8 +4,8 @@ import numpy as np
 import dolfin as df
 
 from src.problem import Problem
+from src.penalizers import FluidPenalizer
 from designs.design_parser import Side, Flow
-from src.penalizers import fluid_alpha, fluid_alpha_derivative
 from src.domains import SidesDomain, RegionDomain, PointDomain
 
 
@@ -55,7 +55,7 @@ class FluidProblem(Problem):
         """does this equation work?"""
 
         return df.project(
-            0.5 * fluid_alpha_derivative(self.rho) * self.u**2,
+            0.5 * FluidPenalizer.derivative(self.rho) * self.u**2,
             self.rho.function_space(),
         )
 
@@ -64,7 +64,7 @@ class FluidProblem(Problem):
         self.rho = rho
         (self.u, _) = df.split(self.forward(rho))
 
-        t1 = fluid_alpha(rho) * self.u**2
+        t1 = FluidPenalizer.eval(rho) * self.u**2
         t2 = self.viscosity * df.grad(self.u) ** 2
         objective = df.assemble(0.5 * (t1 + t2) * df.dx)
 
@@ -77,7 +77,7 @@ class FluidProblem(Problem):
         (v, q) = df.TestFunctions(self.solution_space)
 
         F = (
-            fluid_alpha(rho) * df.inner(u, v)
+            FluidPenalizer.eval(rho) * df.inner(u, v)
             + df.inner(df.grad(u), df.grad(v))
             + df.inner(df.grad(p), v)
             + df.inner(df.div(u), q)

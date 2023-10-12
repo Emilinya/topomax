@@ -1,28 +1,37 @@
-def elastisity_alpha(rho):
+class ElasticPenalizer:
     """Solid isotropic material penalization (SIMP)."""
-    alpha_min = 1e-6
-    return alpha_min + rho**3 * (1 - alpha_min)
+
+    penalization = 3
+    minimum = 1e-6
+
+    @classmethod
+    def eval(cls, rho):
+        p, m = cls.penalization, cls.minimum
+
+        return m + rho**p * (1 - m)
+
+    @classmethod
+    def derivative(cls, rho):
+        p, m = cls.penalization, cls.minimum
+
+        return p * rho ** (p - 1) * (1 - m)
 
 
-def elastisity_alpha_derivative(rho):
-    """SIMP derivative"""
-    alpha_min = 1e-6
-    return 3 * rho**2 * (1 - alpha_min)
+class FluidPenalizer:
+    """What is this called?"""
 
+    penalization = 0.1
+    minimum = 2.5 / 100**2
+    maximum = 2.5 / 0.01**2
 
-def fluid_alpha(rho):
-    """Does this have a name?"""
-    q = 0.1
-    alpha_min = 2.5 / 100**2
-    alpha_max = 2.5 / 0.01**2
+    @classmethod
+    def eval(cls, rho):
+        q, mini, maxi = cls.penalization, cls.minimum, cls.maximum
 
-    return alpha_max + (alpha_min - alpha_max) * rho * (1 + q) / (rho + q)
+        return maxi + (mini - maxi) * rho * (1 + q) / (rho + q)
 
+    @classmethod
+    def derivative(cls, rho):
+        q, mini, maxi = cls.penalization, cls.minimum, cls.maximum
 
-def fluid_alpha_derivative(rho):
-    """Unnamed derivaive"""
-    q = 0.1
-    alpha_min = 2.5 / 100**2
-    alpha_max = 2.5 / 0.01**2   
-
-    return (alpha_min - alpha_max) * q * (1 + q) / (rho + q) ** 2
+        return (mini - maxi) * q * (1 + q) / (rho + q) ** 2
