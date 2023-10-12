@@ -6,7 +6,7 @@ import dolfin as df
 from src.problem import Problem
 from src.domains import SidesDomain
 from designs.design_parser import Side, ForceRegion, Traction
-from src.utils import elastisity_alpha, elastisity_alpha_derivative
+from src.penalizers import elastisity_alpha, elastisity_alpha_derivative
 
 
 class BodyForce(df.UserExpression):

@@ -5,7 +5,7 @@ import dolfin as df
 
 from src.problem import Problem
 from designs.design_parser import Side, Flow
-from src.utils import fluid_alpha, fluid_alpha_derivative
+from src.penalizers import fluid_alpha, fluid_alpha_derivative
 from src.domains import SidesDomain, RegionDomain, PointDomain
 
 

@@ -1,54 +1,8 @@
+from __future__ import annotations
+
 import dolfin as df
-
 import numpy as np
-
-
-def elastisity_alpha(rho):
-    """Solid isotropic material penalization (SIMP)."""
-    alpha_min = 1e-6
-    return alpha_min + rho**3 * (1 - alpha_min)
-
-
-def elastisity_alpha_derivative(rho):
-    """SIMP derivative"""
-    alpha_min = 1e-6
-    return 3 * rho**2 * (1 - alpha_min)
-
-
-def fluid_alpha(rho):
-    """Does this have a name?"""
-    q = 0.1
-    alpha_min = 2.5 / 100**2
-    alpha_max = 2.5 / 0.01**2
-
-    return alpha_max + (alpha_min - alpha_max) * rho * (1 + q) / (rho + q)
-
-
-def fluid_alpha_derivative(rho):
-    """Unnamed derivaive"""
-    q = 0.1
-    alpha_min = 2.5 / 100**2
-    alpha_max = 2.5 / 0.01**2   
-
-    return (alpha_min - alpha_max) * q * (1 + q) / (rho + q) ** 2
-
-
-def constrain(number, space):
-    """Constrain a number so it fits within a given number of characters."""
-    try:
-        if number == 0:
-            return f"{number:.{space - 2}f}"
-
-        is_negative = number < 0
-        obj_digits = int(np.log10(abs(number))) + 1
-        if obj_digits <= 0:
-            return f"{number:.{space - 6 - is_negative}e}"
-
-        return f"{number:.{space - obj_digits - is_negative - 1}f}"
-    except:
-        # It would be stupid if the printing code crashed the optimizer,
-        # wrap it in a try except just in case
-        return "?" * space
+import re
 
 
 class MeshFunctionWrapper:
@@ -70,3 +24,156 @@ class MeshFunctionWrapper:
 
     def get(self, label: str):
         return (self.mesh_function, self.label_to_idx[label])
+
+
+def mesh_to_N(mesh: df.Mesh) -> int:
+    # hmin is the length of the diagonal of a mesh grid square
+    N = 1 / (mesh.hmin() / np.sqrt(2))
+    if abs(N - int(round(N))) / N > 1e-14:
+        print(
+            f"save_function: got non-integer N: {N}, "
+            + "this could result in wrong data getting saved"
+        )
+    return int(round(N))
+
+
+def mesh_to_domain_size(mesh: df.Mesh) -> tuple[int, int]:
+    mesh_coordinates = mesh.coordinates()
+    domain_width = mesh_coordinates[:, 0].max()
+    domain_height = mesh_coordinates[:, 1].max()
+    return (domain_width, domain_height)
+
+
+def save_function(
+    f: df.Function,
+    filename: str,
+    problem: str,
+    N: int | None = None,
+    domain_size: tuple[int, int] | None = None,
+):
+    space = f.function_space()
+    mesh = space.mesh()
+
+    if N is None:
+        N = mesh_to_N(mesh)
+
+    if domain_size is None:
+        domain_size = mesh_to_domain_size(mesh)
+
+    with open(filename, "w") as datafile:
+        datafile.write(f"{N=}, {domain_size=}\n")
+        datafile.write(f"{problem=}\n")
+        datafile.write(f"{', '.join([str(v) for v in f.vector()[:]])}\n")
+
+
+def load_function(
+    filename: str,
+    mesh: df.Mesh | None = None,
+    function_space: df.FunctionSpace | None = None,
+) -> tuple[df.Function, df.Mesh, df.FunctionSpace]:
+    with open(filename, "r") as datafile:
+        if mesh is None:
+            mesh_pattern = re.compile("N=(\d+), domain_size=\((\d?.?\d*), (\d?.?\d*)\)")
+            result = re.findall(mesh_pattern, datafile.readline())[0]
+            N, w, h = int(result[0]), float(result[1]), float(result[1])
+
+            mesh = df.Mesh(
+                df.RectangleMesh(
+                    df.MPI.comm_world,
+                    df.Point(0.0, 0.0),
+                    df.Point(w, h),
+                    int(w * N),
+                    int(h * N),
+                )
+            )
+        else:
+            datafile.readline()
+
+        if function_space is None:
+            problem_pattern = re.compile("problem='(\w+)'")
+            problem = re.findall(problem_pattern, datafile.readline())[0]
+
+            if problem == "elasticity":
+                displacement_element = df.VectorElement("CG", mesh.ufl_cell(), 2)
+                function_space = df.FunctionSpace(mesh, displacement_element)
+            elif problem == "fluid":
+                velocity_space = df.VectorElement("CG", mesh.ufl_cell(), 2)
+                pressure_space = df.FiniteElement("CG", mesh.ufl_cell(), 1)
+                function_space = df.FunctionSpace(mesh, velocity_space * pressure_space)
+            else:
+                raise ValueError(f"load_function got malformed problem: {problem}")
+        else:
+            datafile.readline()
+
+        vector = np.array([float(v) for v in datafile.readline()[:-1].split(", ")])
+
+    function = df.Function(function_space)
+    function.vector()[:] = vector
+
+    return (function, mesh, function_space)
+
+
+def sample_function(
+    f: df.Function,
+    points: int,
+    sample_type: str,
+    N: int | None = None,
+    domain_size: tuple[int, int] | None = None,
+):
+    if f.geometric_dimension() != 2:
+        raise ValueError(
+            f"Unhandled input size: {f.geometric_dimension()}. "
+            + "Currently, only an input size of 2 is supported."
+        )
+    output_size = len(f(0, 0))
+
+    if N is None:
+        N = mesh_to_N(f.function_space().mesh())
+
+    if domain_size is None:
+        domain_size = mesh_to_domain_size(f.function_space().mesh())
+
+    # we want to sample a multiple of N points, choose multiplier
+    # so we always sample >= 'points' points
+    multiplier = int(np.ceil(points / N))
+
+    domain_samples = [int(s * N * multiplier) for s in domain_size]
+    domain_rays = [np.linspace(0, s, Ns) for s, Ns in zip(domain_size, domain_samples)]
+    output_grid = np.zeros(domain_samples + [output_size])
+
+    for yi in range(domain_samples[0]):
+        for xi in range(domain_samples[1]):
+            if sample_type == "center":
+                x = (0.5 + xi) / (multiplier * N)
+                y = (0.5 + yi) / (multiplier * N)
+            elif sample_type == "edges":
+                x = xi / (multiplier * N - 1)
+                y = yi / (multiplier * N - 1)
+            else:
+                raise ValueError(
+                    f"Unknown sample_type: {sample_type}. "
+                    + "sample_type must be either 'center' or 'edges'"
+                )
+            output_grid[yi, xi, :] = f(x, y)
+
+    return domain_rays, output_grid
+
+
+def constrain(number: int | float, space: int):
+    """
+    Constrain a number so it fits within a given number of characters. \n
+    Ex: constrain(np.pi, 5) = 3.142, constrain(-1/173, 6) = -5.8e-3.
+    """
+    try:
+        if number == 0:
+            return f"{number:.{space - 2}f}"
+
+        is_negative = number < 0
+        obj_digits = int(np.log10(abs(number))) + 1
+        if obj_digits <= 0:
+            return f"{number:.{space - 6 - is_negative}e}"
+
+        return f"{number:.{space - obj_digits - is_negative - 1}f}"
+    except:
+        # something has gone wrong, but we don't want to raise an excepton
+        return "?" * space
