@@ -52,7 +52,7 @@ class FluidProblem(Problem):
         self.viscosity = 1.0
 
     def calculate_objective_gradient(self):
-        """does this equation work?."""
+        """does this equation work?"""
 
         return df.project(
             0.5 * fluid_alpha_derivative(self.rho) * self.u**2,
@@ -112,10 +112,11 @@ class FluidProblem(Problem):
         if max_region:
             self.marker.add(RegionDomain(max_region), "max")
 
+        self.boundary_flows = BoundaryFlows(self.domain_size, flows, degree=2)
         self.boundary_conditions = [
             df.DirichletBC(
                 self.solution_space.sub(0),
-                BoundaryFlows(self.domain_size, flows, degree=2),
+                self.boundary_flows,
                 *self.marker.get("flow"),
             ),
             df.DirichletBC(
