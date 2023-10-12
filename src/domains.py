@@ -17,6 +17,9 @@ class SidesDomain(df.SubDomain):
         self.sides = sides
 
         if regions is None:
+            # we only want unique sides
+            self.sides = list(set(self.sides))
+
             self.regions = []
             for side in self.sides:
                 if side == Side.TOP or side == Side.BOTTOM:
