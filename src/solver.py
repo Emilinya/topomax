@@ -9,7 +9,7 @@ from src.filter import HelmholtzFilter
 from src.problem import Problem
 from src.utils import constrain
 
-df.set_log_level(df.LogLevel.ERROR)
+df.set_log_level(df.LogLevel.WARNING)
 # turn off redundant output in parallel
 df.parameters["std_out_all_processes"] = False
 
@@ -40,7 +40,7 @@ class Solver:
         problem: Problem,
         data_path: str = "data",
         data_multiple: int = 1,
-        skip_frequency: int = 0,
+        skip_multiple: int = 0,
         final_data_multiple: int = 3,
     ):
         self.N = N
@@ -48,7 +48,7 @@ class Solver:
         self.data_path = data_path
         self.design_file = design_file
         self.data_multiple = data_multiple
-        self.skip_frequency = skip_frequency
+        self.skip_multiple = skip_multiple
         self.final_data_multiple = final_data_multiple
         self.parameters, *extra_data = parse_design(self.design_file)
 
@@ -96,7 +96,6 @@ class Solver:
             error = float(df.assemble(expit_integral_func * df.dx) - volume)
             derivative = float(df.assemble(expit_diff_integral_func * df.dx))
             if derivative == 0.0:
-                print("Warning: Got derivative equal to zero during gradient descent.")
                 raise ValueError("Got derivative equal to zero while projecting psi")
 
             newton_step = error / derivative
@@ -104,10 +103,7 @@ class Solver:
             if abs(newton_step) < 1e-12:
                 break
         else:
-            print(
-                "Warning: Projection reached maximum iteration "
-                + "without converging. Result may not be accurate."
-            )
+            raise ValueError("Projection reached maximum iteration without converging.")
 
         return half_step + c
 
@@ -119,13 +115,19 @@ class Solver:
         half_step = previous_psi - step_size * objective_gradient
         return self.project(half_step, self.volume)
 
-    def step_size(self, k: int):
-        return 25 * (k + 1)
+    def step_size(self, k: int) -> float:
+        if self.parameters.problem == "elasticity":
+            return 25 * (k + 1)
+        else:
+            return 0.0015 * (k + 1)
+
+    def tolerance(self, k: int) -> float:
+        itol = 1e-2
+        ntol = 1e-5
+        return min(25 * (k + 1) * ntol, itol)
 
     def solve(self):
         """Solve the given topology optimization problem."""
-        itol = 1e-2
-        ntol = 1e-5
 
         psi = logit(self.rho.vector()[:])
         previous_psi = None
@@ -142,22 +144,32 @@ class Solver:
                 f"{k:^9} │ {constrain(objective, 9)} │ "
                 + f"{constrain(objective_difference, 10)} │ "
                 + f"{constrain(difference, 9)} │ "
-                + f"{constrain(min(self.step_size(k) * ntol, itol), 9)}",
+                + f"{constrain(self.tolerance(k), 9)}",
                 flush=True,
             )
 
         for k in range(100):
             print_values(k, objective, objective_difference, difference)
-            if k % (self.skip_frequency + 1) == 0:
+            if k % self.skip_multiple == 0:
                 self.save_rho(self.rho, objective, k, self.data_multiple)
 
             previous_psi = psi.copy()
-            psi = self.step(previous_psi, self.step_size(k))
+            try:
+                psi = self.step(previous_psi, self.step_size(k))
+            except ValueError as e:
+                print_values(k + 1, objective, objective_difference, difference)
+                print(f"EXIT: {e}")
+                break
 
             self.rho.vector()[:] = expit(psi)
             previous_objective = objective
             objective = float(self.problem.calculate_objective(self.rho))
             objective_difference = previous_objective - objective
+
+            if np.isnan(objective):
+                print_values(k + 1, objective, objective_difference, difference)
+                print("EXIT: Objective is NaN!")
+                break
 
             # create dfa functions from previous_psi to calculate difference
             previous_rho = df.Function(self.control_space)
@@ -165,7 +177,7 @@ class Solver:
 
             difference = np.sqrt(df.assemble((self.rho - previous_rho) ** 2 * df.dx))
 
-            if difference < min(self.step_size(k) * ntol, itol):
+            if difference < self.tolerance(k):
                 print_values(k + 1, objective, objective_difference, difference)
                 print("EXIT: Optimal solution found")
                 break

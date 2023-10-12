@@ -28,10 +28,11 @@ class Side(Enum):
 
 @dataclass
 class SolverParameters:
+    problem: str
+    objective: str
     width: float
     height: float
     fraction: float
-    objective: str
 
 
 @dataclass
@@ -170,10 +171,14 @@ def parse_design(filename: str):
         exit(1)
 
     parameters = SolverParameters(
-        design["width"], design["height"], design["fraction"], design["objective"]
+        design["problem"],
+        design["objective"],
+        design["width"],
+        design["height"],
+        design["fraction"],
     )
 
-    if design["objective"] == "minimize_compliance":
+    if design["problem"] == "elasticity":
         return parameters, *get_elasticity_arguments(design)
     else:
         return parameters, *get_fluid_arguments(design)

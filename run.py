@@ -46,12 +46,12 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "-k",
-        "--skip_frequency",
+        "--skip_multiple",
         type=int,
         required=False,
         default=1,
-        help="how many iterations are skipped before data is stored. "
-        + "Last iteration is always stored. (default: 0)",
+        help="only stores data if the iteration is a multiple of skip_multiple. "
+        + "Last iteration is always stored. (default: 1)",
     )
     parser.add_argument(
         "-s",
@@ -71,7 +71,7 @@ if __name__ == "__main__":
 
     N = args.N
     data_path = args.data_path
-    skip_frequency = args.skip_frequency
+    skip_multiple = args.skip_multiple
     design_filename = args.design_file.name
 
     if args.data_size == "small":
@@ -93,7 +93,7 @@ if __name__ == "__main__":
         problem,
         data_path,
         data_multiple,
-        skip_frequency,
+        skip_multiple,
         final_data_multiple,
     )
     solver.solve()
