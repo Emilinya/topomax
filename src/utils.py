@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-import dolfin as df
+import pickle
 import numpy as np
-import re
+import dolfin as df
 
 
 class MeshFunctionWrapper:
@@ -60,10 +60,14 @@ def save_function(
     if domain_size is None:
         domain_size = mesh_to_domain_size(mesh)
 
-    with open(filename, "w") as datafile:
-        datafile.write(f"{N=}, {domain_size=}\n")
-        datafile.write(f"{problem=}\n")
-        datafile.write(f"{', '.join([str(v) for v in f.vector()[:]])}\n")
+    with open(filename, "wb") as datafile:
+        data = {
+            "N": N,
+            "domain_size": domain_size,
+            "problem": problem,
+            "vector": f.vector()[:],
+        }
+        pickle.dump(data, datafile)
 
 
 def load_function(
@@ -71,44 +75,36 @@ def load_function(
     mesh: df.Mesh | None = None,
     function_space: df.FunctionSpace | None = None,
 ) -> tuple[df.Function, df.Mesh, df.FunctionSpace]:
-    with open(filename, "r") as datafile:
-        if mesh is None:
-            mesh_pattern = re.compile("N=(\d+), domain_size=\((\d?.?\d*), (\d?.?\d*)\)")
-            result = re.findall(mesh_pattern, datafile.readline())[0]
-            N, w, h = int(result[0]), float(result[1]), float(result[1])
+    with open(filename, "rb") as datafile:
+        data = pickle.load(datafile)
 
-            mesh = df.Mesh(
-                df.RectangleMesh(
-                    df.MPI.comm_world,
-                    df.Point(0.0, 0.0),
-                    df.Point(w, h),
-                    int(w * N),
-                    int(h * N),
-                )
+    if mesh is None:
+        w, h = data["domain_size"]
+        mesh = df.Mesh(
+            df.RectangleMesh(
+                df.MPI.comm_world,
+                df.Point(0.0, 0.0),
+                df.Point(w, h),
+                int(w * data["N"]),
+                int(h * data["N"]),
             )
+        )
+
+    if function_space is None:
+        if data["problem"] == "elasticity":
+            displacement_element = df.VectorElement("CG", mesh.ufl_cell(), 2)
+            function_space = df.FunctionSpace(mesh, displacement_element)
+        elif data["problem"] == "fluid":
+            velocity_space = df.VectorElement("CG", mesh.ufl_cell(), 2)
+            pressure_space = df.FiniteElement("CG", mesh.ufl_cell(), 1)
+            function_space = df.FunctionSpace(mesh, velocity_space * pressure_space)
+        elif data["problem"] == "design":
+            function_space = df.FunctionSpace(mesh, "CG", 1)
         else:
-            datafile.readline()
-
-        if function_space is None:
-            problem_pattern = re.compile("problem='(\w+)'")
-            problem = re.findall(problem_pattern, datafile.readline())[0]
-
-            if problem == "elasticity":
-                displacement_element = df.VectorElement("CG", mesh.ufl_cell(), 2)
-                function_space = df.FunctionSpace(mesh, displacement_element)
-            elif problem == "fluid":
-                velocity_space = df.VectorElement("CG", mesh.ufl_cell(), 2)
-                pressure_space = df.FiniteElement("CG", mesh.ufl_cell(), 1)
-                function_space = df.FunctionSpace(mesh, velocity_space * pressure_space)
-            else:
-                raise ValueError(f"load_function got malformed problem: {problem}")
-        else:
-            datafile.readline()
-
-        vector = np.array([float(v) for v in datafile.readline()[:-1].split(", ")])
+            raise ValueError(f"load_function got malformed problem: {data['problem']}")
 
     function = df.Function(function_space)
-    function.vector()[:] = vector
+    function.vector()[:] = data["vector"]
 
     return (function, mesh, function_space)
 
@@ -125,7 +121,11 @@ def sample_function(
             f"Unhandled input size: {f.geometric_dimension()}. "
             + "Currently, only an input size of 2 is supported."
         )
-    output_size = len(f(0, 0))
+
+    try:
+        output_size = len(f(0, 0))
+    except TypeError:
+        output_size = 1
 
     if N is None:
         N = mesh_to_N(f.function_space().mesh())
