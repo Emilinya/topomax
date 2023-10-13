@@ -1,8 +1,10 @@
+from src.utils import load_function, sample_function
 from designs.design_parser import parse_design
 import matplotlib.colors as colors
 import matplotlib.pyplot as plt
 from scipy import io
 import numpy as np
+import pickle
 import sys
 import os
 
@@ -63,9 +65,18 @@ def create_cmap(start, middle, end, name):
 
 
 def get_design_data(design: str, data_path: str):
-    mat = io.loadmat(data_path)
-    data: np.ndarray = mat["data"]
-    objective: float = mat["objective"][0, 0]
+    if os.path.splitext(design)[1] == ".mat":
+        mat = io.loadmat(data_path)
+        data: np.ndarray = mat["data"]
+        objective: float = mat["objective"][0, 0]
+    else:
+        with open(data_path, "rb") as datafile:
+            data_obj = pickle.load(datafile)
+        objective = data_obj["objective"]
+
+        rho, *_ = load_function(data_obj["rho_file"])
+        _, data = sample_function(rho, 200, "center")
+        data = data[:, :, 0]
 
     parameters, *_ = parse_design(os.path.join("designs", design) + ".json")
     w, h = parameters.width, parameters.height
@@ -131,10 +142,34 @@ def multiplot(design: str, N: int, vals: list[tuple[str, int]], cmap):
     plt.savefig(output_file, dpi=200, bbox_inches="tight")
 
 
-# colormap with the colors of the trans flag, from blue to white to red
+def reduce_length(long_list: list, desired_length: int, key):
+    if len(long_list) <= desired_length:
+        return long_list
+
+    space = int(np.ceil(len(long_list) / (desired_length - 1)))
+    spaces = np.full(desired_length - 1, space, dtype=int)
+    extra = space * (desired_length - 1) - (len(long_list) - 1)
+
+    # if extra > desired_length - 1, remove from all spaces equally
+    spaces -= int(extra / (desired_length - 1))
+    extra %= desired_length - 1
+
+    # if extra < desired_length - 1, remove from first spaces
+    spaces[:extra] -= 1
+
+    idx = 0
+    new_list = [long_list[idx]]
+    for space in spaces:
+        idx += space
+        new_list.append(long_list[idx])
+
+    return new_list
+
+
+# colormap with the colors of the trans flag, from red to white to blue
 traa_blue = [91 / 255, 206 / 255, 250 / 255]
 traa_red = [245 / 255, 169 / 255, 184 / 255]
-traa_cmap = create_cmap(traa_blue, (1, 1, 1), traa_red, "traa")
+traa_cmap = create_cmap(traa_red, (1, 1, 1), traa_blue, "traa")
 
 # colormap with between-values highlighted, from white to red to black
 highlight_cmap = create_cmap((1, 1, 1), (1, 0, 0), (0, 0, 0), "highlight")
@@ -143,8 +178,6 @@ highlight_cmap = create_cmap((1, 1, 1), (1, 0, 0), (0, 0, 0), "highlight")
 boring_cmap = create_cmap((1, 1, 1), (0.5, 0.5, 0.5), (0, 0, 0), "boring")
 
 if __name__ == "__main__":
-    cmap = highlight_cmap
-
     selected_designs = None
     if len(sys.argv) > 1:
         selected_designs = sys.argv[1:]
@@ -168,7 +201,10 @@ if __name__ == "__main__":
             if not os.path.isfile(data_path):
                 continue
 
-            N_str, k_str = data[:-4].split("_")
+            N_str, k_str, *other = data[:-4].split("_")
+            if other != []:
+                continue
+
             N = int(N_str.split("=")[1])
             k = int(k_str.split("=")[1])
 
@@ -183,11 +219,19 @@ if __name__ == "__main__":
     # sort designs such that k-values are in order
     for design_dict in designs.values():
         for ks in design_dict.values():
+            plot_count += 7 - len(ks)
+
             ks.sort(key=lambda v: v[1])
-            plot_count += 1
+            ks[:] = reduce_length(ks, 6, lambda v: v[1])
 
     with tqdm(total=plot_count) as pbar:
         for design, design_dict in designs.items():
+            parameters, *_ = parse_design(os.path.join("designs", design) + ".json")
+            if parameters.problem == "fluid":
+                cmap = traa_cmap
+            else:
+                cmap = highlight_cmap
+
             for N, ks in design_dict.items():
                 for data_path, k in ks:
                     plot_design(design, data_path, N, k, cmap)

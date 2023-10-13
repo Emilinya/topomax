@@ -53,19 +53,6 @@ if __name__ == "__main__":
         help="only stores data if the iteration is a multiple of skip_multiple. "
         + "Last iteration is always stored. (default: 1)",
     )
-    parser.add_argument(
-        "-s",
-        "--data_size",
-        type=str,
-        required=False,
-        choices=["small", "medium", "large"],
-        default="small",
-        help="How many points are sampled when producing output data. "
-        + "'small' gives one point per cell for most data, and 9 points per cell for the final data. "
-        + "'medium' gives 9 points for most data, and 25 points form the final data. "
-        + "'large' gives 25 points for most data, and 49 points from the final data. "
-        + "(default: 'small')",
-    )
 
     args = parser.parse_args()
 
@@ -73,16 +60,6 @@ if __name__ == "__main__":
     data_path = args.data_path
     skip_multiple = args.skip_multiple
     design_filename = args.design_file.name
-
-    if args.data_size == "small":
-        data_multiple = 1
-        final_data_multiple = 3
-    elif args.data_size == "medium":
-        data_multiple = 3
-        final_data_multiple = 5
-    elif args.data_size == "large":
-        data_multiple = 5
-        final_data_multiple = 9
 
     problem = get_problem(args.design_file)
     args.design_file.close()
@@ -92,8 +69,6 @@ if __name__ == "__main__":
         design_filename,
         problem,
         data_path,
-        data_multiple,
         skip_multiple,
-        final_data_multiple,
     )
     solver.solve()

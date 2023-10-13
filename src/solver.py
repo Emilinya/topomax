@@ -1,13 +1,13 @@
 import os
+import pickle
 
 import numpy as np
 import dolfin as df
-from scipy import io
 
-from designs.design_parser import parse_design
-from src.filter import HelmholtzFilter
 from src.problem import Problem
-from src.utils import constrain
+from src.filter import HelmholtzFilter
+from src.utils import constrain, save_function
+from designs.design_parser import parse_design
 
 df.set_log_level(df.LogLevel.WARNING)
 # turn off redundant output in parallel
@@ -39,17 +39,13 @@ class Solver:
         design_file: str,
         problem: Problem,
         data_path: str = "data",
-        data_multiple: int = 1,
         skip_multiple: int = 1,
-        final_data_multiple: int = 3,
     ):
         self.N = N
         self.problem = problem
         self.data_path = data_path
         self.design_file = design_file
-        self.data_multiple = data_multiple
         self.skip_multiple = skip_multiple
-        self.final_data_multiple = final_data_multiple
         self.parameters, *extra_data = parse_design(self.design_file)
 
         # define domain
@@ -119,7 +115,7 @@ class Solver:
         if self.parameters.problem == "elasticity":
             return 25 * (k + 1)
         else:
-            return 0.0015 * (k + 1)
+            return min(0.0015 * (k + 1), 0.015)
 
     def tolerance(self, k: int) -> float:
         itol = 1e-2
@@ -151,7 +147,7 @@ class Solver:
         for k in range(100):
             print_values(k, objective, objective_difference, difference)
             if k % self.skip_multiple == 0:
-                self.save_rho(self.rho, objective, k, self.data_multiple)
+                self.save_rho(self.rho, objective, k)
 
             previous_psi = psi.copy()
             try:
@@ -185,26 +181,15 @@ class Solver:
             print_values(k + 1, objective, objective_difference, difference)
             print("EXIT: Iteration did not converge")
 
-        self.save_rho(self.rho, objective, k + 1, self.final_data_multiple)
+        self.save_rho(self.rho, objective, k + 1)
 
-    def save_rho(self, rho, objective, k, multiple):
+    def save_rho(self, rho, objective, k):
         design = os.path.splitext(os.path.basename(self.design_file))[0]
-        filename = self.data_path + f"/{design}/data/N={self.N}_{k=}.mat"
+        file_root = self.data_path + f"/{design}/data/N={self.N}_{k=}"
 
-        N = self.N * multiple
-        Nx, Ny = int(self.width * N), int(self.height * N)
-        data = np.array(
-            [
-                [rho((0.5 + xi) / N, (0.5 + yi) / N) for xi in range(Nx)]
-                for yi in range(Ny)
-            ]
-        )
+        rho_file = file_root + "_rho.dat"
+        save_function(rho, rho_file, "design")
 
-        os.makedirs(os.path.dirname(filename), exist_ok=True)
-        io.savemat(
-            filename,
-            mdict={
-                "data": data,
-                "objective": objective,
-            },
-        )
+        data = {"objective": objective, "iteration": k, "rho_file": rho_file}
+        with open(file_root + ".dat", "wb") as datafile:
+            pickle.dump(data, datafile)
