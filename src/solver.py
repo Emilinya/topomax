@@ -186,7 +186,7 @@ class Solver:
     def save_rho(self, rho, objective, k):
         design = os.path.splitext(os.path.basename(self.design_file))[0]
         file_root = self.data_path + f"/{design}/data/N={self.N}_{k=}"
-        os.makedirs(file_root, exist_ok=True)
+        os.makedirs(os.path.dirname(file_root), exist_ok=True)
 
         rho_file = file_root + "_rho.dat"
         save_function(rho, rho_file, "design")
