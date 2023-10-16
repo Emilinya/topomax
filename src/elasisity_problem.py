@@ -84,8 +84,6 @@ class ElasticityProblem(Problem):
         self.body_force = None
         self.filtered_rho = None
         self.traction_term = None
-        self.solution_space = None
-        self.boundary_conditions = None
 
     def calculate_objective_gradient(self):
         """
@@ -115,14 +113,12 @@ class ElasticityProblem(Problem):
             self.body_force.set_rho(rho)
         self.filtered_rho = self.filter.apply(rho)
         self.u = self.forward(self.filtered_rho)
-        objective = float(
-            df.assemble(
-                df.inner(self.u, self.body_force) * df.dx
-                + df.inner(self.u, self.traction_term) * df.ds
-            )
+        objective = df.assemble(
+            df.inner(self.u, self.body_force) * df.dx
+            + df.inner(self.u, self.traction_term) * df.ds
         )
 
-        return objective
+        return float(objective)
 
     def forward(self, rho):
         """
@@ -160,14 +156,14 @@ class ElasticityProblem(Problem):
         )
 
         self.marker.add(SidesDomain(self.domain_size, fixed_sides), "fixed")
-        self.boundary_conditions = [
+        return [
             df.DirichletBC(
                 self.solution_space,
                 df.Constant((0.0, 0.0)),
                 *self.marker.get("fixed"),
-            ),
+            )
         ]
 
-    def create_function_spaces(self):
+    def create_solution_space(self):
         displacement_element = df.VectorElement("CG", self.mesh.ufl_cell(), 2)
-        self.solution_space = df.FunctionSpace(self.mesh, displacement_element)
+        return df.FunctionSpace(self.mesh, displacement_element)

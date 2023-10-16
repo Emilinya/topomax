@@ -1,12 +1,11 @@
 from __future__ import annotations
 
-import numpy as np
 import dolfin as df
 
 from src.problem import Problem
 from src.penalizers import FluidPenalizer
-from designs.design_parser import Side, Flow
 from src.domains import SidesDomain, RegionDomain, PointDomain
+from designs.design_parser import Side, Flow
 
 
 class BoundaryFlows(df.UserExpression):
@@ -55,9 +54,7 @@ class FluidProblem(Problem):
 
         self.u = None
         self.rho = None
-        self.solution_space = None
         self.boundary_flows = None
-        self.boundary_conditions = None
 
     def calculate_objective_gradient(self):
         """get objective derivative ϕ'(ρ) = ½α'(ρ)|u|²."""
@@ -76,7 +73,7 @@ class FluidProblem(Problem):
         t2 = self.viscosity * df.grad(self.u) ** 2
         objective = df.assemble(0.5 * (t1 + t2) * df.dx)
 
-        return objective
+        return float(objective)
 
     def forward(self, rho):
         """Solve the forward problem for a given density distribution rho(x)."""
@@ -121,7 +118,7 @@ class FluidProblem(Problem):
             self.marker.add(RegionDomain(max_region), "max")
 
         self.boundary_flows = BoundaryFlows(self.domain_size, flows, degree=2)
-        self.boundary_conditions = [
+        return [
             df.DirichletBC(
                 self.solution_space.sub(0),
                 self.boundary_flows,
@@ -139,9 +136,7 @@ class FluidProblem(Problem):
             ),
         ]
 
-    def create_function_spaces(self):
+    def create_solution_space(self):
         velocity_space = df.VectorElement("CG", self.mesh.ufl_cell(), 2)
         pressure_space = df.FiniteElement("CG", self.mesh.ufl_cell(), 1)
-        self.solution_space = df.FunctionSpace(
-            self.mesh, velocity_space * pressure_space
-        )
+        return df.FunctionSpace(self.mesh, velocity_space * pressure_space)

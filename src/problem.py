@@ -1,3 +1,4 @@
+from __future__ import annotations
 from abc import ABC, abstractmethod
 
 import dolfin as df
@@ -14,13 +15,17 @@ class Problem(ABC):
     """
 
     def __init__(self):
+        self.is_initialized = False
+
         self.mesh = None
         self.data = None
         self.filter = None
         self.marker = None
         self.objective = None
         self.domain_size = None
+        self.solution_space = None
         self.volume_fraction = None
+        self.boundary_conditions = None
 
     def init(
         self,
@@ -29,19 +34,21 @@ class Problem(ABC):
         parameters: SolverParameters,
         extra_data,
     ):
+        self.is_initialized = True
+
         self.mesh = mesh
         self.data = extra_data
         self.filter = input_filter
         self.objective = parameters.objective
         self.volume_fraction = parameters.fraction
-        self.domain_size = (parameters.width, parameters.height)
         self.marker = MeshFunctionWrapper(self.mesh)
+        self.domain_size = (parameters.width, parameters.height)
 
-        self.create_function_spaces()
-        self.create_boundary_conditions()
+        self.solution_space = self.create_solution_space()
+        self.boundary_conditions = self.create_boundary_conditions()
 
     @abstractmethod
-    def calculate_objective_gradient(self):
+    def calculate_objective_gradient(self) -> df.Function:
         ...
 
     @abstractmethod
@@ -49,13 +56,13 @@ class Problem(ABC):
         ...
 
     @abstractmethod
-    def forward(self, rho):
+    def forward(self, rho) -> df.Function:
         ...
 
     @abstractmethod
-    def create_boundary_conditions(self):
+    def create_boundary_conditions(self) -> list:
         ...
 
     @abstractmethod
-    def create_function_spaces(self):
+    def create_solution_space(self) -> df.FunctionSpace:
         ...
