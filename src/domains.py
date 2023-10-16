@@ -36,13 +36,17 @@ class SidesDomain(df.SubDomain):
 
         for side, region in zip(self.sides, self.regions):
             if side == Side.LEFT:
-                return df.near(pos[0], 0.0) and df.between(pos[1], region)
+                if df.near(pos[0], 0.0) and df.between(pos[1], region):
+                    return True
             elif side == Side.RIGHT:
-                return df.near(pos[0], self.w) and df.between(pos[1], region)
+                if df.near(pos[0], self.w) and df.between(pos[1], region):
+                    return True
             elif side == Side.TOP:
-                return df.near(pos[1], self.h) and df.between(pos[0], region)
+                if df.near(pos[1], self.h) and df.between(pos[0], region):
+                    return True
             elif side == Side.BOTTOM:
-                return df.near(pos[1], 0.0) and df.between(pos[0], region)
+                if df.near(pos[1], 0.0) and df.between(pos[0], region):
+                    return True
             else:
                 raise ValueError(f"Malformed side: {side}")
 

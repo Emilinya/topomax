@@ -18,7 +18,7 @@ def cleanup():
         os.remove(os.path.join("tests/test_data/triangle/data", filename))
 
 
-def test_elasticity_problem(cleanup):
+def test_elasticity_solver(cleanup):
     problem = ElasticityProblem()
     solver = Solver(
         10,

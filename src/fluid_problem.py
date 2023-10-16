@@ -98,53 +98,44 @@ class FluidProblem(Problem):
     def create_boundary_conditions(self):
         flows, no_slip, zero_pressure, max_region = self.data
 
-        # flow_sides = [flow.side for flow in flows]
-        # self.marker.add(SidesDomain(self.domain_size, flow_sides), "flow")
+        flow_sides = [flow.side for flow in flows]
+        self.marker.add(SidesDomain(self.domain_size, flow_sides), "flow")
 
-        # if zero_pressure:
-        #     self.marker.add(
-        #         SidesDomain(self.domain_size, zero_pressure.sides), "zero_pressure"
-        #     )
-        # else:
-        #     # default pressure boundary condition: 0 at(0, 0)
-        #     self.marker.add(PointDomain((0, 0)), "zero_pressure")
+        if zero_pressure:
+            self.marker.add(
+                SidesDomain(self.domain_size, zero_pressure.sides), "zero_pressure"
+            )
+        else:
+            # default pressure boundary condition: 0 at(0, 0)
+            self.marker.add(PointDomain((0, 0)), "zero_pressure")
 
-        # if no_slip:
-        #     self.marker.add(SidesDomain(self.domain_size, no_slip.sides), "no_slip")
-        # else:
-        #     # assume no slip conditions where there is no flow
-        #     all_sides = [Side.LEFT, Side.RIGHT, Side.TOP, Side.BOTTOM]
-        #     no_slip_sides = list(set(all_sides).difference(flow_sides))
-        #     self.marker.add(SidesDomain(self.domain_size, no_slip_sides), "no_slip")
+        if no_slip:
+            self.marker.add(SidesDomain(self.domain_size, no_slip.sides), "no_slip")
+        else:
+            # assume no slip conditions where there is no flow
+            all_sides = [Side.LEFT, Side.RIGHT, Side.TOP, Side.BOTTOM]
+            no_slip_sides = list(set(all_sides).difference(flow_sides))
+            self.marker.add(SidesDomain(self.domain_size, no_slip_sides), "no_slip")
 
-        # if max_region:
-        #     self.marker.add(RegionDomain(max_region), "max")
+        if max_region:
+            self.marker.add(RegionDomain(max_region), "max")
 
-        # self.boundary_flows = BoundaryFlows(self.domain_size, flows, degree=2)
-        # self.boundary_conditions = [
-        #     df.DirichletBC(
-        #         self.solution_space.sub(0),
-        #         self.boundary_flows,
-        #         *self.marker.get("flow"),
-        #     ),
-        #     df.DirichletBC(
-        #         self.solution_space.sub(1),
-        #         df.Constant(0.0),
-        #         *self.marker.get("zero_pressure"),
-        #     ),
-        #     df.DirichletBC(
-        #         self.solution_space.sub(0),
-        #         df.Constant((0.0, 0.0)),
-        #         *self.marker.get("no_slip"),
-        #     ),
-        # ]
-
-        self.boundary_flows = BoundaryFlows(self.domain_size, flows)
+        self.boundary_flows = BoundaryFlows(self.domain_size, flows, degree=2)
         self.boundary_conditions = [
             df.DirichletBC(
                 self.solution_space.sub(0),
                 self.boundary_flows,
-                "on_boundary",
+                *self.marker.get("flow"),
+            ),
+            df.DirichletBC(
+                self.solution_space.sub(1),
+                df.Constant(0.0),
+                *self.marker.get("zero_pressure"),
+            ),
+            df.DirichletBC(
+                self.solution_space.sub(0),
+                df.Constant((0.0, 0.0)),
+                *self.marker.get("no_slip"),
             ),
         ]
 
