@@ -49,11 +49,18 @@ class FluidProblem(Problem):
     """Elastic compliance topology optimization problem."""
 
     def __init__(self):
+        super().__init__()
+
         self.viscosity = 1.0
 
-    def calculate_objective_gradient(self):
-        """does this equation work?"""
+        self.u = None
+        self.rho = None
+        self.solution_space = None
+        self.boundary_flows = None
+        self.boundary_conditions = None
 
+    def calculate_objective_gradient(self):
+        """get objective gradient"""
         return df.project(
             0.5 * FluidPenalizer.derivative(self.rho) * self.u**2,
             self.rho.function_space(),
@@ -76,14 +83,14 @@ class FluidProblem(Problem):
         (u, p) = df.TrialFunctions(self.solution_space)
         (v, q) = df.TestFunctions(self.solution_space)
 
-        F = (
+        equation = (
             FluidPenalizer.eval(rho) * df.inner(u, v)
             + df.inner(df.grad(u), df.grad(v))
             + df.inner(df.grad(p), v)
             + df.inner(df.div(u), q)
         ) * df.dx
 
-        df.solve(df.lhs(F) == df.rhs(F), w, bcs=self.boundary_conditions)
+        df.solve(df.lhs(equation) == df.rhs(equation), w, bcs=self.boundary_conditions)
 
         return w
 

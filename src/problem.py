@@ -3,8 +3,8 @@ from abc import ABC, abstractmethod
 import dolfin as df
 
 from src.filter import Filter
-from designs.design_parser import SolverParameters
 from src.utils import MeshFunctionWrapper
+from designs.design_parser import SolverParameters
 
 
 class Problem(ABC):
@@ -12,6 +12,15 @@ class Problem(ABC):
     Abstract base class for problems that define the state equation and the
     adjoint equation for topology optimization problems.
     """
+
+    def __init__(self):
+        self.mesh = None
+        self.data = None
+        self.filter = None
+        self.marker = None
+        self.objective = None
+        self.domain_size = None
+        self.volume_fraction = None
 
     def init(
         self,

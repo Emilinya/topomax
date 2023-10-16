@@ -1,4 +1,3 @@
-import os
 import sys
 import json
 import argparse
@@ -13,14 +12,12 @@ def get_problem(design_file):
     if design.get("problem"):
         if design["problem"] == "elasticity":
             return ElasticityProblem()
-        elif design["problem"] == "fluid":
+        if design["problem"] == "fluid":
             return FluidProblem()
-        else:
-            print(f"Got design with unknown problem: '{design['problem']}'")
-            exit()
+
+        sys.exit(f"Got design with unknown problem: '{design['problem']}'")
     else:
-        print(f"Got design without problem!")
-        exit()
+        sys.exit("Got design without problem")
 
 
 if __name__ == "__main__":

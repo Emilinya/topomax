@@ -1,6 +1,5 @@
 import dolfin as df
 import numpy as np
-import matplotlib.pyplot as plt
 
 from src.solver import Solver
 from src.penalizers import FluidPenalizer

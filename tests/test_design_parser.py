@@ -37,9 +37,9 @@ def test_parse_design():
     assert (flows[2].length - 1 / 6) < 1e-12
     assert flows[3].rate == -1
 
-    assert no_slip == None
-    assert zero_pressure == None
-    assert max_region == None
+    assert no_slip is None
+    assert zero_pressure is None
+    assert max_region is None
 
     with pytest.raises(ValueError):
         parse_design("tests/test_designs/broken_design.json")

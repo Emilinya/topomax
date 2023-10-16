@@ -174,6 +174,6 @@ def constrain(number: int | float, space: int):
             return f"{number:.{space - 6 - is_negative}e}"
 
         return f"{number:.{space - obj_digits - is_negative - 1}f}"
-    except:
+    except Exception:
         # something has gone wrong, but we don't want to raise an excepton
         return "?" * space

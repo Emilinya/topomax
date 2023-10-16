@@ -1,18 +1,24 @@
+import os
+import sys
+import pickle
+import numpy as np
+from scipy import io
+from matplotlib import colors
+import matplotlib.pyplot as plt
+
 from src.utils import load_function, sample_function
 from designs.design_parser import parse_design
-import matplotlib.colors as colors
-import matplotlib.pyplot as plt
-from scipy import io
-import numpy as np
-import pickle
-import sys
-import os
 
 try:
     from tqdm import tqdm
 except ModuleNotFoundError:
 
     class tqdm:
+        """
+        A class that acts like tqdm.tqdm, which
+        is used to avoid a dependency on tqdm.
+        """
+
         def __init__(self, total: int):
             self.current_count = 0
             self.total_count = total
@@ -126,10 +132,10 @@ def multiplot(design: str, N: int, vals: list[tuple[str, int]], cmap):
     )
     plt.rcParams.update({"font.size": 9 + 3 * w / h})
 
-    if len(ks) < 6:
+    if len(vals) < 6:
         return
-    elif len(ks) > 6:
-        ks[5] = ks[-1]
+    if len(vals) > 6:
+        vals[5] = vals[-1]
 
     for ax, (data_path, k) in zip(axss.flat, vals):
         ax.axis("off")
@@ -142,7 +148,7 @@ def multiplot(design: str, N: int, vals: list[tuple[str, int]], cmap):
     plt.savefig(output_file, dpi=200, bbox_inches="tight")
 
 
-def reduce_length(long_list: list, desired_length: int, key):
+def reduce_length(long_list: list, desired_length: int):
     if len(long_list) <= desired_length:
         return long_list
 
@@ -166,18 +172,18 @@ def reduce_length(long_list: list, desired_length: int, key):
     return new_list
 
 
-# colormap with the colors of the trans flag, from red to white to blue
-traa_blue = [91 / 255, 206 / 255, 250 / 255]
-traa_red = [245 / 255, 169 / 255, 184 / 255]
-traa_cmap = create_cmap(traa_red, (1, 1, 1), traa_blue, "traa")
+def main():
+    # colormap with the colors of the trans flag, from red to white to blue
+    traa_blue = [91 / 255, 206 / 255, 250 / 255]
+    traa_red = [245 / 255, 169 / 255, 184 / 255]
+    traa_cmap = create_cmap(traa_red, (1, 1, 1), traa_blue, "traa")
 
-# colormap with between-values highlighted, from white to red to black
-highlight_cmap = create_cmap((1, 1, 1), (1, 0, 0), (0, 0, 0), "highlight")
+    # colormap with between-values highlighted, from white to red to black
+    highlight_cmap = create_cmap((1, 1, 1), (1, 0, 0), (0, 0, 0), "highlight")
 
-# colormap from white to black
-boring_cmap = create_cmap((1, 1, 1), (0.5, 0.5, 0.5), (0, 0, 0), "boring")
+    # colormap from white to black
+    boring_cmap = create_cmap((1, 1, 1), (0.5, 0.5, 0.5), (0, 0, 0), "boring")
 
-if __name__ == "__main__":
     selected_designs = None
     if len(sys.argv) > 1:
         selected_designs = sys.argv[1:]
@@ -214,7 +220,7 @@ if __name__ == "__main__":
 
     # we have no designs :(
     if plot_count == 0:
-        exit()
+        sys.exit()
 
     # sort designs such that k-values are in order
     for design_dict in designs.values():
@@ -222,7 +228,7 @@ if __name__ == "__main__":
             plot_count += 7 - len(ks)
 
             ks.sort(key=lambda v: v[1])
-            ks[:] = reduce_length(ks, 6, lambda v: v[1])
+            ks[:] = reduce_length(ks, 6)
 
     with tqdm(total=plot_count) as pbar:
         for design, design_dict in designs.items():
@@ -238,3 +244,7 @@ if __name__ == "__main__":
                     pbar.update(1)
                 multiplot(design, N, ks, cmap)
                 pbar.update(1)
+
+
+if __name__ == "__main__":
+    main()

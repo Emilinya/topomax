@@ -8,7 +8,7 @@ class Filter(ABC):
     """A class that filters a given design function to remove high frequency elements."""
 
     @abstractmethod
-    def apply(self, input_rho):
+    def apply(self, input_function):
         ...
 
 

@@ -71,6 +71,8 @@ class ElasticityProblem(Problem):
     """Elastic compliance topology optimization problem."""
 
     def __init__(self):
+        super().__init__()
+
         self.Young_modulus = 4 / 3
         self.Poisson_ratio = 1 / 3
 
@@ -78,10 +80,12 @@ class ElasticityProblem(Problem):
         self.lamé_lda = self.Young_modulus / (1 + self.Poisson_ratio)
         self.lamé_mu = self.lamé_lda * self.Poisson_ratio / (1 - 2 * self.Poisson_ratio)
 
-        assert abs(self.lamé_lda - 1) < 1e-14 and abs(self.lamé_mu - 1) < 1e-14
-
-        self.filtered_rho = None
         self.u = None
+        self.body_force = None
+        self.filtered_rho = None
+        self.traction_term = None
+        self.solution_space = None
+        self.boundary_conditions = None
 
     def calculate_objective_gradient(self):
         """
@@ -116,7 +120,7 @@ class ElasticityProblem(Problem):
 
         return objective
 
-    def forward(self, filtered_rho):
+    def forward(self, rho):
         """
         Solve the state equation (λα(ξ)∇⋅u, ∇⋅v) + (2μα(ξ)ε(u), ε(v)) = (f, v),
         where ξ is the filtered rho and ε(u) is the symmetric gradient of u
@@ -131,10 +135,7 @@ class ElasticityProblem(Problem):
             df.grad(u)
         )
 
-        a = (
-            df.inner(ElasticPenalizer.eval(filtered_rho) * sigma, df.sym(df.grad(v)))
-            * df.dx
-        )
+        a = df.inner(ElasticPenalizer.eval(rho) * sigma, df.sym(df.grad(v))) * df.dx
         L = df.dot(self.body_force, v) * df.dx + df.dot(self.traction_term, v) * df.ds
 
         df.solve(a == L, w, bcs=self.boundary_conditions)

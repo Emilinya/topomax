@@ -16,7 +16,7 @@ def contains_same_elements(list1: list, list2: list):
 def solve_equation(function_space, boundary_conditions):
     v, q = df.TestFunctions(function_space)
     u, p = df.TrialFunctions(function_space)
-    F = (
+    equation = (
         FluidPenalizer.eval(1.0) * df.inner(u, v)
         + df.inner(df.grad(u), df.grad(v))
         + df.inner(df.grad(p), v)
@@ -24,7 +24,7 @@ def solve_equation(function_space, boundary_conditions):
     ) * df.dx
 
     uh = df.Function(function_space)
-    df.solve(df.lhs(F) == df.rhs(F), uh, bcs=boundary_conditions)
+    df.solve(df.lhs(equation) == df.rhs(equation), uh, bcs=boundary_conditions)
     return uh
 
 
