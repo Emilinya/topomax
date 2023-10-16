@@ -60,14 +60,15 @@ class FluidProblem(Problem):
         self.boundary_conditions = None
 
     def calculate_objective_gradient(self):
-        """get objective gradient"""
+        """get objective derivative ϕ'(ρ) = ½α'(ρ)|u|²."""
+
         return df.project(
             0.5 * FluidPenalizer.derivative(self.rho) * self.u**2,
             self.rho.function_space(),
         )
 
     def calculate_objective(self, rho):
-        """get reduced objective function ϕ(rho)"""
+        """get objective function ϕ(ρ) = ½∫α(ρ)|u|²+μ|∇u|² dx."""
         self.rho = rho
         (self.u, _) = df.split(self.forward(rho))
 

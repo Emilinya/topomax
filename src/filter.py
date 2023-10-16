@@ -23,6 +23,7 @@ class HelmholtzFilter(Filter):
         Create a HelmholtzFilter with a given epsilon value. If epsilon is None,
         epsilon is instead set to 4 / N. If N is also None, a ValueError is raised.
         """
+
         if epsilon is not None:
             self.epsilon = epsilon
         elif N is not None:
@@ -48,24 +49,6 @@ class HelmholtzFilter(Filter):
             self.epsilon**2 * df.inner(df.grad(trial), df.grad(test))
             + df.inner(trial, test)
         ) * df.dx
-        rhs = df.inner(input_function, test) * df.dx
-
-        filtered_function = df.Function(function_space)
-        df.solve(lhs == rhs, filtered_function)
-
-        return filtered_function
-
-
-class IdentityFilter(Filter):
-    def apply(self, input_function, function_space=None):
-        # solve ξ = ρ, where ρ is the input and ξ is the output
-
-        if function_space is None:
-            function_space = input_function.function_space()
-        trial = df.TrialFunction(function_space)
-        test = df.TestFunction(function_space)
-
-        lhs = df.inner(trial, test) * df.dx
         rhs = df.inner(input_function, test) * df.dx
 
         filtered_function = df.Function(function_space)

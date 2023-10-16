@@ -106,7 +106,11 @@ class ElasticityProblem(Problem):
         return self.filter.apply(gradient, self.filtered_rho.function_space())
 
     def calculate_objective(self, rho):
-        """get reduced objective function ϕ(rho)"""
+        """
+        get reduced objective function ϕ(ρ) = ∫u⋅f dx + ∫u⋅t ds,
+        where f is the body force and t is the traction term.
+        """
+
         if not isinstance(self.body_force, df.Constant):
             self.body_force.set_rho(rho)
         self.filtered_rho = self.filter.apply(rho)
