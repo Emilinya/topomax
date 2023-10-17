@@ -9,12 +9,6 @@ pub enum Side {
 }
 
 #[derive(Serialize)]
-pub struct SquareRegion {
-    pub center: (f64, f64),
-    pub size: (f64, f64),
-}
-
-#[derive(Serialize)]
 pub struct CircularRegion {
     pub center: (f64, f64),
     pub radius: f64,
@@ -27,7 +21,6 @@ pub enum ElasticityObjective {
 
 #[derive(Serialize)]
 pub enum FluidObjective {
-    MaximizeFlow,
     MinimizePower,
 }
 
@@ -44,11 +37,10 @@ pub struct FluidParameters {
     pub flows: Vec<Flow>,
     pub no_slip: Option<Vec<Side>>,
     pub zero_pressure: Option<Vec<Side>>,
-    pub max_region: Option<SquareRegion>,
 }
 
 #[derive(Serialize)]
-pub struct BodyForce {
+pub struct Force {
     pub region: CircularRegion,
     pub value: (f64, f64),
 }
@@ -64,7 +56,7 @@ pub struct Traction {
 #[derive(Serialize)]
 pub struct ElasticityParameters {
     pub fixed_sides: Vec<Side>,
-    pub force_region: Option<BodyForce>,
+    pub body_force: Option<Force>,
     pub tractions: Option<Vec<Traction>>,
 }
 

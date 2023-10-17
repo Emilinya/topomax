@@ -11,7 +11,7 @@
         "Left",
         "Right"
       ],
-      "force_region": null,
+      "body_force": null,
       "tractions": [
         {
           "side": "Top",

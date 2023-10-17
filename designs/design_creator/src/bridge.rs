@@ -10,7 +10,7 @@ pub fn bridge() -> Design {
         },
         problem_parameters: ElasticityParameters {
             fixed_sides: vec![Side::Left, Side::Right],
-            force_region: None,
+            body_force: None,
             tractions: Some(vec![Traction {
                 side: Side::Top,
                 center: 3.0,

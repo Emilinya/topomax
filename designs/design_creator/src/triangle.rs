@@ -10,7 +10,7 @@ pub fn triangle() -> Design {
         },
         problem_parameters: ElasticityParameters {
             fixed_sides: vec![Side::Bottom],
-            force_region: Some(BodyForce {
+            body_force: Some(Force {
                 region: CircularRegion {
                     center: (0.5, 0.5),
                     radius: 0.05,

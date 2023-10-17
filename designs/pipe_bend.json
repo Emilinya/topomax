@@ -22,8 +22,7 @@
         }
       ],
       "no_slip": null,
-      "zero_pressure": null,
-      "max_region": null
+      "zero_pressure": null
     }
   }
 }

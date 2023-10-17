@@ -28,55 +28,91 @@ python3 run.py designs/twin_pipe.json 40
 ```
 
 ## Design file format
-The design files are written in json, and the settings are:
-1. objective \
-    Allowed values: "minimize_compliance", "minimize_power" or "maximize_flow". \
-    Description: Decides the objective function to be minimized.
-2. width \
-    Allowed values: `float` \
-    Description: The width of the domain
-3. height \
-    Allowed values: `float` \
-    Description: The height of the domain
-4. fraction \
-    Allowed values: `float` \
-    Description: The fraction of the domain that is allowed to be empty, the volume fraction.
+The design files are written in json, but they are made by a Rust program. I did this so I could use Rust's rich type system to structure the data. I will therefore explain the design file format using the original Rust types. The root type is
 
-The options for elasticity are
+```rust
+pub enum Design {
+    Fluid(ProblemDesign<FluidObjective, FluidParameters>),
+    Elasticity(ProblemDesign<ElasticityObjective, ElasticityParameters>),
+}
+pub struct ProblemDesign<T, U> {
+    pub objective: T,
+    pub domain_parameters: DomainParameters,
+    pub problem_parameters: U,
+}
+```
+You can either have a fluid design with a fluid objective and fluid parameters, or you can have an elasticity design with an elasticity objective and elasticity parameters. All designs have domain parameters, which are defined as:
 
-5. fixed_sides \
-    Allowed values: list with values "left", "right", "top", or "bottom". \
-    Description: The sides of the domain that are fixed, that is, the sides with no displacement.
+```rust
+pub struct DomainParameters {
+    pub width: f64,
+    pub height: f64,
+    pub fraction: f64,
+}
+```
+The width and height is the width and height of your domain, and the fraction is the volume fraction for the volume constraint.
 
-6. force_region \
-    Allowed values: \
-    - radius: `float`
-    - center: (`float`, `float`)
-    - value: (`float`, `float`)
-    Description: The value and domain of the body force. It is zero everywhere else.
+### Fluid problem
+For a fluid problem, the fluid objectives are
+```rust
+pub enum FluidObjective {
+    MinimizePower,
+}
+```
+where 'MinimizePower' means minimizing the total potential power of your fluid. The fluid parameters are:
+```rust
+pub struct FluidParameters {
+    pub flows: Vec<Flow>,
+    pub no_slip: Option<Vec<Side>>,
+    pub zero_pressure: Option<Vec<Side>>,
+}
+```
+where a side is simply
+```rust
+pub enum Side {
+    Left,
+    Right,
+    Top,
+    Bottom,
+}
+```
+and a flow is defined as
+```rust
+pub struct Flow {
+    pub side: Side,
+    pub center: f64,
+    pub length: f64,
+    pub rate: f64,
+}
+```
+A flow struct represents a parabolic flow out/in from a side, with a value of `rate` at its center. A positive rate represents inflow, and a negative rate represents outflow. Multiple flows can exist on the same side, and the total flow (sum of `length·rate` for all flows) must be 0. The parameter `no_slip` is a list of sides where the fluid velocity is 0. If it is None, it defaults to a list of all sides with no flow. The parameter `zero_pressure` is a list of sides where the fluid pressure is 0. This represents a side where fluid can flow out freely. If it is None, no sides will have zero pressure.
 
-The options for fluids (currently unimplemented) are
-
-8. flows \
-    Allowed values: list of flows, where a flow has the following values:
-    - side: "left", "right", "top", or "bottom"
-    - center: `float`
-    - length: `float`
-    - rate: `float`
-
-    Description: Defines the boundary conditions on the velocity field. Each flow describes a parabolic flow pattern. A positive rate indicates flow into the domain, and a negative flow pattern indicates flow out of the domain.
-9. max_region \
-    Allowed values: 
-    - center: `(float, float)`
-    - size: `(float, float)`
-
-    Description: The region where you want to maximize flow. Mandatory for the "maximize_flow" objective, does nothing for the "minimize_power" objective. The desired flow direction is currently hard coded to (-1, 0).
-10. no_slip (optional) \
-    Allowed values: List containing values of "left", "right", "top", or "bottom" \
-    Description: The sides where there is no flow (velocity is 0). Defaults to all sides with no defined flow.
-11. zero_pressure (optional) \
-    Allowed values: List containing values of "left", "right", "top", or "bottom" \
-    Description: The sides where there is no pressure. If not set, pressure is 0 at (0, 0).
+### Elasticity problem
+For an elasticity problem, the elasticity objectives are
+```rust
+pub enum ElasticityObjective {
+    MinimizeCompliance,
+}
+```
+where 'MinimizeCompliance' means minimizing the elastic compliance of a material. The elasticity parameters are:
+```rust
+pub struct ElasticityParameters {
+    pub fixed_sides: Vec<Side>,
+    pub body_force: Force,
+}
+```
+Where a force is
+```rust
+pub struct Force {
+    pub region: CircularRegion,
+    pub value: (f64, f64),
+}
+pub struct CircularRegion {
+    pub center: (f64, f64),
+    pub radius: f64,
+}
+```
+and represents a force with a given value that acts on a circle with a given center and radius. The `fixed_sides` parameter represents a side where the material is fixed in place.
 
 ## Running Tests
 To run tests, run the following command:

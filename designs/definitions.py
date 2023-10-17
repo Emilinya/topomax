@@ -190,16 +190,16 @@ class Traction:
 @dataclass
 class ElasticityParameters:
     fixed_sides: list[Side]
-    force_region: Force | None
+    body_force: Force | None
     tractions: list[Traction] | None
 
     @classmethod
     def from_dict(cls, parameter_dict: dict):
         fixed_sides = [Side.from_string(side) for side in parameter_dict["fixed_sides"]]
 
-        force_region = None
-        if parameter_dict.get("force_region") is not None:
-            force_region = Force.from_dict(parameter_dict["force_region"])
+        body_force = None
+        if parameter_dict.get("body_force") is not None:
+            body_force = Force.from_dict(parameter_dict["body_force"])
 
         tractions = None
         if parameter_dict.get("tractions") is not None:
@@ -208,7 +208,7 @@ class ElasticityParameters:
                 for traction_dict in parameter_dict["tractions"]
             ]
 
-        return cls(fixed_sides, force_region, tractions)
+        return cls(fixed_sides, body_force, tractions)
 
 
 @dataclass

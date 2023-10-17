@@ -10,7 +10,7 @@ pub fn cantilever() -> Design {
         },
         problem_parameters: ElasticityParameters {
             fixed_sides: vec![Side::Left],
-            force_region: Some(BodyForce {
+            body_force: Some(Force {
                 region: CircularRegion {
                     center: (2.9, 0.5),
                     radius: 0.05,

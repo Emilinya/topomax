@@ -25,7 +25,6 @@ pub fn diffuser() -> Design {
             ],
             no_slip: None,
             zero_pressure: None,
-            max_region: None,
         },
     })
 }

@@ -20,10 +20,10 @@ def test_parse_design():
     assert parameters.height == 1
     assert design.objective == ElasticityObjective.MINIMIZE_COMPLIANCE
 
-    assert design.parameters.force_region is not None
-    assert design.parameters.force_region.region.radius == 0.05
-    assert design.parameters.force_region.region.center == (2.9, 0.5)
-    assert design.parameters.force_region.value == (0, -1)
+    assert design.parameters.body_force is not None
+    assert design.parameters.body_force.region.radius == 0.05
+    assert design.parameters.body_force.region.center == (2.9, 0.5)
+    assert design.parameters.body_force.value == (0, -1)
 
     assert len(design.parameters.fixed_sides) == 1
     assert design.parameters.fixed_sides[0] == Side.LEFT

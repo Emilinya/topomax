@@ -10,7 +10,7 @@
       "fixed_sides": [
         "Bottom"
       ],
-      "force_region": {
+      "body_force": {
         "region": {
           "center": [
             0.5,

@@ -153,9 +153,9 @@ class ElasticityProblem(Problem):
 
     def create_boundary_conditions(self):
         self.body_force = df.Constant((0, 0))
-        if self.design.parameters.force_region is not None:
+        if self.design.parameters.body_force is not None:
             self.body_force = BodyForce(
-                self.design.parameters.force_region, self.domain_size
+                self.design.parameters.body_force, self.domain_size
             )
 
         if self.design.parameters.tractions is not None:
