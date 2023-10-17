@@ -1,14 +1,29 @@
 {
-    "problem": "elasticity",
-    "objective": "minimize_compliance",
-    "width": 1,
-    "height": 1,
-    "fraction": 0.5,
-    "fixed_sides": ["bottom"],
-    "traction": [0, 0],
-    "force_region": {
-        "radius": 0.05,
-        "center": [0.5, 0.5],
-        "value": [0, -10]
+  "Elasticity": {
+    "objective": "MinimizeCompliance",
+    "domain_parameters": {
+      "width": 1.0,
+      "height": 1.0,
+      "volume_fraction": 0.5
+    },
+    "problem_parameters": {
+      "fixed_sides": [
+        "Bottom"
+      ],
+      "force_region": {
+        "region": {
+          "center": [
+            0.5,
+            0.5
+          ],
+          "radius": 0.05
+        },
+        "value": [
+          0.0,
+          -10.0
+        ]
+      },
+      "tractions": null
     }
+  }
 }

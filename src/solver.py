@@ -4,9 +4,11 @@ import pickle
 import numpy as np
 import dolfin as df
 
-from src.problem import Problem
 from src.filter import HelmholtzFilter
+from src.fluid_problem import FluidProblem
 from src.utils import constrain, save_function
+from src.elasisity_problem import ElasticityProblem
+from designs.definitions import FluidDesign, ElasticityDesign, ProblemType
 from designs.design_parser import parse_design
 
 df.set_log_level(df.LogLevel.WARNING)
@@ -37,22 +39,21 @@ class Solver:
         self,
         N: int,
         design_file: str,
-        problem: Problem,
         data_path: str = "data",
         skip_multiple: int = 1,
     ):
         self.N = N
-        self.problem = problem
         self.data_path = data_path
         self.design_file = design_file
         self.skip_multiple = skip_multiple
-        self.parameters, *extra_data = parse_design(self.design_file)
+
+        self.parameters, design = parse_design(design_file)
 
         # define domain
         self.width = self.parameters.width
         self.height = self.parameters.height
 
-        volume_fraction = self.parameters.fraction
+        volume_fraction = self.parameters.volume_fraction
         self.volume = self.width * self.height * volume_fraction
 
         self.mesh = df.Mesh(
@@ -71,7 +72,20 @@ class Solver:
         self.rho.vector()[:] = volume_fraction
 
         control_filter = HelmholtzFilter(epsilon=0.02)
-        self.problem.init(control_filter, self.mesh, self.parameters, extra_data)
+
+        if isinstance(design, FluidDesign):
+            self.problem = FluidProblem(
+                control_filter, self.mesh, self.parameters, design
+            )
+        elif isinstance(design, ElasticityDesign):
+            self.problem = ElasticityProblem(
+                control_filter, self.mesh, self.parameters, design
+            )
+        else:
+            raise ValueError(
+                f"Got unknown problem '{self.parameters.problem}' "
+                + "with design of type '{type(design)}'"
+            )
 
     def project(self, half_step, volume: float):
         """
@@ -112,10 +126,11 @@ class Solver:
         return self.project(half_step, self.volume)
 
     def step_size(self, k: int) -> float:
-        if self.parameters.problem == "elasticity":
+        if self.parameters.problem == ProblemType.ELASTICITY:
             return 25 * (k + 1)
-        else:
+        if self.parameters.problem == ProblemType.FLUID:
             return min(0.0015 * (k + 1), 0.015)
+        raise ValueError(f"Unknown problem: {self.parameters.problem}")
 
     def tolerance(self, k: int) -> float:
         itol = 1e-2
@@ -144,6 +159,7 @@ class Solver:
                 flush=True,
             )
 
+        k = 0
         for k in range(100):
             print_values(k, objective, objective_difference, difference)
             if k % self.skip_multiple == 0:
@@ -183,7 +199,7 @@ class Solver:
 
         self.save_rho(self.rho, objective, k + 1)
 
-    def save_rho(self, rho, objective, k):
+    def save_rho(self, rho, objective: float, k: int):
         design = os.path.splitext(os.path.basename(self.design_file))[0]
         file_root = self.data_path + f"/{design}/data/N={self.N}_{k=}"
         os.makedirs(os.path.dirname(file_root), exist_ok=True)

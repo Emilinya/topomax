@@ -1,21 +1,29 @@
 {
-    "problem": "fluid",
-    "objective": "minimize_power",
-    "width": 1,
-    "height": 1,
-    "fraction": 0.251,
-    "flows": [
+  "Fluid": {
+    "objective": "MinimizePower",
+    "domain_parameters": {
+      "width": 1.0,
+      "height": 1.0,
+      "volume_fraction": 0.251
+    },
+    "problem_parameters": {
+      "flows": [
         {
-            "side": "left",
-            "center": 0.8,
-            "length": 0.2,
-            "rate": 1
+          "side": "Left",
+          "center": 0.8,
+          "length": 0.2,
+          "rate": 1.0
         },
         {
-            "side": "bottom",
-            "center": 0.8,
-            "length": 0.2,
-            "rate": -1
+          "side": "Bottom",
+          "center": 0.8,
+          "length": 0.2,
+          "rate": -1.0
         }
-    ]
+      ],
+      "no_slip": null,
+      "zero_pressure": null,
+      "max_region": null
+    }
+  }
 }

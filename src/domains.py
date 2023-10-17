@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import dolfin as df
 
-from designs.design_parser import Side, Region
+from designs.definitions import Side, SquareRegion
 
 
 class SidesDomain(df.SubDomain):
@@ -54,7 +54,7 @@ class SidesDomain(df.SubDomain):
 
 
 class RegionDomain(df.SubDomain):
-    def __init__(self, region: Region):
+    def __init__(self, region: SquareRegion):
         super().__init__()
         cx, cy = region.center
         w, h = region.size

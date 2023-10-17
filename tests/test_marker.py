@@ -4,7 +4,7 @@ from src.domains import SidesDomain
 from src.utils import MeshFunctionWrapper
 from src.penalizers import FluidPenalizer
 from src.fluid_problem import BoundaryFlows
-from designs.design_parser import Flow, Side
+from designs.definitions import Flow, Side
 
 
 def contains_same_elements(list1: list, list2: list):

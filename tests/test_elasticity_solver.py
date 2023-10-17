@@ -6,8 +6,6 @@ import dolfin as df
 
 from src.solver import Solver
 from src.utils import load_function
-from src.elasisity_problem import ElasticityProblem
-
 
 @pytest.fixture()
 def cleanup():
@@ -19,11 +17,9 @@ def cleanup():
 
 
 def test_elasticity_solver(cleanup):
-    problem = ElasticityProblem()
     solver = Solver(
         10,
         "designs/triangle.json",
-        problem,
         data_path="tests/test_data",
         skip_multiple=999,
     )

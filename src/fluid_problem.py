@@ -2,10 +2,11 @@ from __future__ import annotations
 
 import dolfin as df
 
+from src.filter import Filter
 from src.problem import Problem
 from src.penalizers import FluidPenalizer
 from src.domains import SidesDomain, RegionDomain, PointDomain
-from designs.design_parser import Side, Flow
+from designs.definitions import DomainParameters, FluidDesign, Side, Flow
 
 
 class BoundaryFlows(df.UserExpression):
@@ -24,7 +25,7 @@ class BoundaryFlows(df.UserExpression):
         values[1] = 0.0
         values[0] = 0.0
 
-        for side, center, length, rate in self.flows:
+        for side, center, length, rate in [f.to_tuple() for f in self.flows]:
             if side == Side.LEFT:
                 if pos[0] == 0.0:
                     values[0] += self.get_flow(pos[1], center, length, rate)
@@ -47,17 +48,29 @@ class BoundaryFlows(df.UserExpression):
 class FluidProblem(Problem):
     """Elastic compliance topology optimization problem."""
 
-    def __init__(self):
-        super().__init__()
-
+    def __init__(
+        self,
+        input_filter: Filter,
+        mesh: df.Mesh,
+        parameters: DomainParameters,
+        design: FluidDesign,
+    ):
         self.viscosity = 1.0
+        self.design = design
 
         self.u = None
         self.rho = None
-        self.boundary_flows = None
+
+        super().__init__(input_filter, mesh, parameters)
 
     def calculate_objective_gradient(self):
         """get objective derivative ϕ'(ρ) = ½α'(ρ)|u|²."""
+
+        if self.rho is None or self.u is None:
+            raise ValueError(
+                "You must call calculate_objective before "
+                + "calling calculate_objective_gradient"
+            )
 
         return df.project(
             0.5 * FluidPenalizer.derivative(self.rho) * self.u**2,
@@ -93,31 +106,34 @@ class FluidProblem(Problem):
         return w
 
     def create_boundary_conditions(self):
-        flows, no_slip, zero_pressure, max_region = self.data
-
-        flow_sides = [flow.side for flow in flows]
+        flow_sides = [flow.side for flow in self.design.parameters.flows]
         self.marker.add(SidesDomain(self.domain_size, flow_sides), "flow")
 
-        if zero_pressure:
+        if self.design.parameters.zero_pressure:
             self.marker.add(
-                SidesDomain(self.domain_size, zero_pressure.sides), "zero_pressure"
+                SidesDomain(self.domain_size, self.design.parameters.zero_pressure),
+                "zero_pressure",
             )
         else:
             # default pressure boundary condition: 0 at(0, 0)
             self.marker.add(PointDomain((0, 0)), "zero_pressure")
 
-        if no_slip:
-            self.marker.add(SidesDomain(self.domain_size, no_slip.sides), "no_slip")
+        if self.design.parameters.no_slip:
+            self.marker.add(
+                SidesDomain(self.domain_size, self.design.parameters.no_slip), "no_slip"
+            )
         else:
             # assume no slip conditions where there is no flow
             all_sides = [Side.LEFT, Side.RIGHT, Side.TOP, Side.BOTTOM]
             no_slip_sides = list(set(all_sides).difference(flow_sides))
             self.marker.add(SidesDomain(self.domain_size, no_slip_sides), "no_slip")
 
-        if max_region:
-            self.marker.add(RegionDomain(max_region), "max")
+        if self.design.parameters.max_region:
+            self.marker.add(RegionDomain(self.design.parameters.max_region), "max")
 
-        self.boundary_flows = BoundaryFlows(self.domain_size, flows, degree=2)
+        self.boundary_flows = BoundaryFlows(
+            self.domain_size, self.design.parameters.flows, degree=2
+        )
         return [
             df.DirichletBC(
                 self.solution_space.sub(0),

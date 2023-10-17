@@ -8,7 +8,7 @@ class Filter(ABC):
     """A class that filters a given design function to remove high frequency elements."""
 
     @abstractmethod
-    def apply(self, input_function):
+    def apply(self, input_function, function_space=None) -> df.Function:
         ...
 
 
@@ -33,7 +33,11 @@ class HelmholtzFilter(Filter):
                 "Tried to create HelmholtzFilter with neither epsilon nor N!"
             )
 
-    def apply(self, input_function, function_space=None):
+    def apply(
+        self,
+        input_function: df.Function,
+        function_space: df.FunctionSpace | None = None,
+    ):
         """
         solve -ε²Δξ + ξ = ρ, ∇ξ·n = 0 on ∂Ω,
         where ρ is the input and ξ is the output,

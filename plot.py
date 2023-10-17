@@ -84,7 +84,7 @@ def get_design_data(design: str, data_path: str):
         _, data = sample_function(rho, 200, "center")
         data = data[:, :, 0]
 
-    parameters, *_ = parse_design(os.path.join("designs", design) + ".json")
+    parameters, _ = parse_design(os.path.join("designs", design) + ".json")
     w, h = parameters.width, parameters.height
 
     return data, objective, w, h

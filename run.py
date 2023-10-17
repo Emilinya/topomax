@@ -1,24 +1,6 @@
-import sys
-import json
 import argparse
+
 from src.solver import Solver
-from src.fluid_problem import FluidProblem
-from src.elasisity_problem import ElasticityProblem
-
-
-def get_problem(design_file):
-    design = json.load(design_file)
-
-    if design.get("problem"):
-        if design["problem"] == "elasticity":
-            return ElasticityProblem()
-        if design["problem"] == "fluid":
-            return FluidProblem()
-
-        sys.exit(f"Got design with unknown problem: '{design['problem']}'")
-    else:
-        sys.exit("Got design without problem")
-
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -57,14 +39,11 @@ if __name__ == "__main__":
     data_path = args.data_path
     skip_multiple = args.skip_multiple
     design_filename = args.design_file.name
-
-    problem = get_problem(args.design_file)
     args.design_file.close()
 
     solver = Solver(
         N,
         design_filename,
-        problem,
         data_path,
         skip_multiple,
     )

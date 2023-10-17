@@ -3,19 +3,16 @@ import numpy as np
 
 from src.solver import Solver
 from src.penalizers import FluidPenalizer
-from src.fluid_problem import FluidProblem
-
 
 def test_fluid_problem():
-    problem = FluidProblem()
-    solver = Solver(10, "designs/twin_pipe.json", problem)
+    solver = Solver(10, "designs/twin_pipe.json")
 
-    objective = problem.calculate_objective(solver.rho)
+    objective = solver.problem.calculate_objective(solver.rho)
     direction = df.project(
-        solver.volume / problem.volume_fraction, solver.rho.function_space()
+        solver.volume / solver.problem.volume_fraction, solver.rho.function_space()
     )
     gradient = df.assemble(
-        0.5 * FluidPenalizer.derivative(solver.rho) * direction * problem.u**2 * df.dx
+        0.5 * FluidPenalizer.derivative(solver.rho) * direction * solver.problem.u**2 * df.dx
     )
 
     # we can't make t arbitrarily small as a small t results in numerical errors. Instead,
@@ -25,7 +22,7 @@ def test_fluid_problem():
     for t in ts:
         moved_rho = df.project(solver.rho + t * direction, solver.rho.function_space())
 
-        moved_objective = problem.calculate_objective(moved_rho)
+        moved_objective = solver.problem.calculate_objective(moved_rho)
         almost_gradient = (moved_objective - objective) / t
 
         errors.append(abs(almost_gradient - gradient))

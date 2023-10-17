@@ -1,5 +1,15 @@
-output/
-
 .vscode/
 __pycache__/
+
+
+output/
+target/
+Cargo.lock
+
+elastic_deformation.py
+elastic_deformation.png
+
+fluid_flow.py
+fluid_flow.png
+
 

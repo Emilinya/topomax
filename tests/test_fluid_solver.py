@@ -6,7 +6,6 @@ import dolfin as df
 
 from src.solver import Solver
 from src.utils import load_function
-from src.fluid_problem import FluidProblem
 
 
 @pytest.fixture()
@@ -19,13 +18,8 @@ def cleanup():
 
 
 def test_fluid_solver(cleanup):
-    problem = FluidProblem()
     solver = Solver(
-        20,
-        "designs/diffuser.json",
-        problem,
-        data_path="tests/test_data",
-        skip_multiple=999,
+        20, "designs/diffuser.json", data_path="tests/test_data", skip_multiple=999
     )
     solver.solve()
 

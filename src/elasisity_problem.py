@@ -3,46 +3,51 @@ from __future__ import annotations
 import numpy as np
 import dolfin as df
 
+from src.filter import Filter
 from src.problem import Problem
 from src.domains import SidesDomain
 from src.penalizers import ElasticPenalizer
-from designs.design_parser import Side, ForceRegion, Traction
+from designs.definitions import (
+    DomainParameters,
+    ElasticityDesign,
+    Side,
+    Traction,
+    Force,
+)
 
 
 class BodyForce(df.UserExpression):
-    def __init__(self, **kwargs):
-        super().__init__(kwargs)
-        self.rho = kwargs["rho"]
-        self.force_region: ForceRegion = kwargs["force_region"]
-        self.domain_size: tuple[float, float] = kwargs["domain_size"]
-
-    def set_rho(self, rho):
-        self.rho = rho
+    def __init__(self, force: Force, domain_size: tuple[float, float], **kwargs):
+        super().__init__(**kwargs)
+        self.force = force
+        self.domain_size = domain_size
 
     def eval(self, values, pos):
         values[0] = 0.0
         values[1] = 0.0
 
-        center = self.force_region.center
+        center = self.force.region.center
         distance = np.sqrt((pos[0] - center[0]) ** 2 + (pos[1] - center[1]) ** 2)
-        if distance < self.force_region.radius:
-            values[0], values[1] = self.force_region.value
+        if distance < self.force.region.radius:
+            values[0], values[1] = self.force.value
 
     def value_shape(self):
         return (2,)
 
 
 class TractionExpression(df.UserExpression):
-    def __init__(self, **kwargs):
-        super().__init__(kwargs)
-        self.domain_size: tuple[float, float] = kwargs["domain_size"]
-        self.tractions: list[Traction] = kwargs["tractions"]
+    def __init__(
+        self, domain_size: tuple[float, float], tractions: list[Traction], **kwargs
+    ):
+        super().__init__(**kwargs)
+        self.domain_size = domain_size
+        self.tractions = tractions
 
     def eval(self, values, pos):
         values[0] = 0.0
         values[1] = 0.0
 
-        for side, center, length, value in self.tractions:
+        for side, center, length, value in [t.to_tuple() for t in self.tractions]:
             region = (center - length / 2, center + length / 2)
             if side == Side.LEFT:
                 if pos[0] == 0.0 and df.between(pos[1], region):
@@ -70,9 +75,13 @@ class TractionExpression(df.UserExpression):
 class ElasticityProblem(Problem):
     """Elastic compliance topology optimization problem."""
 
-    def __init__(self):
-        super().__init__()
-
+    def __init__(
+        self,
+        input_filter: Filter,
+        mesh: df.Mesh,
+        parameters: DomainParameters,
+        design: ElasticityDesign,
+    ):
         self.Young_modulus = 4 / 3
         self.Poisson_ratio = 1 / 3
 
@@ -80,10 +89,12 @@ class ElasticityProblem(Problem):
         self.lamé_lda = self.Young_modulus / (1 + self.Poisson_ratio)
         self.lamé_mu = self.lamé_lda * self.Poisson_ratio / (1 - 2 * self.Poisson_ratio)
 
+        self.design = design
+
         self.u = None
-        self.body_force = None
         self.filtered_rho = None
-        self.traction_term = None
+
+        super().__init__(input_filter, mesh, parameters)
 
     def calculate_objective_gradient(self):
         """
@@ -109,8 +120,6 @@ class ElasticityProblem(Problem):
         where f is the body force and t is the traction term.
         """
 
-        if not isinstance(self.body_force, df.Constant):
-            self.body_force.set_rho(rho)
         self.filtered_rho = self.filter.apply(rho)
         self.u = self.forward(self.filtered_rho)
         objective = df.assemble(
@@ -143,19 +152,22 @@ class ElasticityProblem(Problem):
         return w
 
     def create_boundary_conditions(self):
-        force_region, fixed_sides, tractions = self.data
-
         self.body_force = df.Constant((0, 0))
-        if force_region is not None:
+        if self.design.parameters.force_region is not None:
             self.body_force = BodyForce(
-                domain_size=self.domain_size, force_region=force_region, rho=None
+                self.design.parameters.force_region, self.domain_size
             )
 
-        self.traction_term = TractionExpression(
-            domain_size=self.domain_size, tractions=tractions
-        )
+        if self.design.parameters.tractions is not None:
+            self.traction_term = TractionExpression(
+                self.domain_size, self.design.parameters.tractions
+            )
+        else:
+            self.traction_term = TractionExpression(self.domain_size, [])
 
-        self.marker.add(SidesDomain(self.domain_size, fixed_sides), "fixed")
+        self.marker.add(
+            SidesDomain(self.domain_size, self.design.parameters.fixed_sides), "fixed"
+        )
         return [
             df.DirichletBC(
                 self.solution_space,
