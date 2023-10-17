@@ -109,15 +109,6 @@ class FluidProblem(Problem):
         flow_sides = [flow.side for flow in self.design.parameters.flows]
         self.marker.add(SidesDomain(self.domain_size, flow_sides), "flow")
 
-        if self.design.parameters.zero_pressure:
-            self.marker.add(
-                SidesDomain(self.domain_size, self.design.parameters.zero_pressure),
-                "zero_pressure",
-            )
-        else:
-            # default pressure boundary condition: 0 at(0, 0)
-            self.marker.add(PointDomain((0, 0)), "zero_pressure")
-
         if self.design.parameters.no_slip:
             self.marker.add(
                 SidesDomain(self.domain_size, self.design.parameters.no_slip), "no_slip"
@@ -134,16 +125,12 @@ class FluidProblem(Problem):
         self.boundary_flows = BoundaryFlows(
             self.domain_size, self.design.parameters.flows, degree=2
         )
-        return [
+
+        boundary_conditions = [
             df.DirichletBC(
                 self.solution_space.sub(0),
                 self.boundary_flows,
                 *self.marker.get("flow"),
-            ),
-            df.DirichletBC(
-                self.solution_space.sub(1),
-                df.Constant(0.0),
-                *self.marker.get("zero_pressure"),
             ),
             df.DirichletBC(
                 self.solution_space.sub(0),
@@ -151,6 +138,21 @@ class FluidProblem(Problem):
                 *self.marker.get("no_slip"),
             ),
         ]
+
+        if self.design.parameters.zero_pressure:
+            self.marker.add(
+                SidesDomain(self.domain_size, self.design.parameters.zero_pressure),
+                "zero_pressure",
+            )
+            boundary_conditions += [
+                df.DirichletBC(
+                    self.solution_space.sub(1),
+                    df.Constant(0.0),
+                    *self.marker.get("zero_pressure"),
+                ),
+            ]
+
+        return boundary_conditions
 
     def create_solution_space(self):
         velocity_space = df.VectorElement("CG", self.mesh.ufl_cell(), 2)

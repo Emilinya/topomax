@@ -25,7 +25,7 @@ def test_fluid_solver(cleanup):
 
     data_path = "tests/test_data/diffuser/data"
 
-    solver_out = os.path.join(data_path, "N=20_k=19.dat")
+    solver_out = os.path.join(data_path, "N=20_k=18.dat")
     assert os.path.isfile(solver_out)
 
     with open(solver_out, "rb") as datafile:
