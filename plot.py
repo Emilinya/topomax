@@ -8,6 +8,7 @@ import matplotlib.pyplot as plt
 
 from src.utils import load_function, sample_function
 from designs.design_parser import parse_design
+from designs.definitions import ProblemType
 
 try:
     from tqdm import tqdm
@@ -71,7 +72,7 @@ def create_cmap(start, middle, end, name):
 
 
 def get_design_data(design: str, data_path: str):
-    if os.path.splitext(design)[1] == ".mat":
+    if os.path.splitext(data_path)[1] == ".mat":
         mat = io.loadmat(data_path)
         data: np.ndarray = mat["data"]
         objective: float = mat["objective"][0, 0]
@@ -80,7 +81,11 @@ def get_design_data(design: str, data_path: str):
             data_obj = pickle.load(datafile)
         objective = data_obj["objective"]
 
-        rho, *_ = load_function(data_obj["rho_file"])
+        rho_path = os.path.join(
+            os.path.split(data_path)[0], os.path.split(data_obj["rho_file"])[1]
+        )
+
+        rho, *_ = load_function(rho_path)
         _, data = sample_function(rho, 200, "center")
         data = data[:, :, 0]
 
@@ -233,7 +238,7 @@ def main():
     with tqdm(total=plot_count) as pbar:
         for design, design_dict in designs.items():
             parameters, *_ = parse_design(os.path.join("designs", design) + ".json")
-            if parameters.problem == "fluid":
+            if parameters.problem == ProblemType.FLUID:
                 cmap = traa_cmap
             else:
                 cmap = highlight_cmap
