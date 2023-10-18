@@ -217,14 +217,16 @@ class DomainParameters:
     width: float
     height: float
     problem: ProblemType
+    penalties: list[float]
     volume_fraction: float
 
     @classmethod
-    def from_dict(cls, problem: str, parameter_dict: dict[str, float]):
+    def from_dict(cls, problem: str, parameter_dict: dict):
         return cls(
             parameter_dict["width"],
             parameter_dict["height"],
             ProblemType.from_string(problem),
+            parameter_dict["penalties"],
             parameter_dict["volume_fraction"],
         )
 

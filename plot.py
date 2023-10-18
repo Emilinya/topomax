@@ -71,26 +71,18 @@ def create_cmap(start, middle, end, name):
     return colors.LinearSegmentedColormap(name, segmentdata=cdict)
 
 
-def get_design_data(design: str, data_path: str):
-    if os.path.splitext(data_path)[1] == ".mat":
-        mat = io.loadmat(data_path)
-        data: np.ndarray = mat["data"]
-        objective: float = mat["objective"][0, 0]
-    else:
-        with open(data_path, "rb") as datafile:
-            data_obj = pickle.load(datafile)
-        objective = data_obj["objective"]
+def get_design_data(data_path: str):
+    with open(data_path, "rb") as datafile:
+        data_obj = pickle.load(datafile)
+    objective = data_obj["objective"]
+    w, h = data_obj["domain_size"]
 
-        rho_path = os.path.join(
-            os.path.split(data_path)[0], os.path.split(data_obj["rho_file"])[1]
-        )
+    data_root, data_head = os.path.splitext(data_path)
+    rho_path = data_root + "_rho" + data_head
 
-        rho, *_ = load_function(rho_path)
-        _, data = sample_function(rho, 200, "center")
-        data = data[:, :, 0]
-
-    parameters, _ = parse_design(os.path.join("designs", design) + ".json")
-    w, h = parameters.width, parameters.height
+    rho, *_ = load_function(rho_path)
+    _, data = sample_function(rho, 200, "center")
+    data = data[:, :, 0]
 
     return data, objective, w, h
 
@@ -103,8 +95,8 @@ def create_design_figure(ax, data: np.ndarray, w: float, h: float, N: int, cmap)
     return ax.pcolormesh(X, Y, data, cmap=cmap, vmin=0, vmax=1)
 
 
-def plot_design(design, data_path: str, N: int, k: int, cmap):
-    data, objective, w, h = get_design_data(design, data_path)
+def plot_design(design, data_path: str, N: int, p: float, k: int, cmap):
+    data, objective, w, h = get_design_data(data_path)
 
     plt.figure(figsize=(6.4 * w / h, 4.8))
     plt.rcParams.update({"font.size": 10 * np.sqrt(w / h)})
@@ -117,16 +109,16 @@ def plot_design(design, data_path: str, N: int, k: int, cmap):
 
     plt.xlabel("$x$ []")
     plt.ylabel("$y$ []")
-    plt.title(f"{N=}, k={k:.5g}, objective={objective:.3g}")
+    plt.title(f"{N=}, p={p:.5g}, k={k:.5g}, objective={objective:.3g}")
 
-    output_file = os.path.join("output", design, "figures", f"{N=}_{k=}") + ".png"
+    output_file = os.path.join("output", design, "figures", f"{N=}_{p=}_{k=}") + ".png"
     os.makedirs(os.path.dirname(output_file), exist_ok=True)
     plt.savefig(output_file, dpi=200, bbox_inches="tight")
     plt.close()
 
 
-def multiplot(design: str, N: int, vals: list[tuple[str, int]], cmap):
-    *_, w, h = get_design_data(design, vals[0][0])
+def multiplot(design: str, N: int, p: float, vals: list[tuple[str, int]], cmap):
+    *_, w, h = get_design_data(vals[0][0])
     fig, axss = plt.subplots(
         2,
         3,
@@ -145,11 +137,11 @@ def multiplot(design: str, N: int, vals: list[tuple[str, int]], cmap):
     for ax, (data_path, k) in zip(axss.flat, vals):
         ax.axis("off")
         ax.set_aspect("equal", "box")
-        data, _, w, h = get_design_data(design, data_path)
+        data, _, w, h = get_design_data(data_path)
         pcolormesh = create_design_figure(ax, data, w, h, N, cmap)
         ax.set_title(f"${k=}$")
     fig.colorbar(pcolormesh, ax=axss[:, -1], shrink=0.8, label=r"$\rho(x, y)$ []")
-    output_file = os.path.join("output", design, "figures", f"{N=}_multi.png")
+    output_file = os.path.join("output", design, "figures", f"{N=}_{p=}_multi.png")
     plt.savefig(output_file, dpi=200, bbox_inches="tight")
 
 
@@ -193,10 +185,9 @@ def main():
     if len(sys.argv) > 1:
         selected_designs = sys.argv[1:]
 
-    # designs = {design: {N: [(data_path, k)]}}
-    designs: dict[str, dict[int, list[tuple[str, int]]]] = {}
+    # designs = {design: {N: {p: [(data_path, k)]}}}
+    designs: dict[str, dict[int, dict[float, list[tuple[str, int]]]]] = {}
 
-    plot_count = 0
     for design in os.listdir("output"):
         if selected_designs is not None and design not in selected_designs:
             continue
@@ -212,28 +203,30 @@ def main():
             if not os.path.isfile(data_path):
                 continue
 
-            N_str, k_str, *other = data[:-4].split("_")
+            N_str, p_str, k_str, *other = data[:-4].split("_")
             if other != []:
                 continue
 
             N = int(N_str.split("=")[1])
+            p = float(p_str.split("=")[1])
             k = int(k_str.split("=")[1])
 
-            designs[design][N] = designs[design].get(N, [])
-            designs[design][N].append((data_path, k))
-            plot_count += 1
+            designs[design][N] = designs[design].get(N, {})
+            designs[design][N][p] = designs[design][N].get(p, [])
+            designs[design][N][p].append((data_path, k))
+
+    plot_count = 0
+    for design_dict in designs.values():
+        for ps in design_dict.values():
+            for ks in ps.values():
+                ks.sort(key=lambda v: v[1])
+                ks[:] = reduce_length(ks, 6)
+
+                plot_count += len(ks) + 1
 
     # we have no designs :(
     if plot_count == 0:
         sys.exit()
-
-    # sort designs such that k-values are in order
-    for design_dict in designs.values():
-        for ks in design_dict.values():
-            plot_count += 7 - len(ks)
-
-            ks.sort(key=lambda v: v[1])
-            ks[:] = reduce_length(ks, 6)
 
     with tqdm(total=plot_count) as pbar:
         for design, design_dict in designs.items():
@@ -243,12 +236,13 @@ def main():
             else:
                 cmap = highlight_cmap
 
-            for N, ks in design_dict.items():
-                for data_path, k in ks:
-                    plot_design(design, data_path, N, k, cmap)
+            for N, ps in design_dict.items():
+                for p, ks in ps.items():
+                    for data_path, k in ks:
+                        plot_design(design, data_path, N, p, k, cmap)
+                        pbar.update(1)
+                    multiplot(design, N, p, ks, cmap)
                     pbar.update(1)
-                multiplot(design, N, ks, cmap)
-                pbar.update(1)
 
 
 if __name__ == "__main__":

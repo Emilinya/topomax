@@ -4,6 +4,7 @@ from abc import ABC, abstractmethod
 import dolfin as df
 
 from src.filter import Filter
+from src.penalizers import Penalizer
 from src.utils import MeshFunctionWrapper
 from designs.definitions import DomainParameters
 
@@ -21,6 +22,7 @@ class Problem(ABC):
         parameters: DomainParameters,
     ):
         self.mesh = mesh
+        self.penalizer: Penalizer | None = None
         self.filter = input_filter
         self.volume_fraction = parameters.volume_fraction
         self.marker = MeshFunctionWrapper(self.mesh)
@@ -28,6 +30,15 @@ class Problem(ABC):
 
         self.solution_space = self.create_solution_space()
         self.boundary_conditions = self.create_boundary_conditions()
+
+    def set_penalization(self, penalization: float):
+        if self.penalizer is None:
+            raise ValueError(
+                "Classes deriving from Problem must "
+                + "set a penalizer in their initializer"
+            )
+
+        self.penalizer.set_penalization(penalization)
 
     @abstractmethod
     def calculate_objective_gradient(self) -> df.Function:

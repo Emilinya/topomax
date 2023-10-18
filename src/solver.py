@@ -143,70 +143,82 @@ class Solver:
         psi = logit(self.rho.vector()[:])
         previous_psi = None
 
-        difference = float("Infinity")
-        objective = float(self.problem.calculate_objective(self.rho))
-        objective_difference = None
+        for penalty in self.parameters.penalties:
+            self.problem.set_penalization(penalty)
 
-        print("Iteration │ Objective │ ΔObjective │     Δρ    │ Tolerance ")
-        print("──────────┼───────────┼────────────┼───────────┼───────────")
 
-        def print_values(k, objective, objective_difference, difference):
-            print(
-                f"{k:^9} │ {constrain(objective, 9)} │ "
-                + f"{constrain(objective_difference, 10)} │ "
-                + f"{constrain(difference, 9)} │ "
-                + f"{constrain(self.tolerance(k), 9)}",
-                flush=True,
-            )
-
-        k = 0
-        for k in range(100):
-            print_values(k, objective, objective_difference, difference)
-            if k % self.skip_multiple == 0:
-                self.save_rho(self.rho, objective, k)
-
-            previous_psi = psi.copy()
-            try:
-                psi = self.step(previous_psi, self.step_size(k))
-            except ValueError as e:
-                print_values(k + 1, objective, objective_difference, difference)
-                print(f"EXIT: {e}")
-                break
-
-            self.rho.vector()[:] = expit(psi)
-            previous_objective = objective
+            difference = float("Infinity")
             objective = float(self.problem.calculate_objective(self.rho))
-            objective_difference = previous_objective - objective
+            objective_difference = None
 
-            if np.isnan(objective):
+            print(f"{f'Penalty: {constrain(penalty, 6)}':^59}")
+            print("Iteration │ Objective │ ΔObjective │     Δρ    │ Tolerance ")
+            print("──────────┼───────────┼────────────┼───────────┼───────────")
+
+            def print_values(k, objective, objective_difference, difference):
+                print(
+                    f"{k:^9} │ {constrain(objective, 9)} │ "
+                    + f"{constrain(objective_difference, 10)} │ "
+                    + f"{constrain(difference, 9)} │ "
+                    + f"{constrain(self.tolerance(k), 9)}",
+                    flush=True,
+                )
+
+            k = 0
+            for k in range(100):
+                print_values(k, objective, objective_difference, difference)
+                if k % self.skip_multiple == 0:
+                    self.save_rho(self.rho, objective, k, penalty)
+
+                previous_psi = psi.copy()
+                try:
+                    psi = self.step(previous_psi, self.step_size(k))
+                except ValueError as e:
+                    print_values(k + 1, objective, objective_difference, difference)
+                    print(f"EXIT: {e}")
+                    break
+
+                self.rho.vector()[:] = expit(psi)
+                previous_objective = objective
+                objective = float(self.problem.calculate_objective(self.rho))
+                objective_difference = previous_objective - objective
+
+                if np.isnan(objective):
+                    print_values(k + 1, objective, objective_difference, difference)
+                    print("EXIT: Objective is NaN!")
+                    break
+
+                # create dfa functions from previous_psi to calculate difference
+                previous_rho = df.Function(self.control_space)
+                previous_rho.vector()[:] = expit(previous_psi)
+
+                difference = np.sqrt(
+                    df.assemble((self.rho - previous_rho) ** 2 * df.dx)
+                )
+
+                if difference < self.tolerance(k):
+                    print_values(k + 1, objective, objective_difference, difference)
+                    print("EXIT: Optimal solution found")
+                    break
+            else:
                 print_values(k + 1, objective, objective_difference, difference)
-                print("EXIT: Objective is NaN!")
-                break
+                print("EXIT: Iteration did not converge")
 
-            # create dfa functions from previous_psi to calculate difference
-            previous_rho = df.Function(self.control_space)
-            previous_rho.vector()[:] = expit(previous_psi)
+            self.save_rho(self.rho, objective, k + 1, penalty)
 
-            difference = np.sqrt(df.assemble((self.rho - previous_rho) ** 2 * df.dx))
-
-            if difference < self.tolerance(k):
-                print_values(k + 1, objective, objective_difference, difference)
-                print("EXIT: Optimal solution found")
-                break
-        else:
-            print_values(k + 1, objective, objective_difference, difference)
-            print("EXIT: Iteration did not converge")
-
-        self.save_rho(self.rho, objective, k + 1)
-
-    def save_rho(self, rho, objective: float, k: int):
+    def save_rho(self, rho, objective: float, k: int, penalty: float):
         design = os.path.splitext(os.path.basename(self.design_file))[0]
-        file_root = self.data_path + f"/{design}/data/N={self.N}_{k=}"
+        file_root = f"{self.data_path}/{design}/data/N={self.N}_p={penalty}_{k=}"
         os.makedirs(os.path.dirname(file_root), exist_ok=True)
 
         rho_file = file_root + "_rho.dat"
         save_function(rho, rho_file, "design")
 
-        data = {"objective": objective, "iteration": k, "rho_file": rho_file}
+        data = {
+            "objective": objective,
+            "iteration": k,
+            "penalty": penalty,
+            "domain_size": self.problem.domain_size,
+        }
         with open(file_root + ".dat", "wb") as datafile:
             pickle.dump(data, datafile)

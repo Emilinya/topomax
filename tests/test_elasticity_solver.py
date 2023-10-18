@@ -27,12 +27,15 @@ def test_elasticity_solver(cleanup):
 
     data_path = "tests/test_data/triangle/data"
 
-    solver_out = os.path.join(data_path, "N=10_k=22.dat")
-    assert os.path.isfile(solver_out)
+    solver_data = os.path.join(data_path, "N=10_p=3.0_k=22.dat")
+    assert os.path.isfile(solver_data)
 
-    with open(solver_out, "rb") as datafile:
+    solver_rho = os.path.join(data_path, "N=10_p=3.0_k=22_rho.dat")
+    assert os.path.isfile(solver_rho)
+
+    with open(solver_data, "rb") as datafile:
         solver_obj = pickle.load(datafile)
-    solver_rho, mesh, function_space = load_function(solver_obj["rho_file"])
+    solver_rho, mesh, function_space = load_function(solver_rho)
     solver_objective = solver_obj["objective"]
 
     with open(os.path.join(data_path, "correct_data.dat"), "rb") as datafile:
@@ -42,5 +45,5 @@ def test_elasticity_solver(cleanup):
     )
     correct_objective = correct_obj["objective"]
 
-    assert solver_objective == correct_objective
+    assert abs(solver_objective - correct_objective) < 1e-14
     assert df.assemble((solver_rho - correct_rho) ** 2 * df.dx) < 1e-14

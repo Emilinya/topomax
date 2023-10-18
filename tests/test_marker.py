@@ -14,10 +14,13 @@ def contains_same_elements(list1: list, list2: list):
 
 
 def solve_equation(function_space, boundary_conditions):
+    penalizer = FluidPenalizer()
+    penalizer.set_penalization(0.1)
+
     v, q = df.TestFunctions(function_space)
     u, p = df.TrialFunctions(function_space)
     equation = (
-        FluidPenalizer.eval(1.0) * df.inner(u, v)
+        penalizer(1.0) * df.inner(u, v)
         + df.inner(df.grad(u), df.grad(v))
         + df.inner(df.grad(p), v)
         + df.inner(df.div(u), q)

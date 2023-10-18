@@ -2,17 +2,18 @@ import dolfin as df
 import numpy as np
 
 from src.solver import Solver
-from src.penalizers import FluidPenalizer
 
-def test_fluid_problem():
+def test_fluid_gradient():
     solver = Solver(10, "designs/twin_pipe.json")
+    solver.problem.set_penalization(0.1)
+    penalizer = solver.problem.penalizer
 
     objective = solver.problem.calculate_objective(solver.rho)
     direction = df.project(
         solver.volume / solver.problem.volume_fraction, solver.rho.function_space()
     )
     gradient = df.assemble(
-        0.5 * FluidPenalizer.derivative(solver.rho) * direction * solver.problem.u**2 * df.dx
+        0.5 * penalizer.derivative(solver.rho) * direction * solver.problem.u**2 * df.dx
     )
 
     # we can't make t arbitrarily small as a small t results in numerical errors. Instead,

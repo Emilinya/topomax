@@ -82,19 +82,19 @@ class ElasticityProblem(Problem):
         parameters: DomainParameters,
         design: ElasticityDesign,
     ):
+        self.design = design
+        super().__init__(input_filter, mesh, parameters)
+
         self.Young_modulus = 4 / 3
         self.Poisson_ratio = 1 / 3
+        self.penalizer: ElasticPenalizer = ElasticPenalizer()
 
         # Calculate Lamé parameters from material properties
         self.lamé_lda = self.Young_modulus / (1 + self.Poisson_ratio)
         self.lamé_mu = self.lamé_lda * self.Poisson_ratio / (1 - 2 * self.Poisson_ratio)
 
-        self.design = design
-
         self.u = None
         self.filtered_rho = None
-
-        super().__init__(input_filter, mesh, parameters)
 
     def calculate_objective_gradient(self):
         """
@@ -108,7 +108,7 @@ class ElasticityProblem(Problem):
                 + "before calling calculate_objective_gradient"
             )
 
-        gradient = -ElasticPenalizer.derivative(self.filtered_rho) * (
+        gradient = -self.penalizer.derivative(self.filtered_rho) * (
             self.lamé_lda * df.div(self.u) ** 2
             + 2 * self.lamé_mu * df.sym(df.grad(self.u)) ** 2
         )
@@ -144,7 +144,7 @@ class ElasticityProblem(Problem):
             df.grad(u)
         )
 
-        a = df.inner(ElasticPenalizer.eval(rho) * sigma, df.sym(df.grad(v))) * df.dx
+        a = df.inner(self.penalizer(rho) * sigma, df.sym(df.grad(v))) * df.dx
         L = df.dot(self.body_force, v) * df.dx + df.dot(self.traction_term, v) * df.ds
 
         df.solve(a == L, w, bcs=self.boundary_conditions)

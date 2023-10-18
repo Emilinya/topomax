@@ -4,6 +4,9 @@
     "domain_parameters": {
       "width": 1.0,
       "height": 1.0,
+      "penalties": [
+        0.1
+      ],
       "volume_fraction": 0.5
     },
     "problem_parameters": {

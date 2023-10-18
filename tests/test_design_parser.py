@@ -18,6 +18,7 @@ def test_parse_design():
 
     assert parameters.width == 3
     assert parameters.height == 1
+    assert parameters.penalties == [3]
     assert design.objective == ElasticityObjective.MINIMIZE_COMPLIANCE
 
     assert design.parameters.body_force is not None
@@ -38,6 +39,7 @@ def test_parse_design():
 
     assert parameters.width == 1.5
     assert parameters.height == 1
+    assert parameters.penalties == [0.01, 0.1]
     assert parameters.volume_fraction == 1 / 3
     assert design.objective == FluidObjective.MINIMIZE_POWER
 

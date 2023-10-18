@@ -6,6 +6,7 @@ pub fn twin_pipe() -> Design {
         domain_parameters: DomainParameters {
             width: 1.5,
             height: 1.0,
+            penalties: vec![0.01, 0.1],
             volume_fraction: 1.0 / 3.0,
         },
         problem_parameters: FluidParameters {

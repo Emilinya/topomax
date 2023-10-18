@@ -5,7 +5,7 @@ import dolfin as df
 from src.filter import Filter
 from src.problem import Problem
 from src.penalizers import FluidPenalizer
-from src.domains import SidesDomain, RegionDomain, PointDomain
+from src.domains import SidesDomain, RegionDomain
 from designs.definitions import DomainParameters, FluidDesign, Side, Flow
 
 
@@ -55,13 +55,14 @@ class FluidProblem(Problem):
         parameters: DomainParameters,
         design: FluidDesign,
     ):
-        self.viscosity = 1.0
         self.design = design
+        super().__init__(input_filter, mesh, parameters)
+
+        self.viscosity = 1.0
+        self.penalizer: FluidPenalizer = FluidPenalizer()
 
         self.u = None
         self.rho = None
-
-        super().__init__(input_filter, mesh, parameters)
 
     def calculate_objective_gradient(self):
         """get objective derivative ϕ'(ρ) = ½α'(ρ)|u|²."""
@@ -73,7 +74,7 @@ class FluidProblem(Problem):
             )
 
         return df.project(
-            0.5 * FluidPenalizer.derivative(self.rho) * self.u**2,
+            0.5 * self.penalizer.derivative(self.rho) * self.u**2,
             self.rho.function_space(),
         )
 
@@ -82,7 +83,7 @@ class FluidProblem(Problem):
         self.rho = rho
         (self.u, _) = df.split(self.forward(rho))
 
-        t1 = FluidPenalizer.eval(rho) * self.u**2
+        t1 = self.penalizer(rho) * self.u**2
         t2 = self.viscosity * df.grad(self.u) ** 2
         objective = df.assemble(0.5 * (t1 + t2) * df.dx)
 
@@ -95,7 +96,7 @@ class FluidProblem(Problem):
         (v, q) = df.TestFunctions(self.solution_space)
 
         equation = (
-            FluidPenalizer.eval(rho) * df.inner(u, v)
+            self.penalizer(rho) * df.inner(u, v)
             + df.inner(df.grad(u), df.grad(v))
             + df.inner(df.grad(p), v)
             + df.inner(df.div(u), q)

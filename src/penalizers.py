@@ -1,37 +1,67 @@
-class ElasticPenalizer:
+from __future__ import annotations
+from abc import ABC, abstractmethod
+
+
+class Penalizer(ABC):
+    def __init__(self):
+        self.penalization: float | None = None
+
+    def set_penalization(self, penalization: float):
+        self.penalization = penalization
+
+    def assert_has_penalization(self):
+        if self.penalization is None:
+            raise ValueError("You must set penalization before calling penalizer")
+
+        # I must return here because the type checker does not understand that
+        # self.penalization must be not None after this function call otherwise
+        return self.penalization
+
+    @abstractmethod
+    def __call__(self, rho):
+        ...
+
+    @abstractmethod
+    def derivative(self, rho):
+        ...
+
+
+class ElasticPenalizer(Penalizer):
     """Solid isotropic material penalization (SIMP)."""
 
-    penalization = 3
-    minimum = 1e-6
+    def __init__(self):
+        super().__init__()
+        self.minimum = 1e-6
 
-    @classmethod
-    def eval(cls, rho):
-        p, m = cls.penalization, cls.minimum
+    def __call__(self, rho):
+        self.penalization = self.assert_has_penalization()
+        p, m = self.penalization, self.minimum
 
         return m + rho**p * (1 - m)
 
-    @classmethod
-    def derivative(cls, rho):
-        p, m = cls.penalization, cls.minimum
+    def derivative(self, rho):
+        self.penalization = self.assert_has_penalization()
+        p, m = self.penalization, self.minimum
 
         return p * rho ** (p - 1) * (1 - m)
 
 
-class FluidPenalizer:
+class FluidPenalizer(Penalizer):
     """What is this called?"""
 
-    penalization = 0.1
-    minimum = 2.5 / 100**2
-    maximum = 2.5 / 0.01**2
+    def __init__(self):
+        super().__init__()
+        self.minimum = 2.5 / 100**2
+        self.maximum = 2.5 / 0.01**2
 
-    @classmethod
-    def eval(cls, rho):
-        q, mini, maxi = cls.penalization, cls.minimum, cls.maximum
+    def __call__(self, rho):
+        self.penalization = self.assert_has_penalization()
+        q, mini, maxi = self.penalization, self.minimum, self.maximum
 
         return maxi + (mini - maxi) * rho * (1 + q) / (rho + q)
 
-    @classmethod
-    def derivative(cls, rho):
-        q, mini, maxi = cls.penalization, cls.minimum, cls.maximum
+    def derivative(self, rho):
+        self.penalization = self.assert_has_penalization()
+        q, mini, maxi = self.penalization, self.minimum, self.maximum
 
         return (mini - maxi) * q * (1 + q) / (rho + q) ** 2

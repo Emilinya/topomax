@@ -6,6 +6,7 @@ pub fn bridge() -> Design {
         domain_parameters: DomainParameters {
             width: 6.0,
             height: 1.0,
+            penalties: vec![3.0],
             volume_fraction: 0.5,
         },
         problem_parameters: ElasticityParameters {
