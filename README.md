@@ -47,10 +47,12 @@ You can either have a fluid design with a fluid objective and fluid parameters, 
 pub struct DomainParameters {
     pub width: f64,
     pub height: f64,
-    pub fraction: f64,
+    pub penalties: Vec<f32>,
+    pub volume_fraction: f64,
 }
 ```
-The width and height is the width and height of your domain, and the fraction is the volume fraction for the volume constraint.
+The width and height is the width and height of your domain, and the volume_fraction is the volume fraction for the volume constraint. The program solves the topology optimization problem
+once for each penalty in the penalties list, and uses the result from the previous solution as the initial condition for the next one. This is sometimes necessary in cases where a large penalty is too restrictive.
 
 ### Fluid problem
 For a fluid problem, the fluid objectives are
