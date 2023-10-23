@@ -85,13 +85,13 @@ class ElasticityProblem(Problem):
         self.design = design
         super().__init__(input_filter, mesh, parameters)
 
-        self.Young_modulus = 4 / 3
-        self.Poisson_ratio = 1 / 3
+        self.Young_modulus = 5 / 2
+        self.Poisson_ratio = 1 / 4
         self.penalizer: ElasticPenalizer = ElasticPenalizer()
 
         # Calculate Lamé parameters from material properties
-        self.lamé_lda = self.Young_modulus / (1 + self.Poisson_ratio)
-        self.lamé_mu = self.lamé_lda * self.Poisson_ratio / (1 - 2 * self.Poisson_ratio)
+        self.lamé_mu = self.Young_modulus / (2 * (1 + self.Poisson_ratio))
+        self.lamé_lda = self.lamé_mu * self.Poisson_ratio / (0.5 - self.Poisson_ratio)
 
         self.u = None
         self.filtered_rho = None
