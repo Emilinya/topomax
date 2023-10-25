@@ -1,11 +1,17 @@
+import os
 import numpy as np
 import numpy.random as npr
 from matplotlib import cm
 import matplotlib as mpl
+import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 from pyevtk.hl import gridToVTK
 import numpy.matlib as ml
 import scipy.integrate as sp
+
+def smart_savefig(filename, **kwargs):
+    os.makedirs(os.path.dirname(filename), exist_ok=True)
+    plt.savefig(filename, **kwargs)
 
 # convert numpy BCs to torch
 def ConvBCsToTensors(bc_d):
@@ -32,12 +38,22 @@ def write_vtk(filename, x_space, y_space, z_space, Ux, Uy, Uz):
 # --------------------------------------------------------------------------------
 def write_vtk_v2(filename, x_space, y_space, z_space, U, S11, S12, S22, E11, E12, E22, SVonMises):
     yy, zz, xx = np.meshgrid(y_space, z_space, x_space)
-    gridToVTK(filename, xx, yy, zz, pointData={"Ux": np.expand_dims( U[0],0) ,"Uy": np.expand_dims(U[1],0), "S-VonMises": np.expand_dims(SVonMises,0), \
-                                               "S11": np.expand_dims(S11,0), "S12": np.expand_dims(S12,0), \
-                                               "S22": np.expand_dims(S22,0), \
-                                               "E11": np.expand_dims(E11,0), "E12": np.expand_dims(E12,0), \
-                                               "E22": np.expand_dims(E22,0)\
-                                               })
+
+    # I need to copy E11 and E22 because they are not C_CONTIGUOUS.
+    # Why are they not? Did this work for He et al?
+    point_data = {
+        "Ux": np.expand_dims( U[0],0),
+        "Uy": np.expand_dims(U[1],0), 
+        "S-VonMises": np.expand_dims(SVonMises,0),
+        "S11": np.expand_dims(S11,0),
+        "S12": np.expand_dims(S12,0),
+        "S22": np.expand_dims(S22,0),
+        "E11": np.expand_dims(E11,0).copy(),
+        "E12": np.expand_dims(E12,0), 
+        "E22": np.expand_dims(E22,0).copy()
+    }
+
+    gridToVTK(filename, xx, yy, zz, point_data)
     # gridToVTK(filename, xx, yy, zz, pointData={"displacement": U})
 
 

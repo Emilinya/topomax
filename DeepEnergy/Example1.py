@@ -85,8 +85,6 @@ def get_Train_domain():
         # Right boundary condition (Neumann BC)
         bcr_t_pts_idx = np.where( (dom[:, 0] == Length) & ( dom[:, 1] >= Height/ 2. - Height / ( Ny - 1 ) / 2. ) & ( dom[:, 1] <= Height/ 2. + Height / ( Ny - 1 ) / 2. ) )
         bcr_t_pts = dom[bcr_t_pts_idx, :][0]
-        print( bcr_t_pts )
-        exit()
         bcr_t = np.ones(np.shape(bcr_t_pts)) * [0., -2000.]
 
         boundary_neumann = {
@@ -364,7 +362,7 @@ class DeepEnergyMethod:
             ax.set_title('S12')
             plt.tight_layout()
 
-            plt.savefig( './Example' + str(Example) + '/FieldVars_' + str(TO_itr) + '.png' , format = 'png', dpi=1200 , bbox_inches="tight" )
+            util.smart_savefig( './Example' + str(Example) + '/FieldVars_' + str(TO_itr) + '.png' , format = 'png', dpi=1200 , bbox_inches="tight" )
             plt.close()
 
         np.save('./Example' + str(Example) + '/ITR_' + str(TO_itr) + '.npy' , np.array([density,\
@@ -424,7 +422,7 @@ def Val_and_Grad( density ):
     plt.colorbar( ff , ax=axs[1] )
     axs[1].set_aspect('equal') 
     axs[1].set_title('Sensitivity' )
-    plt.savefig( './Example' + str(Example) + '/Design_' + str(TO_itr) + '.png' , format = 'png', dpi=600 , bbox_inches="tight" )
+    util.smart_savefig( './Example' + str(Example) + '/Design_' + str(TO_itr) + '.png' , format = 'png', dpi=600 , bbox_inches="tight" )
     plt.close()
     np.save('./Example' + str(Example) + '/Density_' + str(TO_itr) + '.npy' , density.reshape(ss) )
 
@@ -625,7 +623,7 @@ plt.plot( np.arange(len(Train_time)) + 1 , Train_time )
 plt.xlabel('TopOpt iteration')
 plt.ylabel('DEM train time [s]')
 plt.title('Total TO time = ' + str(t_tot) + 's' )
-plt.savefig( filename_out + 'Train_time.png' , dpi=600 )
+util.smart_savefig( filename_out + 'Train_time.png' , dpi=600 )
 Train_time.append( t_tot )
 np.save( filename_out + 'Train_time.npy' , Train_time )
 
@@ -633,6 +631,6 @@ plt.figure()
 plt.plot( np.arange(len(ObjVal)) + 1 , ObjVal )
 plt.xlabel('TopOpt iteration')
 plt.ylabel('Compliance [J]')
-plt.savefig( filename_out + 'Compliance.png' , dpi=600 )
+util.smart_savefig( filename_out + 'Compliance.png' , dpi=600 )
 np.save( filename_out + 'Compliance.npy' , ObjVal )
 plt.close()

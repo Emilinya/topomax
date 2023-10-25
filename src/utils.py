@@ -29,7 +29,7 @@ class MeshFunctionWrapper:
 def mesh_to_N(mesh: df.Mesh) -> int:
     # hmin is the length of the diagonal of a mesh grid square
     N = 1 / (mesh.hmin() / np.sqrt(2))
-    if abs(N - int(round(N))) / N > 1e-14:
+    if abs(N - int(round(N))) / N > 1e-10:
         print(
             f"save_function: got non-integer N: {N}, "
             + "this could result in wrong data getting saved"
