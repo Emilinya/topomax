@@ -1,7 +1,6 @@
 import os
 import sys
 import copy
-import time
 import warnings
 
 import torch
@@ -12,9 +11,9 @@ from scipy.sparse import coo_matrix
 from hyperopt import fmin, tpe, hp, Trials
 from sklearn.preprocessing import normalize
 
-from Sub_Functions.DeepEnergyMethod import DeepEnergyMethod
 from Sub_Functions.data_structs import Domain, TopOptParameters, NNParameters
-from Sub_Functions import Utility as util
+from Sub_Functions.DeepEnergyMethod import DeepEnergyMethod
+from Sub_Functions.utils import Timer, smart_savefig
 from Sub_Functions.MMA import optimize
 
 
@@ -134,7 +133,7 @@ def val_and_grad_generator(
     def val_and_grad(density, iteration):
         rho_tilda = dfilter @ density
 
-        dfdrho_tilda, compliance = dem.train_model(
+        dfdrho_tilda, compliance, training_time = dem.train_model(
             rho_tilda,
             domain_array,
             iteration,
@@ -150,7 +149,7 @@ def val_and_grad_generator(
         sensitivity = dfilter.T @ dfdrho_tilda_npy.flatten()
 
         # Save plot
-        start_io = time.time()
+        timer = Timer()
         fig, axs = plt.subplots(2, 1, sharex="col")
         ff = axs[0].imshow(
             np.flipud(density.reshape(ss)),
@@ -168,7 +167,7 @@ def val_and_grad_generator(
         plt.colorbar(ff, ax=axs[1])
         axs[1].set_aspect("equal")
         axs[1].set_title("Sensitivity")
-        util.smart_savefig(
+        smart_savefig(
             f"./example{example}/design_{iteration}.png",
             dpi=200,
             bbox_inches="tight",
@@ -182,7 +181,8 @@ def val_and_grad_generator(
         # Save some data
         dem.evaluate_model(x, y, density.reshape(ss), iteration)
 
-        return compliance.cpu().detach().numpy(), sensitivity, time.time() - start_io
+        compliance = compliance.cpu().detach().numpy()
+        return compliance, sensitivity, training_time, timer.get_time_seconds()
 
     return val_and_grad
 
@@ -194,59 +194,55 @@ def volume_constraint_generator(volume_fraction):
     return volume_constraint
 
 
-def hyperopt_main(x_var):
-    lr = x_var["x_lr"]
-    neuron = int(x_var["neuron"])
-    CNN_dev = x_var["CNN_dev"]
-    rff_dev = x_var["rff_dev"]
-    iteration = int(x_var["No_iteration"])
-    N_layers = int(x_var["N_layers"])
-    act_func = x_var["act_func"]
+def hyperopt_main_generator(
+    train_domain: Domain,
+    example: int,
+    device,
+    to_parameters: TopOptParameters,
+    datafile,
+):
+    def hyperopt_main(x_var: dict[str, int | float | str]):
+        nn_parameters = NNParameters(
+            input_size=2,
+            output_size=2,
+            layer_count=int(x_var["layer_count"]),
+            neuron_count=int(x_var["neuron_count"]),
+            learning_rate=x_var["learning_rate"],
+            CNN_deviation=x_var["CNN_deviation"],
+            rff_deviation=x_var["rff_deviation"],
+            iteration_count=int(x_var["iteration_count"]),
+            activation_function=x_var["activation_function"],
+        )
 
-    # ----------------------------------------------------------------------
-    #                   STEP 1: SETUP DOMAIN - COLLECT CLEAN DATABASE
-    # ----------------------------------------------------------------------
-    dom, boundary_neumann, boundary_dirichlet = get_train_domain(train_domain, example)
-    x, y, _ = get_test_datatest(test_domain)
+        # STEP 1: SETUP DOMAIN - COLLECT CLEAN DATABASE
+        dom, boundary_neumann, boundary_dirichlet = get_train_domain(
+            train_domain, example
+        )
+        # x, y, _ = get_test_datatest(test_domain)
 
-    # --- Activate for circular inclusion-----
-    # density= get_density()
-    density = 1
-    # ----------------------------------------------------------------------
-    #                   STEP 2: SETUP MODEL
-    # ----------------------------------------------------------------------
+        density = (
+            np.ones((train_domain.Ny - 1) * (train_domain.Nx - 1))
+            * to_parameters.volume_fraction
+        )
 
-    dem = DeepEnergyMethod(device, train_domain, example, to_parameters, nn_parameters)
+        # STEP 2: SETUP MODEL
+        dem = DeepEnergyMethod(
+            device, train_domain, example, to_parameters, nn_parameters
+        )
 
-    # ----------------------------------------------------------------------
-    #                   STEP 3: TRAINING MODEL
-    # ----------------------------------------------------------------------
-    Loss = dem.train_model(
-        density,
-        dom,
-        shape,
-        dxdy,
-        boundary_neumann,
-        boundary_dirichlet,
-        0,
-    )
-    print(
-        "lr: %.5e,\t neuron: %.3d, \t CNN_Sdev: %.5e, \t RNN_Sdev: %.5e, \t Itertions: %.3d, \t Layers: %d, \t Act_fn : %s,\t Loss: %.5e"
-        % (lr, neuron, CNN_dev, rff_dev, iteration, N_layers, act_func, Loss)
-    )
+        # STEP 3: TRAIN MODEL
+        _, loss, _ = dem.train_model(
+            density, dom, 0, boundary_neumann, boundary_dirichlet, [], []
+        )
+        print(f"{nn_parameters}\n  loss: {loss:.5e}")
+        datafile.write(f"{nn_parameters} - loss: {loss:.5e}\n")
 
-    f.write(
-        "lr: %.5e,\t neuron: %.3d, \t CNN_Sdev: %.5e, \t RNN_Sdev: %.5e, \t Itertions: %.3d, \t Layers: %d, \t Act_fn : %s,\t Loss: %.5e"
-        % (lr, neuron, CNN_dev, rff_dev, iteration, N_layers, act_func, Loss)
-    )
+        # STEP 4: TEST MODEL
+        # dem.evaluate_model(x, y, E, nu, layer_count, activation_function)
 
-    # ----------------------------------------------------------------------
-    #                   STEP 4: TEST MODEL
-    # ----------------------------------------------------------------------
+        return float(loss)
 
-    # dem.evaluate_model(x, y, E, nu, N_layers, act_func)
-
-    return Loss
+    return hyperopt_main
 
 
 def main():
@@ -285,36 +281,42 @@ def main():
         convergence_tolerances=5e-5 * np.ones(80),
     )
 
-    # ------------------------- Perform hyper parameter optimization or not -----------------
-    if False:
-        # -------------------------- File to write results in ---------
-        if os.path.exists("HOpt_Runs.txt"):
-            os.remove("HOpt_Runs.txt")
+    # perform hyper parameter optimization or not
+    optimize_hyperparameters = False
+    if optimize_hyperparameters:
+        datafile_path = "hyperopt_runs.txt"
+        with open(datafile_path, "w") as datafile:
+            hyperopt_main = hyperopt_main_generator(
+                train_domain, example, device, optimization_parameters, datafile
+            )
 
-        f = open("HOpt_Runs.txt", "a")
+            space = {
+                "layer_count": hp.quniform("layer_count", 3, 5, 1),
+                "neuron_count": 2 * hp.quniform("neuron_count", 10, 60, 1),
+                "learning_rate": hp.loguniform("learning_rate", 0, 2),
+                "CNN_deviation": hp.uniform("CNN_deviation", 0, 1),
+                "rff_deviation": hp.uniform("rff_deviation", 0, 1),
+                "iteration_count": hp.quniform("iteration_count", 40, 100, 1),
+                "activation_function": hp.choice(
+                    "activation_function", ["tanh", "relu", "rrelu", "sigmoid"]
+                ),
+            }
 
-        # -------------------------- Variable HyperParameters-----------------------------
-        space = {
-            "x_lr": hp.loguniform("x_lr", 0, 2),
-            "neuron": 2 * hp.quniform("neuron", 10, 60, 1),
-            "act_func": hp.choice("act_func", ["tanh", "relu", "rrelu", "sigmoid"]),
-            "CNN_dev": hp.uniform("CNN_dev", 0, 1),
-            "rff_dev": hp.uniform("rff_dev", 0, 1),
-            "No_iteration": hp.quniform("No_iteration", 40, 100, 1),
-            "N_layers": hp.quniform("N_layers", 3, 5, 1),
-        }
-
-        best = fmin(
-            hyperopt_main,
-            space,
-            algo=tpe.suggest,
-            max_evals=100,
-            trials=Trials(),
-            rstate=np.random.default_rng(2019),
-            max_queue_len=2,
-        )
-        print(best)
-        exit()
+            best = fmin(
+                hyperopt_main,
+                space,
+                algo=tpe.suggest,
+                max_evals=100,
+                trials=Trials(),
+                rstate=np.random.default_rng(2019),
+                max_queue_len=2,
+            )
+            print(best)
+            datafile.write(f"\n--- Optimal parameters ---\n{best}")
+            sys.exit(
+                "got optimal hyperparameters, change neural_network_parameters "
+                + "and restart with optimize_hyperparameters=False"
+            )
 
     neural_network_parameters = NNParameters(
         input_size=2,
@@ -328,14 +330,8 @@ def main():
         activation_function="rrelu",
     )
 
-    # ----------------------------------------------------------------------
-    #                   STEP 1: SETUP DOMAIN - COLLECT CLEAN DATABASE
-    # ----------------------------------------------------------------------
     dom, boundary_neumann, boundary_dirichlet = get_train_domain(train_domain, example)
 
-    # ----------------------------------------------------------------------
-    #                   STEP 2: SETUP MODEL
-    # ----------------------------------------------------------------------
     dem = DeepEnergyMethod(
         device,
         train_domain,
@@ -344,11 +340,9 @@ def main():
         neural_network_parameters,
     )
 
-    # TO using MMA
-    start_t = time.time()
-    W = density_filter(optimization_parameters.filter_radius, train_domain)
-    end_t = time.time()
-    print("Generating density filter took " + str(end_t - start_t) + " s")
+    with Timer("Generating density filter"):
+        W = density_filter(optimization_parameters.filter_radius, train_domain)
+    print()
 
     # Passive Density elements for topology opt.
     density = (
@@ -356,7 +350,7 @@ def main():
         * optimization_parameters.volume_fraction
     )
 
-    start_t = time.time()
+    timer = Timer()
     training_times, objective_values = [], []
     optimizationParams = {
         "maxIters": optimization_parameters.max_iterations,
@@ -388,19 +382,22 @@ def main():
         train_domain.Ny - 1,
         train_domain.Nx - 1,
     )
-    end_t = time.time()
-    t_tot = end_t - start_t - total_io_time
-    print(f"Topology optimization took {t_tot:.3f} s ({total_io_time:3f} s io time)")
+
+    total_time = timer.get_time_seconds()
+    print(
+        f"\nTopology optimization took {Timer.prettify_seconds(total_time - total_io_time)} "
+        + f"(IO took {Timer.prettify_seconds(total_io_time)})"
+    )
 
     plt.figure()
     plt.plot(np.arange(len(training_times)) + 1, training_times)
     plt.xlabel("iteration")
     plt.ylabel("DEM training time [s]")
-    plt.title("Total time = " + str(t_tot) + "s")
-    util.smart_savefig(
-        optimization_parameters.output_folder + "/training_times.png", dpi=600
+    plt.title(f"Total time = {total_time}s")
+    smart_savefig(
+        optimization_parameters.output_folder + "/training_times.png", dpi=200
     )
-    training_times.append(t_tot)
+    training_times.append(total_time)
     np.save(
         optimization_parameters.output_folder + "/training_times.npy", training_times
     )
@@ -409,8 +406,8 @@ def main():
     plt.plot(np.arange(len(objective_values)) + 1, objective_values)
     plt.xlabel("iteration")
     plt.ylabel("compliance [J]")
-    util.smart_savefig(
-        optimization_parameters.output_folder + "/objective_values.png", dpi=600
+    smart_savefig(
+        optimization_parameters.output_folder + "/objective_values.png", dpi=200
     )
     np.save(
         optimization_parameters.output_folder + "/objective_values.npy",

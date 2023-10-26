@@ -5,10 +5,10 @@ import numpy as np
 import matplotlib.pyplot as plt
 from torch.autograd import grad
 
+from Sub_Functions import utils as util
 from Sub_Functions.MultiLayerNet import MultiLayerNet
 from Sub_Functions.InternalEnergy import InternalEnergy
 from Sub_Functions.IntegrationFext import IntegrationFext
-from Sub_Functions import Utility as util
 from Sub_Functions.data_structs import Domain, TopOptParameters, NNParameters
 
 
@@ -64,9 +64,6 @@ class DeepEnergyMethod:
             self.device
         )
 
-        # -------------------------------------------------------------------------------
-        #                           Neumann BC
-        # -------------------------------------------------------------------------------
         neuBC_coordinates = {}
         neuBC_penalty = {}
         neuBC_values = {}
@@ -87,9 +84,6 @@ class DeepEnergyMethod:
                 torch.from_numpy(neumannBC[keyi]["idx"]).float().to(self.device)
             )
 
-        # ----------------------------------------------------------------------------------
-        # Minimizing loss function (energy and boundary conditions)
-        # ----------------------------------------------------------------------------------
         optimizer_LBFGS = torch.optim.LBFGS(
             self.model.parameters(),
             lr=self.nn_parameters.learning_rate,
@@ -147,7 +141,6 @@ class DeepEnergyMethod:
                 break
 
         elapsed = time.time() - start_time
-        print(f"Training time: {elapsed:.4f}")
         training_times.append(elapsed)
 
         u_pred = self.get_U(x)
@@ -156,7 +149,7 @@ class DeepEnergyMethod:
         )
         objective_values.append(compliance.cpu().detach().numpy())
 
-        return dfdrho, compliance
+        return dfdrho, compliance, elapsed
 
     def convergence_check(self, arry, rel_tol):
         num_check = 10
@@ -169,11 +162,9 @@ class DeepEnergyMethod:
         mean2 = np.mean(arry[-num_check:])
 
         if np.abs(mean2) < 1e-6:
-            print("Loss value converged to abs tol of 1e-6")
             return True
 
         if (np.abs(mean1 - mean2) / np.abs(mean2)) < rel_tol:
-            print("Loss value converged to rel tol of " + str(rel_tol))
             return True
 
         return False
@@ -268,26 +259,14 @@ class DeepEnergyMethod:
         )
         U = (np.float64(surUx), np.float64(surUy), np.float64(surUz))
 
-        # Write output
-        Write_file = True
-        if Write_file:
-            z = np.array([0]).astype(np.float64)
-            util.write_vtk_v2(
-                f"{self.to_parameters.output_folder}/itr_{iteration}",
-                x,
-                y,
-                z,
-                U,
-                S11,
-                S12,
-                S22,
-                E11,
-                E12,
-                E22,
-                SVonMises,
-            )
+        np.save(
+            f"{self.to_parameters.output_folder}/itr_{iteration}.npy",
+            np.array(
+                [density, U, S11, S12, S22, E11, E12, E22, SVonMises], dtype=object
+            ),
+        )
 
-        Write_fig = True
+        Write_fig = False
         if Write_fig:
             _, axs = plt.subplots(3, 3, sharex="col")
             data_dict = {
@@ -315,10 +294,3 @@ class DeepEnergyMethod:
                 bbox_inches="tight",
             )
             plt.close()
-
-        np.save(
-            f"{self.to_parameters.output_folder}/itr_{iteration}.npy",
-            np.array(
-                [density, U, S11, S12, S22, E11, E12, E22, SVonMises], dtype=object
-            ),
-        )
