@@ -530,12 +530,14 @@ def optimize( X0 , optimizationParams, \
                          10000*np.ones((m,1)), np.zeros((m,1)))
     mma.setMoveLimit(0.2);
          
+    iteration = 0
+    total_io_time = 0.0
     while( (change > optimizationParams['relTol']) \
            and (loop < optimizationParams['maxIters'])\
            or (loop < optimizationParams['minIters'])):
         loop = loop + 1;
         
-        J, dJ = objectiveHandle(rho); 
+        J, dJ, io_time = objectiveHandle(rho, iteration); 
         vc, dvc = consHandle(rho);
 
         J, dJ = J, dJ[np.newaxis].T
@@ -565,5 +567,8 @@ def optimize( X0 , optimizationParams, \
         #     plt.title(status)
         #     plt.show()    
         #     # exit()
-    return rho , J 
+        iteration += 1
+        total_io_time += io_time
+
+    return rho, J, total_io_time 
 

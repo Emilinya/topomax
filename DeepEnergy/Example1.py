@@ -1,636 +1,423 @@
-# from Sub_Functions import define_structure as des
-from Sub_Functions.MultiLayerNet import *
-from Sub_Functions.InternalEnergy import *
-from Sub_Functions.IntegrationFext import *
-from Sub_Functions import Utility as util
-from Sub_Functions.MMA import *
-from torch.autograd import grad
-from hyperopt import fmin, tpe, hp, STATUS_OK, Trials
-import numpy as np
-import time
-import torch
-from torch.autograd import grad
-import matplotlib.pyplot as plt
-import matplotlib as mpl
-from matplotlib import cm
-import numpy.random as npr
-import random
 import os
-from sklearn.preprocessing import normalize
-from scipy.sparse import *
-from skimage.morphology import disk
+import sys
+import copy
+import time
 import warnings
-warnings.filterwarnings("ignore")
-npr.seed(2022)
-torch.manual_seed(2022)
-np.random.seed(2022)
 
-# torch.cuda.is_available = lambda : False
-# device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+import torch
+import numpy as np
+import numpy.random as npr
+import matplotlib.pyplot as plt
+from scipy.sparse import coo_matrix
+from hyperopt import fmin, tpe, hp, Trials
+from sklearn.preprocessing import normalize
 
-if torch.cuda.is_available():
-    print("CUDA is available, running on GPU")
-    dev = torch.device('cuda')
-    device_string = 'cuda'
-    torch.set_default_tensor_type('torch.cuda.FloatTensor')
-else:
-    device_string = 'cpu'
-    dev = torch.device('cpu')
-    print("CUDA not available, running on CPU")
+from Sub_Functions.DeepEnergyMethod import DeepEnergyMethod
+from Sub_Functions.data_structs import Domain, TopOptParameters, NNParameters
+from Sub_Functions import Utility as util
+from Sub_Functions.MMA import optimize
 
-##################################################  DEM functions  ##########################################################################
-def get_Train_domain():
-    x_dom = x_min, Length, Nx
-    y_dom = y_min, Height, Ny
+
+def get_train_domain(domain: Domain, example: int):
     # create points
-    lin_x = np.linspace(x_dom[0], x_dom[1], x_dom[2])
-    lin_y = np.linspace(y_dom[0], y_dom[1], y_dom[2])
-    dom = np.zeros((Nx * Ny, 2)) #Initializing the domain array
-    c = 0
-    
-    node_dy= (y_dom[1]-y_dom[0])/(y_dom[2]-1)
-    node_dx= (x_dom[1]-x_dom[0])/(x_dom[2]-1)
-    
-    # Assign nodal coordinates to all the points in the dom array
-    for x in np.nditer(lin_x):
-        tb = y_dom[2] * c
-        te = tb + y_dom[2]
-        c += 1
-        dom[tb:te, 0] = x
-        dom[tb:te, 1] = lin_y
-    
-    # Plot the points defined in Dom
-    np.meshgrid(lin_x, lin_y)
+    lin_x = np.linspace(domain.x_min, domain.length, domain.Nx)
+    lin_y = np.linspace(domain.y_min, domain.height, domain.Ny)
+    domain_array = np.zeros((domain.Nx * domain.Ny, 2))
 
-    
-    # ------------------------------------ BOUNDARY ----------------------------------------
-    if Example == 1:
-        # Downward load from the middle of the domain
+    # Assign nodal coordinates to all the points in the domain array
+    for c, x in enumerate(np.nditer(lin_x)):
+        tb = domain.Ny * c
+        te = tb + domain.Ny
+        domain_array[tb:te, 0] = x
+        domain_array[tb:te, 1] = lin_y
+
+    # create boundary conditions
+    if example == 1:
+        # downward load on the top of the domain
         len_load = 0.5
-        bcr_t_pts_idx = np.where( (dom[:, 0] >= Length/2. - len_load/2.) & (dom[:, 0] <= Length/2. + len_load/2.) & (dom[:, 1] == Height ) )
-        bcr_t_pts = dom[bcr_t_pts_idx, :][0]
-        bcr_t = np.ones(np.shape(bcr_t_pts)) * [0., -2000.]
+        bcr_t_pts_idx = np.where(
+            (domain_array[:, 0] >= domain.length / 2.0 - len_load / 2.0)
+            & (domain_array[:, 0] <= domain.length / 2.0 + len_load / 2.0)
+            & (domain_array[:, 1] == domain.height)
+        )
+        bcr_t_pts = domain_array[bcr_t_pts_idx, :][0]
+        bcr_t = np.ones(np.shape(bcr_t_pts)) * [0.0, -2000.0]
 
         boundary_neumann = {
-            # condition on the right
             "neumann_1": {
                 "coord": bcr_t_pts,
                 "known_value": bcr_t,
-                "penalty": 1.,
-                "idx":np.asarray(bcr_t_pts_idx)
+                "penalty": 1.0,
+                "idx": np.asarray(bcr_t_pts_idx),
             }
-            # adding more boundary condition here ...
         }
-    elif Example == 2:
-        # Right boundary condition (Neumann BC)
-        bcr_t_pts_idx = np.where( (dom[:, 0] == Length) & ( dom[:, 1] >= Height/ 2. - Height / ( Ny - 1 ) / 2. ) & ( dom[:, 1] <= Height/ 2. + Height / ( Ny - 1 ) / 2. ) )
-        bcr_t_pts = dom[bcr_t_pts_idx, :][0]
-        bcr_t = np.ones(np.shape(bcr_t_pts)) * [0., -2000.]
+    elif example == 2:
+        # downward load on the right side of the domain
+        _, dy = domain.dxdy
+        bcr_t_pts_idx = np.where(
+            (domain_array[:, 0] == domain.length)
+            & (domain_array[:, 1] >= domain.height / 2.0 - dy / 2.0)
+            & (domain_array[:, 1] <= domain.height / 2.0 + dy / 2.0)
+        )
+        bcr_t_pts = domain_array[bcr_t_pts_idx, :][0]
+        bcr_t = np.ones(np.shape(bcr_t_pts)) * [0.0, -2000.0]
 
         boundary_neumann = {
-            # condition on the right
             "neumann_1": {
                 "coord": bcr_t_pts,
                 "known_value": bcr_t,
-                "penalty": 1.,
-                "idx":np.asarray(bcr_t_pts_idx)
+                "penalty": 1.0,
+                "idx": np.asarray(bcr_t_pts_idx),
             }
-            # adding more boundary condition here ...
         }
-    return dom, boundary_neumann, {}
+    else:
+        raise ValueError(f"Unknown example: {example}")
 
-def get_Test_datatest(Nx, Ny):
-    x_dom_test = x_min, Length_test, Nx
-    y_dom_test = y_min, Height_test, Ny
+    return domain_array, boundary_neumann, {}
+
+
+def get_test_datatest(domain: Domain):
     # create points
-    x_space = np.linspace(x_dom_test[0], x_dom_test[1], x_dom_test[2])
-    y_space = np.linspace(y_dom_test[0], y_dom_test[1], y_dom_test[2])
+    x_space = np.linspace(domain.x_min, domain.length, domain.Nx)
+    y_space = np.linspace(domain.y_min, domain.height, domain.Ny)
     xGrid, yGrid = np.meshgrid(x_space, y_space)
     data_test = np.concatenate(
-        (np.array([xGrid.flatten()]).T, np.array([yGrid.flatten()]).T), axis=1)
+        (np.array([xGrid.flatten()]).T, np.array([yGrid.flatten()]).T), axis=1
+    )
     return x_space, y_space, data_test
 
-def ConvergenceCheck( arry , rel_tol ):
-    num_check = 10
 
-    # Run minimum of 2*num_check iterations
-    if len( arry ) < 2 * num_check :
-        return False
+def density_filter(radius: float, domain: Domain):
+    nex = domain.Nx - 1
+    ney = domain.Ny - 1
+    Lx = domain.length
+    Ly = domain.height
 
-    mean1 = np.mean( arry[ -2*num_check : -num_check ] )
-    mean2 = np.mean( arry[ -num_check : ] )
-
-    if np.abs( mean2 ) < 1e-6:
-        print('Loss value converged to abs tol of 1e-6' )
-        return True     
-
-    if ( np.abs( mean1 - mean2 ) / np.abs( mean2 ) ) < rel_tol:
-        print('Loss value converged to rel tol of ' + str(rel_tol) )
-        return True
-    else:
-        return False
-   
-class DeepEnergyMethod:
-    # Instance attributes
-    def __init__(self, model, dim, E, nu, act_func, CNN_dev, rff_dev,N_Layers):
-        # self.data = data
-        self.model = MultiLayerNet(model[0], model[1], model[2],act_func, CNN_dev, rff_dev,N_Layers)
-        self.model = self.model.to(dev)
-        self.InternalEnergy= InternalEnergy(E, nu)
-        self.FextLoss = IntegrationFext(dim)
-        self.dim = dim
-        self.lossArray = []
-
-    def train_model(self, shape, dxdydz, data, neumannBC, dirichletBC, iteration, learning_rate,N_Layers,activatn_fn, rho , TO_itr ):            
-        global Train_time , ObjVal
-        x = torch.from_numpy(data).float()
-        x = x.to(dev)
-        x.requires_grad_(True)
-
-        density = torch.from_numpy(rho).float()
-        density = torch.reshape( density , [ Ny-1 , Nx-1 ] ).to(dev)
-
-
-        # -------------------------------------------------------------------------------
-        #                           Neumann BC
-        # -------------------------------------------------------------------------------
-        neuBC_coordinates = {}  # declare a dictionary
-        neuBC_values = {}  # declare a dictionary
-        neuBC_penalty = {}
-        neuBC_Zeros= {}
-        neuBC_idx={}
-        
-        for i, keyi in enumerate(neumannBC):
-            neuBC_coordinates[i] = torch.from_numpy(neumannBC[keyi]['coord']).float().to(dev)
-            neuBC_coordinates[i].requires_grad_(True)
-            neuBC_values[i] = torch.from_numpy(neumannBC[keyi]['known_value']).float().to(dev)
-            neuBC_penalty[i] = torch.tensor(neumannBC[keyi]['penalty']).float().to(dev)
-            neuBC_idx[i]=torch.from_numpy(neumannBC[keyi]['idx']).float().to(dev)
-        
-        # ----------------------------------------------------------------------------------
-        # Minimizing loss function (energy and boundary conditions)
-        # ----------------------------------------------------------------------------------
-        optimizer_LBFGS = torch.optim.LBFGS(self.model.parameters(), lr=learning_rate, max_iter=20,line_search_fn='strong_wolfe')
-        optimizer_Adam= torch.optim.Adam(self.model.parameters(), lr=0.001)
-        start_time = time.time()
-        energy_loss_array = []
-        boundary_loss_array = []
-        loss_history= np.zeros(iteration)
-        Iter_No_Hist= []
-
-        for t in range(iteration):
-            # Zero gradients, perform a backward pass, and update the weights.
-            def closure():
-                it_time = time.time()
-                u_pred = self.getU(x,N_Layers,activatn_fn)
-                u_pred.double()
-
-                # ---- Calculate internal and external energies------                 
-                storedEnergy= self.InternalEnergy.Elastic2DGaussQuad(u_pred, x, dxdydz, shape, density , False )
-                externalE = self.FextLoss.lossFextEnergy(u_pred, x, neuBC_coordinates, neuBC_values, neuBC_idx, dxdydz)
-                loss = storedEnergy - externalE
-                optimizer_LBFGS.zero_grad()
-                loss.backward()
-
-                if verbose:
-                    print('     Iter: %d Loss: %.6e IntE: %.4e ExtE: %.4e'% (t + 1, loss.item(), storedEnergy.item(),externalE.item() ))
-                loss_history[t]= loss.data
-                energy_loss_array.append(loss.data)
-                Iter_No_Hist.append(t)
-                self.lossArray.append( loss.data.cpu() )
-                return loss
-            optimizer_LBFGS.step(closure)
-
-            # Check convergence
-            if ConvergenceCheck( self.lossArray , convergence_tol[ TO_itr ] ):
-                break
-        elapsed = time.time() - start_time
-        # plt.figure()
-        # plt.scatter(np.linspace(1,iteration,iteration), loss_history)
-        # plt.draw()
-        # plt.pause( 3. )
-        # plt.close()
-        print('Training time: %.4f' % elapsed)
-        Train_time.append( elapsed )
-
-        # TO:
-        u_pred = self.getU(x,N_Layers,activatn_fn) #                                                     Sensitivity mode
-        dfdrho , compliance = self.InternalEnergy.Elastic2DGaussQuad(u_pred, x, dxdydz, shape, density , True )
-        ObjVal.append( compliance.cpu().detach().numpy() )
-        return dfdrho , compliance
-
-
-    def getU(self, x,N_Layers,activatn_fn):
-        u = self.model( x , N_Layers,activatn_fn)
-        phix = x[:, 0] / Length
-
-        if Example == 1:
-            Ux = phix * ( 1. - phix ) * u[:, 0]
-            Uy = phix * ( 1. - phix ) * u[:, 1]
-        elif Example == 2:
-            Ux = phix * u[:, 0]
-            Uy = phix * u[:, 1]
-
-        Ux = Ux.reshape(Ux.shape[0], 1)
-        Uy = Uy.reshape(Uy.shape[0], 1)
-        u_pred = torch.cat((Ux, Uy), -1)
-        return u_pred
-    
-    def evaluate_model(self, x, y, E, nu, N_Layers,activatn_fn , density):   
-        Nx = len(x)
-        Ny = len(y)
-        xGrid, yGrid = np.meshgrid(x, y)
-        x1D = xGrid.flatten()
-        y1D = yGrid.flatten()
-        xy = np.concatenate((np.array([x1D]).T, np.array([y1D]).T), axis=-1)
-        xy_tensor = torch.from_numpy(xy).float()
-        xy_tensor = xy_tensor.to(dev)
-        xy_tensor.requires_grad_(True)
-        # u_pred_torch = self.model(xy_tensor)
-        u_pred_torch = self.getU(xy_tensor,N_Layers,activatn_fn)
-        duxdxy = \
-            grad(u_pred_torch[:, 0].unsqueeze(1), xy_tensor, torch.ones(xy_tensor.size()[0], 1, device=dev),
-                 create_graph=True, retain_graph=True)[0]
-        duydxy = \
-            grad(u_pred_torch[:, 1].unsqueeze(1), xy_tensor, torch.ones(xy_tensor.size()[0], 1, device=dev),
-                 create_graph=True, retain_graph=True)[0]
-
-        E11 = duxdxy[:, 0].unsqueeze(1)
-        E22 = duydxy[:, 1].unsqueeze(1)
-        E12 = (duxdxy[:, 1].unsqueeze(1) + duydxy[:, 0].unsqueeze(1))/2
-
-        S11 = E/(1-nu**2)*(E11 + nu*E22)
-        S22 = E/(1-nu**2)*(E22 + nu*E11)
-        S12 = E*E12/(1+nu)
-
-        u_pred = u_pred_torch.detach().cpu().numpy()
-
-        # flag = np.ones( [Nx*Ny,1] )
-        # threshold = np.max( density ) * 0.6
-        # mask = ( density.flatten() < threshold )
-        # flag[ mask , 0 ] = np.nan
-
-        E11_pred = E11.detach().cpu().numpy() #* flag
-        E12_pred = E12.detach().cpu().numpy() #* flag
-        E22_pred = E22.detach().cpu().numpy() #* flag
-        S11_pred = S11.detach().cpu().numpy() #* flag
-        S12_pred = S12.detach().cpu().numpy() #* flag
-        S22_pred = S22.detach().cpu().numpy() #* flag
-
-        # u_pred[:,0] *= flag[:,0]
-        # u_pred[:,1] *= flag[:,0]
-        surUx = u_pred[:, 0].reshape(Ny, Nx)
-        surUy = u_pred[:, 1].reshape(Ny, Nx)
-        surUz = np.zeros([Nx, Ny])
-
-        E11 = E11_pred.reshape(Ny, Nx)
-        E12 = E12_pred.reshape(Ny, Nx)
-        E22 = E22_pred.reshape(Ny, Nx)
-        S11 = S11_pred.reshape(Ny, Nx)
-        S12 = S12_pred.reshape(Ny, Nx)
-        S22 = S22_pred.reshape(Ny, Nx)
-
-        SVonMises = np.float64(
-            np.sqrt(0.5 * ((S11 - S22) ** 2 + (S22) ** 2 + (-S11) ** 2 + 6 * (S12 ** 2))))
-        U = (np.float64(surUx), np.float64(surUy), np.float64(surUz))
-
-        # Write output
-        Write_file = True
-        if Write_file:
-            z = np.array([0]).astype(np.float64)
-            util.write_vtk_v2( filename_out + 'TO_itr_' + str(TO_itr) , x, y, z, U, S11, S12, S22, E11, E12, E22, SVonMises )
-
-        Write_fig = True
-        if Write_fig:
-            fig, axs = plt.subplots(3, 3, sharex='col')
-            ax = axs[0,0]
-            ff = ax.imshow( np.flipud( U[0][:,:] ) , extent = [x_min, Length, y_min, Height],cmap='jet')
-            plt.colorbar( ff , ax=ax )
-            ax.set_aspect('equal') 
-            ax.set_title('Ux')
-
-            ax = axs[0,1]
-            ff = ax.imshow( np.flipud( U[1][:,:] ) , extent = [x_min, Length, y_min, Height],cmap='jet')
-            plt.colorbar( ff , ax=ax )
-            ax.set_aspect('equal') 
-            ax.set_title('Uy')
-
-            ax = axs[0,2]
-            ff = ax.imshow( np.flipud( SVonMises[:,:] ) , extent = [x_min, Length, y_min, Height],cmap='jet')
-            plt.colorbar( ff , ax=ax )
-            ax.set_aspect('equal') 
-            ax.set_title('Mises stress')
-
-
-
-            ax = axs[1,0]
-            ff = ax.imshow( np.flipud( E11[:,:] ) , extent = [x_min, Length, y_min, Height],cmap='jet')
-            plt.colorbar( ff , ax=ax )
-            ax.set_aspect('equal') 
-            ax.set_title('E11')
-
-            ax = axs[1,1]
-            ff = ax.imshow( np.flipud( E22[:,:] ) , extent = [x_min, Length, y_min, Height],cmap='jet')
-            plt.colorbar( ff , ax=ax )
-            ax.set_aspect('equal') 
-            ax.set_title('E22')
-
-            ax = axs[1,2]
-            ff = ax.imshow( np.flipud( E12[:,:] ) , extent = [x_min, Length, y_min, Height],cmap='jet')
-            plt.colorbar( ff , ax=ax )
-            ax.set_aspect('equal') 
-            ax.set_title('E12')
-
-
-
-            ax = axs[2,0]
-            ff = ax.imshow( np.flipud( S11[:,:] ) , extent = [x_min, Length, y_min, Height],cmap='jet')
-            plt.colorbar( ff , ax=ax )
-            ax.set_aspect('equal') 
-            ax.set_title('S11')
-
-            ax = axs[2,1]
-            ff = ax.imshow( np.flipud( S22[:,:] ) , extent = [x_min, Length, y_min, Height],cmap='jet')
-            plt.colorbar( ff , ax=ax )
-            ax.set_aspect('equal') 
-            ax.set_title('S22')
-
-            ax = axs[2,2]
-            ff = ax.imshow( np.flipud( S12[:,:] ) , extent = [x_min, Length, y_min, Height],cmap='jet')
-            plt.colorbar( ff , ax=ax )
-            ax.set_aspect('equal') 
-            ax.set_title('S12')
-            plt.tight_layout()
-
-            util.smart_savefig( './Example' + str(Example) + '/FieldVars_' + str(TO_itr) + '.png' , format = 'png', dpi=1200 , bbox_inches="tight" )
-            plt.close()
-
-        np.save('./Example' + str(Example) + '/ITR_' + str(TO_itr) + '.npy' , np.array([density,\
-            U, S11, S12, S22, E11, E12, E22, SVonMises],dtype=object) )
-
-
-##################################################  TopOpt functions  ##########################################################################
-def Filter( rad ):
-    nex = Nx-1
-    ney = Ny-1
-    Lx = Length
-    Ly = Height
-    dx = Lx / nex
-    dy = Ly / ney
-
-    xx = np.linspace(0,Lx,nex)
-    yy = np.linspace(0,Ly,ney)
-    X , Y = np.meshgrid( xx , yy )
+    xx = np.linspace(0, Lx, nex)
+    yy = np.linspace(0, Ly, ney)
+    X, Y = np.meshgrid(xx, yy)
     X = X.flatten()
     Y = Y.flatten()
 
-    wi , wj , wv = [] , [] , []
-    for eid in range( nex * ney ):
+    wi, wj, wv = [], [], []
+    for eid in range(nex * ney):
         my_X = X[eid]
         my_Y = Y[eid]
 
-        dist = np.sqrt( ( X - my_X )**2 + ( Y - my_Y )**2 )
-        neighbours = np.where( dist <= rad )[0]
+        dist = np.sqrt((X - my_X) ** 2 + (Y - my_Y) ** 2)
+        neighbours = np.where(dist <= radius)[0]
         wi += [eid] * len(neighbours)
-        wj += list( neighbours )
-        wv += list( rad - dist[ neighbours ] )
-    
-    W = normalize( coo_matrix( (wv, (wi, wj)), shape=(nex*ney, nex*ney)) , norm='l1', axis=1).tocsr() # Normalize row-wise
+        wj += list(neighbours)
+        wv += list(radius - dist[neighbours])
+
+    W = normalize(
+        coo_matrix((wv, (wi, wj)), shape=(nex * ney, nex * ney)), norm="l1", axis=1
+    ).tocsr()  # Normalize row-wise
+
     return W
 
 
-def Val_and_Grad( density ):
-    global TO_itr, IO_time
-    dxdy = [hx, hy]
-    rho_tilda = W @ density 
+def val_and_grad_generator(
+    dem: DeepEnergyMethod,
+    test_domain: Domain,
+    train_domain: Domain,
+    example: int,
+    dfilter,
+    neumannBC,
+    dirichletBC,
+    domain_array,
+    training_times: list[float],
+    objective_values: list[float],
+):
+    x, y, _ = get_test_datatest(test_domain)
 
-    dfdrho_tilda , compliance = dem.train_model(shape, dxdy, dom, boundary_neumann, boundary_dirichlet, iteration, lr,N_Layers,act_func,rho_tilda , TO_itr )
-    dfdrho_tilda_npy = dfdrho_tilda.cpu().detach().numpy()
+    def val_and_grad(density, iteration):
+        rho_tilda = dfilter @ density
 
-    # Invert filter
-    ss = dfdrho_tilda_npy.shape
-    sensitivity = W.T @ dfdrho_tilda_npy.flatten()
+        dfdrho_tilda, compliance = dem.train_model(
+            rho_tilda,
+            domain_array,
+            iteration,
+            neumannBC,
+            dirichletBC,
+            training_times,
+            objective_values,
+        )
+        dfdrho_tilda_npy = dfdrho_tilda.cpu().detach().numpy()
 
-    # Save plot
-    start_IO = time.time()
-    fig, axs = plt.subplots(2, 1, sharex='col')
-    ff = axs[0].imshow( np.flipud( density.reshape(ss) ) , extent = [x_min, Length, y_min, Height],cmap='binary')
-    plt.colorbar( ff , ax=axs[0] )
-    axs[0].set_aspect('equal') 
-    axs[0].set_title('Element density')
-    ff = axs[1].imshow( np.flipud( sensitivity.reshape(ss) ) , extent = [x_min, Length, y_min, Height],cmap='jet')
-    plt.colorbar( ff , ax=axs[1] )
-    axs[1].set_aspect('equal') 
-    axs[1].set_title('Sensitivity' )
-    util.smart_savefig( './Example' + str(Example) + '/Design_' + str(TO_itr) + '.png' , format = 'png', dpi=600 , bbox_inches="tight" )
-    plt.close()
-    np.save('./Example' + str(Example) + '/Density_' + str(TO_itr) + '.npy' , density.reshape(ss) )
+        # Invert filter
+        ss = dfdrho_tilda_npy.shape
+        sensitivity = dfilter.T @ dfdrho_tilda_npy.flatten()
 
-    # Save some data
-    dem.evaluate_model(x, y,E, nu,N_Layers,act_func , density.reshape(ss) )
+        # Save plot
+        start_io = time.time()
+        fig, axs = plt.subplots(2, 1, sharex="col")
+        ff = axs[0].imshow(
+            np.flipud(density.reshape(ss)),
+            extent=train_domain.extent,
+            cmap="binary",
+        )
+        plt.colorbar(ff, ax=axs[0])
+        axs[0].set_aspect("equal")
+        axs[0].set_title("Element density")
+        ff = axs[1].imshow(
+            np.flipud(sensitivity.reshape(ss)),
+            extent=train_domain.extent,
+            cmap="jet",
+        )
+        plt.colorbar(ff, ax=axs[1])
+        axs[1].set_aspect("equal")
+        axs[1].set_title("Sensitivity")
+        util.smart_savefig(
+            f"./example{example}/design_{iteration}.png",
+            dpi=200,
+            bbox_inches="tight",
+        )
+        plt.close(fig)
+        np.save(
+            f"./example{example}/density_{iteration}.npy",
+            density.reshape(ss),
+        )
 
-    IO_time += ( time.time() - start_IO )
-    TO_itr += 1
-    return compliance.cpu().detach().numpy() , sensitivity
+        # Save some data
+        dem.evaluate_model(x, y, density.reshape(ss), iteration)
+
+        return compliance.cpu().detach().numpy(), sensitivity, time.time() - start_io
+
+    return val_and_grad
 
 
-# Volume constraint
-def VolCon( rho ):
-    return np.mean( rho ) - Vf , np.ones_like( rho ) / len(rho)
+def volume_constraint_generator(volume_fraction):
+    def volume_constraint(rho):
+        return np.mean(rho) - volume_fraction, np.ones_like(rho) / len(rho)
+
+    return volume_constraint
 
 
-##################################################  HyperOpt functions  ##########################################################################
-def hyperopt_main(x_var): 
-    lr = x_var['x_lr']
-    neuron = int(x_var['neuron'])
-    CNN_dev= x_var['CNN_dev']
-    rff_dev = x_var['rff_dev']
-    iteration = int(x_var['No_iteration'])
-    N_Layers = int(x_var['N_Layers'])
-    act_func = x_var['act_func']
-    
+def hyperopt_main(x_var):
+    lr = x_var["x_lr"]
+    neuron = int(x_var["neuron"])
+    CNN_dev = x_var["CNN_dev"]
+    rff_dev = x_var["rff_dev"]
+    iteration = int(x_var["No_iteration"])
+    N_layers = int(x_var["N_layers"])
+    act_func = x_var["act_func"]
+
     # ----------------------------------------------------------------------
     #                   STEP 1: SETUP DOMAIN - COLLECT CLEAN DATABASE
     # ----------------------------------------------------------------------
-    dom, boundary_neumann, boundary_dirichlet = get_Train_domain()
-    x, y, datatest = get_Test_datatest( num_test_x , num_test_y )
-    
-    #--- Activate for circular inclusion-----
-    #density= get_density()
-    density=1
+    dom, boundary_neumann, boundary_dirichlet = get_train_domain(train_domain, example)
+    x, y, _ = get_test_datatest(test_domain)
+
+    # --- Activate for circular inclusion-----
+    # density= get_density()
+    density = 1
     # ----------------------------------------------------------------------
     #                   STEP 2: SETUP MODEL
     # ----------------------------------------------------------------------
-     
-    dem = DeepEnergyMethod([D_in, neuron, D_out], 2, E, nu, act_func, CNN_dev,rff_dev,N_Layers)
-    
+
+    dem = DeepEnergyMethod(device, train_domain, example, to_parameters, nn_parameters)
+
     # ----------------------------------------------------------------------
     #                   STEP 3: TRAINING MODEL
     # ----------------------------------------------------------------------
-    Loss= dem.train_model(shape, dxdy, dom, boundary_neumann, boundary_dirichlet, iteration, lr,N_Layers,act_func,density)
-    print('lr: %.5e,\t neuron: %.3d, \t CNN_Sdev: %.5e, \t RNN_Sdev: %.5e, \t Itertions: %.3d, \t Layers: %d, \t Act_fn : %s,\t Loss: %.5e'
-      % (lr, neuron, CNN_dev,rff_dev,iteration,N_Layers, act_func,Loss))
+    Loss = dem.train_model(
+        density,
+        dom,
+        shape,
+        dxdy,
+        boundary_neumann,
+        boundary_dirichlet,
+        0,
+    )
+    print(
+        "lr: %.5e,\t neuron: %.3d, \t CNN_Sdev: %.5e, \t RNN_Sdev: %.5e, \t Itertions: %.3d, \t Layers: %d, \t Act_fn : %s,\t Loss: %.5e"
+        % (lr, neuron, CNN_dev, rff_dev, iteration, N_layers, act_func, Loss)
+    )
 
-    f.write('lr: %.5e,\t neuron: %.3d, \t CNN_Sdev: %.5e, \t RNN_Sdev: %.5e, \t Itertions: %.3d, \t Layers: %d, \t Act_fn : %s,\t Loss: %.5e'
-      % (lr, neuron, CNN_dev,rff_dev,iteration,N_Layers, act_func,Loss))
+    f.write(
+        "lr: %.5e,\t neuron: %.3d, \t CNN_Sdev: %.5e, \t RNN_Sdev: %.5e, \t Itertions: %.3d, \t Layers: %d, \t Act_fn : %s,\t Loss: %.5e"
+        % (lr, neuron, CNN_dev, rff_dev, iteration, N_layers, act_func, Loss)
+    )
 
     # ----------------------------------------------------------------------
     #                   STEP 4: TEST MODEL
     # ----------------------------------------------------------------------
-    
-    U, S11, S12, S13, S22, S23, S33, E11, E12, E13, E22, E23, E33, SVonMises = dem.evaluate_model(x, y, E, nu, N_Layers,act_func)
-    surUx, surUy, surUz = U    
+
+    # dem.evaluate_model(x, y, E, nu, N_layers, act_func)
+
     return Loss
-    
-
-#------------------------- Example number ----------------
-global Example
-Example = 2
-
-#------------------------- Constant Network Parameters ----------------
-D_in = 2
-D_out = 2
-
-# -------------------------- Structural Parameters ---------------------
-# Example = 1
-Length = 12.
-Height = 2.
-if Example == 2:
-    Length = 10.
-    Height = 5.   
-Depth = 1.0
 
 
-# -------------------------- TO Parameters -----------------------
-max_TO_itr = 80
-filter_rad = 0.25
-Vf = 0.4
-filename_out = './Example' + str(Example) + '/'
-# convergence_tol = 5. * np.power( 10. , np.linspace( -1. , -6. , max_TO_itr ) )
-convergence_tol = 5e-5 * np.ones(max_TO_itr)
-verbose = False
+def main():
+    warnings.filterwarnings("ignore")
+    npr.seed(2022)
+    torch.manual_seed(2022)
+    np.random.seed(2022)
 
+    if torch.cuda.is_available():
+        device = torch.device("cuda")
+        torch.set_default_tensor_type("torch.cuda.FloatTensor")
+        print("CUDA is available, running on GPU")
+    else:
+        device = torch.device("cpu")
+        print("CUDA not available, running on CPU")
 
-# -------------------------- Material Parameters -----------------------
-E = 2e5 # MPa
-nu = 0.3
+    example = 2
 
+    if example == 1:
+        train_domain = Domain(120 + 1, 30 + 1, 0, 0, 12, 2)
+    elif example == 2:
+        train_domain = Domain(90 + 1, 45 + 1, 0, 0, 10, 5)
+    else:
+        sys.exit("example must be set to 1 or 2")
 
-# ------------------------- Datapoints for training ---------------------
-# Example = 1
-Nx = 120 + 1
-Ny = 30 + 1
-if Example == 2:
-    Nx = 90 + 1
-    Ny = 45 + 1
+    test_domain = copy.deepcopy(train_domain)
 
-x_min, y_min = (0.0, 0.0)
-hx = Length / (Nx - 1)
-hy = Height / (Ny - 1)
-shape = [Nx, Ny]
-dxdy = [hx, hy]
+    optimization_parameters = TopOptParameters(
+        E=2e5,
+        nu=0.3,
+        verbose=False,
+        filter_radius=0.25,
+        output_folder=f"./example{example}",
+        max_iterations=80,
+        volume_fraction=0.4,
+        convergence_tolerances=5e-5 * np.ones(80),
+    )
 
-# ------------------------- Datapoints for evaluation -----------------
-Length_test= Length
-Height_test= Height
-num_test_x = Nx
-num_test_y = Ny
-hx_test = Length / (num_test_x - 1)
-hy_test = Height / (num_test_y - 1)
-shape_test=[num_test_x,num_test_y]
+    # ------------------------- Perform hyper parameter optimization or not -----------------
+    if False:
+        # -------------------------- File to write results in ---------
+        if os.path.exists("HOpt_Runs.txt"):
+            os.remove("HOpt_Runs.txt")
 
+        f = open("HOpt_Runs.txt", "a")
 
-# ------------------------- Perform hyper parameter optimization or not -----------------
-HyperOPT = False
+        # -------------------------- Variable HyperParameters-----------------------------
+        space = {
+            "x_lr": hp.loguniform("x_lr", 0, 2),
+            "neuron": 2 * hp.quniform("neuron", 10, 60, 1),
+            "act_func": hp.choice("act_func", ["tanh", "relu", "rrelu", "sigmoid"]),
+            "CNN_dev": hp.uniform("CNN_dev", 0, 1),
+            "rff_dev": hp.uniform("rff_dev", 0, 1),
+            "No_iteration": hp.quniform("No_iteration", 40, 100, 1),
+            "N_layers": hp.quniform("N_layers", 3, 5, 1),
+        }
 
-#######################################################################################
-# Begin Hyper Opt
-if HyperOPT:
-    #-------------------------- File to write results in ---------
-    if os.path.exists("HOpt_Runs.txt"):
-      os.remove("HOpt_Runs.txt")
+        best = fmin(
+            hyperopt_main,
+            space,
+            algo=tpe.suggest,
+            max_evals=100,
+            trials=Trials(),
+            rstate=np.random.default_rng(2019),
+            max_queue_len=2,
+        )
+        print(best)
+        exit()
 
-    f = open("HOpt_Runs.txt", "a")
+    neural_network_parameters = NNParameters(
+        input_size=2,
+        output_size=2,
+        layer_count=5,
+        neuron_count=68,
+        learning_rate=1.73553,
+        CNN_deviation=0.062264,
+        rff_deviation=0.119297,
+        iteration_count=100,
+        activation_function="rrelu",
+    )
 
-    #-------------------------- Variable HyperParameters-----------------------------
-    space = {
-        'x_lr': hp.loguniform('x_lr', 0, 2),
-        'neuron': 2*hp.quniform('neuron', 10, 60, 1),
-        'act_func': hp.choice('act_func', ['tanh','relu','rrelu','sigmoid']),
-        'CNN_dev': hp.uniform('CNN_dev', 0, 1),
-        'rff_dev': hp.uniform('rff_dev', 0, 1),
-        'No_iteration': hp.quniform('No_iteration', 40, 100, 1),
-        'N_Layers':hp.quniform('N_Layers',3,5,1)
+    # ----------------------------------------------------------------------
+    #                   STEP 1: SETUP DOMAIN - COLLECT CLEAN DATABASE
+    # ----------------------------------------------------------------------
+    dom, boundary_neumann, boundary_dirichlet = get_train_domain(train_domain, example)
+
+    # ----------------------------------------------------------------------
+    #                   STEP 2: SETUP MODEL
+    # ----------------------------------------------------------------------
+    dem = DeepEnergyMethod(
+        device,
+        train_domain,
+        example,
+        optimization_parameters,
+        neural_network_parameters,
+    )
+
+    # TO using MMA
+    start_t = time.time()
+    W = density_filter(optimization_parameters.filter_radius, train_domain)
+    end_t = time.time()
+    print("Generating density filter took " + str(end_t - start_t) + " s")
+
+    # Passive Density elements for topology opt.
+    density = (
+        np.ones((train_domain.Ny - 1) * (train_domain.Nx - 1))
+        * optimization_parameters.volume_fraction
+    )
+
+    start_t = time.time()
+    training_times, objective_values = [], []
+    optimizationParams = {
+        "maxIters": optimization_parameters.max_iterations,
+        "minIters": 2,
+        "relTol": 0.0001,
     }
 
-    trials = Trials()
-    best = fmin(hyperopt_main,
-                space,
-                algo=tpe.suggest,
-                max_evals=100,
-                trials=Trials(),
-                rstate = np.random.default_rng(2019),
-                max_queue_len=2
-                )
-    print(best)
+    val_and_grad = val_and_grad_generator(
+        dem,
+        test_domain,
+        train_domain,
+        example,
+        W,
+        boundary_neumann,
+        boundary_dirichlet,
+        dom,
+        training_times,
+        objective_values,
+    )
+    volume_constraint = volume_constraint_generator(
+        optimization_parameters.volume_fraction
+    )
+
+    _, _, total_io_time = optimize(
+        density,
+        optimizationParams,
+        val_and_grad,
+        volume_constraint,
+        train_domain.Ny - 1,
+        train_domain.Nx - 1,
+    )
+    end_t = time.time()
+    t_tot = end_t - start_t - total_io_time
+    print(f"Topology optimization took {t_tot:.3f} s ({total_io_time:3f} s io time)")
+
+    plt.figure()
+    plt.plot(np.arange(len(training_times)) + 1, training_times)
+    plt.xlabel("iteration")
+    plt.ylabel("DEM training time [s]")
+    plt.title("Total time = " + str(t_tot) + "s")
+    util.smart_savefig(
+        optimization_parameters.output_folder + "/training_times.png", dpi=600
+    )
+    training_times.append(t_tot)
+    np.save(
+        optimization_parameters.output_folder + "/training_times.npy", training_times
+    )
+
+    plt.figure()
+    plt.plot(np.arange(len(objective_values)) + 1, objective_values)
+    plt.xlabel("iteration")
+    plt.ylabel("compliance [J]")
+    util.smart_savefig(
+        optimization_parameters.output_folder + "/objective_values.png", dpi=600
+    )
+    np.save(
+        optimization_parameters.output_folder + "/objective_values.npy",
+        objective_values,
+    )
+    plt.close()
 
 
-
-#######################################################################################
-# Begin TO:
-# Optimal hyper parameters for baseline config
-lr = 1.73553
-neuron = 68
-CNN_dev = 0.062264
-rff_dev = 0.119297
-iteration = 100
-N_Layers = 5
-act_func ='rrelu'
-
-
-# ----------------------------------------------------------------------
-#                   STEP 1: SETUP DOMAIN - COLLECT CLEAN DATABASE
-# ----------------------------------------------------------------------
-dom, boundary_neumann, boundary_dirichlet = get_Train_domain()
-x, y, datatest = get_Test_datatest( num_test_x , num_test_y )
-
-# ----------------------------------------------------------------------
-#                   STEP 2: SETUP MODEL
-# ----------------------------------------------------------------------
-dem = DeepEnergyMethod([D_in, neuron, D_out], 2, E, nu, act_func, CNN_dev,rff_dev,N_Layers)
-
-# TO using MMA
-start_t = time.time()
-W = Filter( filter_rad )
-end_t = time.time()
-print( 'Generating density filter took ' + str( end_t - start_t ) + ' s' )
-
-# Passive Density elements for topology opt.
-density = np.ones( (Ny-1)*(Nx-1) ) * Vf
-
-start_t = time.time()
-TO_itr = 0; IO_time = 0.
-Train_time , ObjVal = [] , []
-optimizationParams = {'maxIters':max_TO_itr,'minIters':2,'relTol':0.0001}
-final_rho , final_obj = optimize( density , optimizationParams , Val_and_Grad , VolCon , Ny-1 , Nx-1 )
-end_t = time.time()
-t_tot = end_t - start_t - IO_time
-print( 'Topology optimization took ' + str( t_tot ) + ' s' )
-
-
-plt.figure()
-plt.plot( np.arange(len(Train_time)) + 1 , Train_time )
-plt.xlabel('TopOpt iteration')
-plt.ylabel('DEM train time [s]')
-plt.title('Total TO time = ' + str(t_tot) + 's' )
-util.smart_savefig( filename_out + 'Train_time.png' , dpi=600 )
-Train_time.append( t_tot )
-np.save( filename_out + 'Train_time.npy' , Train_time )
-
-plt.figure()
-plt.plot( np.arange(len(ObjVal)) + 1 , ObjVal )
-plt.xlabel('TopOpt iteration')
-plt.ylabel('Compliance [J]')
-util.smart_savefig( filename_out + 'Compliance.png' , dpi=600 )
-np.save( filename_out + 'Compliance.npy' , ObjVal )
-plt.close()
+if __name__ == "__main__":
+    main()
