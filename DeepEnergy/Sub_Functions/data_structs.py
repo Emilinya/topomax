@@ -1,27 +1,40 @@
 from dataclasses import dataclass
-from numpy import ndarray
+import numpy.typing as npt
+import numpy as np
 
 
-@dataclass
 class Domain:
-    Nx: int
-    Ny: int
-    x_min: float
-    y_min: float
-    length: float
-    height: float
+    def __init__(
+        self,
+        Nx: int,
+        Ny: int,
+        x_min: float,
+        y_min: float,
+        length: float,
+        height: float,
+    ):
+        self.Nx = Nx
+        self.Ny = Ny
+        self.x_min = x_min
+        self.y_min = y_min
+        self.length = length
+        self.height = height
 
-    @property
-    def shape(self):
-        return (self.Nx, self.Ny)
+        # create points
+        self.x_ray = np.linspace(self.x_min, self.length, self.Nx)
+        self.y_ray = np.linspace(self.y_min, self.height, self.Ny)
 
-    @property
-    def dxdy(self):
-        return (self.length / (self.Nx - 1), self.height / (self.Ny - 1))
+        # create an array containing nodal coordinates
+        self.coordinates = np.array(
+            [
+                np.repeat(self.x_ray, len(self.y_ray)),
+                np.tile(self.y_ray, len(self.x_ray)),
+            ]
+        ).T
 
-    @property
-    def extent(self):
-        return (self.x_min, self.length, self.y_min, self.height)
+        self.shape = (self.Nx, self.Ny)
+        self.extent = (self.x_min, self.length, self.y_min, self.height)
+        self.dxdy = (self.length / (self.Nx - 1), self.height / (self.Ny - 1))
 
 
 @dataclass
@@ -33,7 +46,7 @@ class TopOptParameters:
     output_folder: str
     max_iterations: int
     volume_fraction: float
-    convergence_tolerances: ndarray[float]
+    convergence_tolerances: npt.NDArray[np.float64]
 
 
 @dataclass

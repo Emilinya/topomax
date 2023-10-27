@@ -2,6 +2,7 @@ import time
 
 import torch
 import numpy as np
+import numpy.typing as npt
 import matplotlib.pyplot as plt
 from torch.autograd import grad
 
@@ -16,8 +17,7 @@ class DeepEnergyMethod:
     # Instance attributes
     def __init__(
         self,
-        device,
-        domain: Domain,
+        device: torch.device,
         example: int,
         to_parameters: TopOptParameters,
         nn_parameters: NNParameters,
@@ -34,9 +34,8 @@ class DeepEnergyMethod:
         )
         self.model = self.model.to(device)
 
-        self.lossArray = []
+        self.loss_array = []
         self.device = device
-        self.domain = domain
         self.to_parameters = to_parameters
         self.nn_parameters = nn_parameters
         self.example = example
@@ -47,22 +46,20 @@ class DeepEnergyMethod:
 
     def train_model(
         self,
-        rho,
-        data,
-        iteration,
-        neumannBC,
-        dirichletBC,
-        training_times,
-        objective_values,
+        rho: npt.NDArray[np.float64],
+        domain: Domain,
+        iteration: int,
+        neumannBC: dict[str, dict[str, npt.NDArray[np.float64] | float]],
+        dirichletBC: dict[str, dict[str, npt.NDArray[np.float64] | float]],
+        training_times: list[float],
+        objective_values: list[float],
     ):
-        x = torch.from_numpy(data).float()
+        x = torch.from_numpy(domain.coordinates).float()
         x = x.to(self.device)
         x.requires_grad_(True)
 
         density = torch.from_numpy(rho).float()
-        density = torch.reshape(density, [self.domain.Ny - 1, self.domain.Nx - 1]).to(
-            self.device
-        )
+        density = torch.reshape(density, [domain.Ny - 1, domain.Nx - 1]).to(self.device)
 
         neuBC_coordinates = {}
         neuBC_penalty = {}
@@ -91,41 +88,36 @@ class DeepEnergyMethod:
             line_search_fn="strong_wolfe",
         )
         start_time = time.time()
-        energy_loss_array = []
-        loss_history = np.zeros(self.nn_parameters.iteration_count)
-        Iter_No_Hist = []
 
-        def closure_generator(t):
+        def closure_generator(t: int):
             def closure():
-                u_pred = self.get_U(x)
+                u_pred = self.get_U(x, domain.length)
                 u_pred.double()
 
                 # ---- Calculate internal and external energies------
-                storedEnergy = self.InternalEnergy.Elastic2DGaussQuad(
-                    u_pred, x, self.domain.dxdy, self.domain.shape, density, False
+                stored_energy = self.InternalEnergy.Elastic2DGaussQuad(
+                    u_pred, x, domain.dxdy, domain.shape, density, False
                 )
-                externalE = self.FextLoss.lossFextEnergy(
+                external_E = self.FextLoss.lossFextEnergy(
                     u_pred,
                     x,
                     neuBC_coordinates,
                     neuBC_values,
                     neuBC_idx,
-                    self.domain.dxdy,
+                    domain.dxdy,
                 )
-                loss = storedEnergy - externalE
+                loss = stored_energy - external_E
                 optimizer_LBFGS.zero_grad()
                 loss.backward()
 
                 if self.to_parameters.verbose:
                     print(
                         f"Iter: {t+1:d} Loss: {loss.item():.6e} "
-                        + f"IntE: {storedEnergy.item():.4e} ExtE: {externalE.item():.4e}"
+                        + f"IntE: {stored_energy.item():.4e} ExtE: {external_E.item():.4e}"
                     )
-                loss_history[t] = loss.data
-                energy_loss_array.append(loss.data)
-                Iter_No_Hist.append(t)
-                self.lossArray.append(loss.data.cpu())
-                return loss
+                self.loss_array.append(loss.data.cpu())
+
+                return float(loss)
 
             return closure
 
@@ -136,44 +128,44 @@ class DeepEnergyMethod:
 
             # Check convergence
             if self.convergence_check(
-                self.lossArray, self.to_parameters.convergence_tolerances[iteration]
+                self.loss_array, self.to_parameters.convergence_tolerances[iteration]
             ):
                 break
 
         elapsed = time.time() - start_time
         training_times.append(elapsed)
 
-        u_pred = self.get_U(x)
+        u_pred = self.get_U(x, domain.length)
         dfdrho, compliance = self.InternalEnergy.Elastic2DGaussQuad(
-            u_pred, x, self.domain.dxdy, self.domain.shape, density, True
+            u_pred, x, domain.dxdy, domain.shape, density, True
         )
         objective_values.append(compliance.cpu().detach().numpy())
 
         return dfdrho, compliance, elapsed
 
-    def convergence_check(self, arry, rel_tol):
+    def convergence_check(self, loss_array: list[float], tolerance: float):
         num_check = 10
 
         # Run minimum of 2*num_check iterations
-        if len(arry) < 2 * num_check:
+        if len(loss_array) < 2 * num_check:
             return False
 
-        mean1 = np.mean(arry[-2 * num_check : -num_check])
-        mean2 = np.mean(arry[-num_check:])
+        mean1 = np.mean(loss_array[-2 * num_check : -num_check])
+        mean2 = np.mean(loss_array[-num_check:])
 
         if np.abs(mean2) < 1e-6:
             return True
 
-        if (np.abs(mean1 - mean2) / np.abs(mean2)) < rel_tol:
+        if (np.abs(mean1 - mean2) / np.abs(mean2)) < tolerance:
             return True
 
         return False
 
-    def get_U(self, x):
+    def get_U(self, x: torch.Tensor, length: float):
         u = self.model(
             x, self.nn_parameters.layer_count, self.nn_parameters.activation_function
         )
-        phix = x[:, 0] / self.domain.length
+        phix = x[:, 0] / length
 
         if self.example == 1:
             Ux = phix * (1.0 - phix) * u[:, 0]
@@ -189,18 +181,24 @@ class DeepEnergyMethod:
         u_pred = torch.cat((Ux, Uy), -1)
         return u_pred
 
-    def evaluate_model(self, x, y, density, iteration):
-        Nx = len(x)
-        Ny = len(y)
-        xGrid, yGrid = np.meshgrid(x, y)
-        x1D = xGrid.flatten()
-        y1D = yGrid.flatten()
-        xy = np.concatenate((np.array([x1D]).T, np.array([y1D]).T), axis=-1)
+    def evaluate_model(
+        self, domain: Domain, density: npt.NDArray[np.float64], iteration: int
+    ):
+        Nx, Ny = domain.shape
+        # why do I here need to tile x and repeat y, while train_model
+        # uses a repeated x and tiled y?
+        xy = np.array(
+            [
+                np.tile(domain.x_ray, len(domain.y_ray)),
+                np.repeat(domain.y_ray, len(domain.x_ray)),
+            ]
+        ).T
+
         xy_tensor = torch.from_numpy(xy).float()
         xy_tensor = xy_tensor.to(self.device)
         xy_tensor.requires_grad_(True)
         # u_pred_torch = self.model(xy_tensor)
-        u_pred_torch = self.get_U(xy_tensor)
+        u_pred_torch = self.get_U(xy_tensor, domain.length)
         duxdxy = grad(
             u_pred_torch[:, 0].unsqueeze(1),
             xy_tensor,
@@ -266,8 +264,8 @@ class DeepEnergyMethod:
             ),
         )
 
-        Write_fig = False
-        if Write_fig:
+        write_fig = False
+        if write_fig:
             _, axs = plt.subplots(3, 3, sharex="col")
             data_dict = {
                 "Ux": (axs[0, 0], U[0]),
@@ -282,8 +280,8 @@ class DeepEnergyMethod:
             }
 
             for name, (ax, data) in data_dict.items():
-                ff = ax.imshow(np.flipud(data), extent=self.domain.extent, cmap="jet")
-                plt.colorbar(ff, ax=ax, shrink=0.5)
+                ff = ax.imshow(np.flipud(data), extent=domain.extent, cmap="jet")
+                plt.colorbar(ff, ax=ax)
                 ax.set_aspect("equal")
                 ax.set_title(name)
             plt.tight_layout()
