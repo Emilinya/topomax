@@ -9,7 +9,7 @@ from torch.autograd import grad
 from Sub_Functions import utils as util
 from Sub_Functions.MultiLayerNet import MultiLayerNet
 from Sub_Functions.InternalEnergy import InternalEnergy
-from Sub_Functions.IntegrationFext import IntegrationFext
+from Sub_Functions.external_energy import calculate_external_energy
 from Sub_Functions.data_structs import Domain, TopOptParameters, NNParameters
 
 
@@ -39,7 +39,6 @@ class DeepEnergyMethod:
         self.to_parameters = to_parameters
         self.nn_parameters = nn_parameters
         self.example = example
-        self.FextLoss = IntegrationFext(nn_parameters.input_size)
         self.InternalEnergy = InternalEnergy(
             self.to_parameters.E, self.to_parameters.nu
         )
@@ -61,24 +60,24 @@ class DeepEnergyMethod:
         density = torch.from_numpy(rho).float()
         density = torch.reshape(density, [domain.Ny - 1, domain.Nx - 1]).to(self.device)
 
-        neuBC_coordinates = {}
-        neuBC_penalty = {}
-        neuBC_values = {}
-        neuBC_idx = {}
+        neumannBC_coordinates: list[torch.Tensor] = []
+        neumannBC_penalty: list[torch.Tensor] = []
+        neumannBC_values: list[torch.Tensor] = []
+        neumannBC_idx: list[torch.Tensor] = []
 
-        for i, keyi in enumerate(neumannBC):
-            neuBC_coordinates[i] = (
-                torch.from_numpy(neumannBC[keyi]["coord"]).float().to(self.device)
+        for key in neumannBC:
+            neumannBC_coordinates.append(
+                torch.from_numpy(neumannBC[key]["coord"]).float().to(self.device)
             )
-            neuBC_coordinates[i].requires_grad_(True)
-            neuBC_values[i] = (
-                torch.from_numpy(neumannBC[keyi]["known_value"]).float().to(self.device)
+            neumannBC_coordinates[-1].requires_grad_(True)
+            neumannBC_values.append(
+                torch.from_numpy(neumannBC[key]["known_value"]).float().to(self.device)
             )
-            neuBC_penalty[i] = (
-                torch.tensor(neumannBC[keyi]["penalty"]).float().to(self.device)
+            neumannBC_penalty.append(
+                torch.tensor(neumannBC[key]["penalty"]).float().to(self.device)
             )
-            neuBC_idx[i] = (
-                torch.from_numpy(neumannBC[keyi]["idx"]).float().to(self.device)
+            neumannBC_idx.append(
+                torch.from_numpy(neumannBC[key]["idx"]).float().to(self.device)
             )
 
         optimizer_LBFGS = torch.optim.LBFGS(
@@ -98,13 +97,11 @@ class DeepEnergyMethod:
                 stored_energy = self.InternalEnergy.Elastic2DGaussQuad(
                     u_pred, x, domain.dxdy, domain.shape, density, False
                 )
-                external_E = self.FextLoss.lossFextEnergy(
+                external_E = calculate_external_energy(
                     u_pred,
-                    x,
-                    neuBC_coordinates,
-                    neuBC_values,
-                    neuBC_idx,
                     domain.dxdy,
+                    neumannBC_idx,
+                    neumannBC_values,
                 )
                 loss = stored_energy - external_E
                 optimizer_LBFGS.zero_grad()
