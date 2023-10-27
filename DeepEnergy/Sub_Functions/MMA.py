@@ -606,7 +606,7 @@ def optimize(X0, optimizationParams, objectiveHandle, consHandle, n1, n2):
     iteration = 0
     total_io_time = 0.0
     while (
-        (delta_J > optimizationParams["relTol"])
+        (abs(delta_J) > optimizationParams["relTol"])
         and (iteration < optimizationParams["maxIters"])
         or (iteration < optimizationParams["minIters"])
     ):
