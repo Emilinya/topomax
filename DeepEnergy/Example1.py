@@ -2,6 +2,7 @@ import io
 import sys
 import copy
 import warnings
+from typing import Callable
 
 import torch
 import numpy as np
@@ -55,6 +56,14 @@ def get_boundary_conditions(domain: Domain, example: int):
             length=0.5,
             value=[0.0, -2000.0],
         )
+
+        # fixed on left and right side
+        def u0(x: torch.Tensor, y: torch.Tensor):
+            return 0
+
+        def m(x: torch.Tensor, y: torch.Tensor):
+            return x * (1 - x)
+
     elif example == 2:
         # downward load on the right side of the domain
         _, dy = domain.dxdy
@@ -65,10 +74,18 @@ def get_boundary_conditions(domain: Domain, example: int):
             length=dy,
             value=[0.0, -2000.0],
         )
+
+        # fixed on left side
+        def u0(x: torch.Tensor, y: torch.Tensor):
+            return 0
+
+        def m(x: torch.Tensor, y: torch.Tensor):
+            return x
+
     else:
         raise ValueError(f"Unknown example: {example}")
 
-    boundary_neumann = {
+    neumannBC = {
         "neumann_1": {
             "coord": load_points,
             "known_value": load_values,
@@ -77,7 +94,9 @@ def get_boundary_conditions(domain: Domain, example: int):
         }
     }
 
-    return boundary_neumann, {}
+    dirichletBC = {"m": m, "u0": u0}
+
+    return neumannBC, dirichletBC
 
 
 def density_filter(radius: float, domain: Domain) -> csr_matrix:
@@ -113,8 +132,6 @@ def density_filter(radius: float, domain: Domain) -> csr_matrix:
 def val_and_grad_generator(
     dem: DeepEnergyMethod,
     dfilter: csr_matrix,
-    neumannBC: dict[str, dict[str, npt.NDArray[np.float64] | float]],
-    dirichletBC: dict[str, dict[str, npt.NDArray[np.float64] | float]],
     test_domain: Domain,
     train_domain: Domain,
     to_parameters: TopOptParameters,
@@ -128,8 +145,6 @@ def val_and_grad_generator(
             rho_tilda,
             train_domain,
             iteration,
-            neumannBC,
-            dirichletBC,
             training_times,
             objective_values,
         )
@@ -198,17 +213,15 @@ def hyperopt_main_generator(
             output_size=2,
             layer_count=int(x_var["layer_count"]),
             neuron_count=int(x_var["neuron_count"]),
-            learning_rate=x_var["learning_rate"],
-            CNN_deviation=x_var["CNN_deviation"],
-            rff_deviation=x_var["rff_deviation"],
+            learning_rate=float(x_var["learning_rate"]),
+            CNN_deviation=float(x_var["CNN_deviation"]),
+            rff_deviation=float(x_var["rff_deviation"]),
             iteration_count=int(x_var["iteration_count"]),
-            activation_function=x_var["activation_function"],
+            activation_function=float(x_var["activation_function"]),
         )
 
         # STEP 1: SETUP DOMAIN - COLLECT CLEAN DATABASE
-        boundary_neumann, boundary_dirichlet = get_boundary_conditions(
-            train_domain, example
-        )
+        neumannBC, dirichletBC = get_boundary_conditions(train_domain, example)
 
         density = (
             np.ones((train_domain.Ny - 1) * (train_domain.Nx - 1))
@@ -216,12 +229,12 @@ def hyperopt_main_generator(
         )
 
         # STEP 2: SETUP MODEL
-        dem = DeepEnergyMethod(device, example, to_parameters, nn_parameters)
+        dem = DeepEnergyMethod(
+            device, neumannBC, dirichletBC, to_parameters, nn_parameters
+        )
 
         # STEP 3: TRAIN MODEL
-        _, loss, _ = dem.train_model(
-            density, train_domain, 0, boundary_neumann, boundary_dirichlet, [], []
-        )
+        _, loss, _ = dem.train_model(density, train_domain, 0, [], [])
         print(f"{nn_parameters}\n  loss: {loss:.5e}")
         datafile.write(f"{nn_parameters} - loss: {loss:.5e}\n")
 
@@ -322,16 +335,9 @@ def main():
         activation_function="rrelu",
     )
 
-    boundary_neumann, boundary_dirichlet = get_boundary_conditions(
-        train_domain, example
-    )
+    neumannBC, dirichletBC = get_boundary_conditions(train_domain, example)
 
-    dem = DeepEnergyMethod(
-        device,
-        example,
-        to_parameters,
-        nn_parameters,
-    )
+    dem = DeepEnergyMethod(device, neumannBC, dirichletBC, to_parameters, nn_parameters)
 
     with Timer("Generating density filter"):
         W = density_filter(to_parameters.filter_radius, train_domain)
@@ -354,8 +360,6 @@ def main():
     val_and_grad = val_and_grad_generator(
         dem,
         W,
-        boundary_neumann,
-        boundary_dirichlet,
         test_domain,
         train_domain,
         to_parameters,

@@ -1,4 +1,5 @@
 import time
+from typing import Callable
 
 import torch
 import numpy as np
@@ -18,7 +19,8 @@ class DeepEnergyMethod:
     def __init__(
         self,
         device: torch.device,
-        example: int,
+        neumannBC: dict[str, dict[str, npt.NDArray[np.float64] | float]],
+        dirichletBC: dict[str, Callable[[torch.Tensor, torch.Tensor], torch.Tensor]],
         to_parameters: TopOptParameters,
         nn_parameters: NNParameters,
     ):
@@ -28,17 +30,16 @@ class DeepEnergyMethod:
 
         self.loss_array = []
         self.device = device
+        self.neumannBC = neumannBC
+        self.dirichletBC = dirichletBC
         self.to_parameters = to_parameters
         self.nn_parameters = nn_parameters
-        self.example = example
 
     def train_model(
         self,
         rho: npt.NDArray[np.float64],
         domain: Domain,
         iteration: int,
-        neumannBC: dict[str, dict[str, npt.NDArray[np.float64] | float]],
-        dirichletBC: dict[str, dict[str, npt.NDArray[np.float64] | float]],
         training_times: list[float],
         objective_values: list[float],
     ):
@@ -54,20 +55,18 @@ class DeepEnergyMethod:
         neumannBC_values: list[torch.Tensor] = []
         neumannBC_idx: list[torch.Tensor] = []
 
-        for key in neumannBC:
+        for bc in self.neumannBC.values():
             neumannBC_coordinates.append(
-                torch.from_numpy(neumannBC[key]["coord"]).float().to(self.device)
+                torch.from_numpy(bc["coord"]).float().to(self.device)
             )
             neumannBC_coordinates[-1].requires_grad_(True)
             neumannBC_values.append(
-                torch.from_numpy(neumannBC[key]["known_value"]).float().to(self.device)
+                torch.from_numpy(bc["known_value"]).float().to(self.device)
             )
             neumannBC_penalty.append(
-                torch.tensor(neumannBC[key]["penalty"]).float().to(self.device)
+                torch.tensor(bc["penalty"]).float().to(self.device)
             )
-            neumannBC_idx.append(
-                torch.from_numpy(neumannBC[key]["idx"]).float().to(self.device)
-            )
+            neumannBC_idx.append(torch.from_numpy(bc["idx"]).float().to(self.device))
 
         optimizer_LBFGS = torch.optim.LBFGS(
             self.model.parameters(),
@@ -83,7 +82,7 @@ class DeepEnergyMethod:
 
         def closure_generator(t: int):
             def closure():
-                u_pred = self.get_U(x, domain.length)
+                u_pred = self.get_U(x, domain)
                 u_pred.double()
 
                 # ---- Calculate internal and external energies------
@@ -125,7 +124,7 @@ class DeepEnergyMethod:
         elapsed = time.time() - start_time
         training_times.append(elapsed)
 
-        u_pred = self.get_U(x, domain.length)
+        u_pred = self.get_U(x, domain)
         dfdrho, compliance = strain_energy.calculate_objective_gradient(
             u_pred, domain.shape, density
         )
@@ -151,23 +150,19 @@ class DeepEnergyMethod:
 
         return False
 
-    def get_U(self, x: torch.Tensor, length: float):
-        u = self.model(x)
-        phix = x[:, 0] / length
+    def get_U(
+        self,
+        x: torch.Tensor,
+        domain: Domain,
+    ):
+        u_tilde: torch.Tensor = self.model(x)
 
-        if self.example == 1:
-            Ux = phix * (1.0 - phix) * u[:, 0]
-            Uy = phix * (1.0 - phix) * u[:, 1]
-        elif self.example == 2:
-            Ux = phix * u[:, 0]
-            Uy = phix * u[:, 1]
-        else:
-            raise ValueError(f"Got unknown example {self.example}")
+        normed_x = (x[:, 0] / domain.length).unsqueeze(1)
+        normed_y = (x[:, 1] / domain.height).unsqueeze(1)
 
-        Ux = Ux.reshape(Ux.shape[0], 1)
-        Uy = Uy.reshape(Uy.shape[0], 1)
-        u_pred = torch.cat((Ux, Uy), -1)
-        return u_pred
+        m, u0 = self.dirichletBC["m"], self.dirichletBC["u0"]
+
+        return u_tilde * m(normed_x, normed_y) + u0(normed_x, normed_y)
 
     def evaluate_model(
         self, domain: Domain, density: npt.NDArray[np.float64], iteration: int
@@ -186,7 +181,7 @@ class DeepEnergyMethod:
         xy_tensor = xy_tensor.to(self.device)
         xy_tensor.requires_grad_(True)
         # u_pred_torch = self.model(xy_tensor)
-        u_pred_torch = self.get_U(xy_tensor, domain.length)
+        u_pred_torch = self.get_U(xy_tensor, domain)
         duxdxy = grad(
             u_pred_torch[:, 0].unsqueeze(1),
             xy_tensor,
