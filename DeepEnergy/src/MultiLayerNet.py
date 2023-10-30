@@ -1,7 +1,7 @@
 import torch
 import rff.layers
 
-from Sub_Functions.data_structs import NNParameters
+from DeepEnergy.src.data_structs import NNParameters
 
 
 class MultiLayerNet(torch.nn.Module):

@@ -7,11 +7,11 @@ import numpy.typing as npt
 import matplotlib.pyplot as plt
 from torch.autograd import grad
 
-from Sub_Functions import utils as util
-from Sub_Functions.StrainEnergy import StrainEnergy
-from Sub_Functions.MultiLayerNet import MultiLayerNet
-from Sub_Functions.external_energy import calculate_external_energy
-from Sub_Functions.data_structs import Domain, TopOptParameters, NNParameters
+from DeepEnergy.src import utils as util
+from DeepEnergy.src.StrainEnergy import StrainEnergy
+from DeepEnergy.src.MultiLayerNet import MultiLayerNet
+from DeepEnergy.src.external_energy import calculate_external_energy
+from DeepEnergy.src.data_structs import Domain, TopOptParameters, NNParameters
 
 
 class DeepEnergyMethod:

@@ -2,7 +2,6 @@ import io
 import sys
 import copy
 import warnings
-from typing import Callable
 
 import torch
 import numpy as np
@@ -13,10 +12,10 @@ from hyperopt import fmin, tpe, hp, Trials
 from sklearn.preprocessing import normalize
 from scipy.sparse import coo_matrix, csr_matrix
 
-from Sub_Functions.MMA import optimize
-from Sub_Functions.utils import Timer, smart_savefig
-from Sub_Functions.DeepEnergyMethod import DeepEnergyMethod
-from Sub_Functions.data_structs import Domain, TopOptParameters, NNParameters
+from DeepEnergy.src.MMA import optimize
+from DeepEnergy.src.utils import Timer, smart_savefig
+from DeepEnergy.src.DeepEnergyMethod import DeepEnergyMethod
+from DeepEnergy.src.data_structs import Domain, TopOptParameters, NNParameters
 
 
 def get_boundary_load(
@@ -284,125 +283,125 @@ def optimize_hyperparameters(
         )
 
 
-def main():
-    warnings.filterwarnings("ignore")
-    npr.seed(2022)
-    torch.manual_seed(2022)
-    np.random.seed(2022)
+class DeepEnergySolver:
+    def __init__(self, example: int):
+        warnings.filterwarnings("ignore")
+        npr.seed(2022)
+        torch.manual_seed(2022)
+        np.random.seed(2022)
 
-    if torch.cuda.is_available():
-        device = torch.device("cuda")
-        torch.set_default_tensor_type("torch.cuda.FloatTensor")
-        print("CUDA is available, running on GPU")
-    else:
-        device = torch.device("cpu")
-        print("CUDA not available, running on CPU")
+        if torch.cuda.is_available():
+            self.device = torch.device("cuda")
+            torch.set_default_tensor_type("torch.cuda.FloatTensor")
+            print("CUDA is available, running on GPU")
+        else:
+            self.device = torch.device("cpu")
+            print("CUDA not available, running on CPU")
 
-    example = 2
+        self.example = example
 
-    if example == 1:
-        train_domain = Domain(120 + 1, 30 + 1, 0, 0, 12, 2)
-    elif example == 2:
-        train_domain = Domain(90 + 1, 45 + 1, 0, 0, 10, 5)
-    else:
-        sys.exit("example must be set to 1 or 2")
+    def solve(self):
+        if self.example == 1:
+            train_domain = Domain(120 + 1, 30 + 1, 0, 0, 12, 2)
+        elif self.example == 2:
+            train_domain = Domain(90 + 1, 45 + 1, 0, 0, 10, 5)
+        else:
+            sys.exit("example must be set to 1 or 2")
 
-    test_domain = copy.deepcopy(train_domain)
+        test_domain = copy.deepcopy(train_domain)
 
-    to_parameters = TopOptParameters(
-        E=2e5,
-        nu=0.3,
-        verbose=False,
-        filter_radius=0.25,
-        output_folder=f"./example{example}",
-        max_iterations=80,
-        volume_fraction=0.4,
-        convergence_tolerances=5e-5 * np.ones(80),
-    )
+        to_parameters = TopOptParameters(
+            E=2e5,
+            nu=0.3,
+            verbose=False,
+            filter_radius=0.25,
+            output_folder=f"DeepEnergy/example{self.example}",
+            max_iterations=80,
+            volume_fraction=0.4,
+            convergence_tolerances=5e-5 * np.ones(80),
+        )
 
-    # perform hyper parameter optimization (this should be in a separate program ...)
-    # optimize_hyperparameters(train_domain, example, device, to_parameters)
+        # perform hyper parameter optimization (this should be in a separate program ...)
+        # optimize_hyperparameters(train_domain, example, device, to_parameters)
 
-    nn_parameters = NNParameters(
-        input_size=2,
-        output_size=2,
-        layer_count=5,
-        neuron_count=68,
-        learning_rate=1.73553,
-        CNN_deviation=0.062264,
-        rff_deviation=0.119297,
-        iteration_count=100,
-        activation_function="rrelu",
-    )
+        nn_parameters = NNParameters(
+            input_size=2,
+            output_size=2,
+            layer_count=5,
+            neuron_count=68,
+            learning_rate=1.73553,
+            CNN_deviation=0.062264,
+            rff_deviation=0.119297,
+            iteration_count=100,
+            activation_function="rrelu",
+        )
 
-    neumannBC, dirichletBC = get_boundary_conditions(train_domain, example)
+        neumannBC, dirichletBC = get_boundary_conditions(train_domain, self.example)
 
-    dem = DeepEnergyMethod(device, neumannBC, dirichletBC, to_parameters, nn_parameters)
+        dem = DeepEnergyMethod(
+            self.device, neumannBC, dirichletBC, to_parameters, nn_parameters
+        )
 
-    with Timer("Generating density filter"):
-        W = density_filter(to_parameters.filter_radius, train_domain)
-    print()
+        with Timer("Generating density filter"):
+            W = density_filter(to_parameters.filter_radius, train_domain)
+        print()
 
-    # initial density: constant density equal to the volume fraction
-    density = (
-        np.ones((train_domain.Ny - 1) * (train_domain.Nx - 1))
-        * to_parameters.volume_fraction
-    )
+        # initial density: constant density equal to the volume fraction
+        density = (
+            np.ones((train_domain.Ny - 1) * (train_domain.Nx - 1))
+            * to_parameters.volume_fraction
+        )
 
-    timer = Timer()
-    training_times, objective_values = [], []
-    optimizationParams = {
-        "maxIters": to_parameters.max_iterations,
-        "minIters": 2,
-        "relTol": 0.0001,
-    }
+        timer = Timer()
+        training_times, objective_values = [], []
+        optimizationParams = {
+            "maxIters": to_parameters.max_iterations,
+            "minIters": 2,
+            "relTol": 0.0001,
+        }
 
-    val_and_grad = val_and_grad_generator(
-        dem,
-        W,
-        test_domain,
-        train_domain,
-        to_parameters,
-        training_times,
-        objective_values,
-    )
-    volume_constraint = volume_constraint_generator(to_parameters.volume_fraction)
+        val_and_grad = val_and_grad_generator(
+            dem,
+            W,
+            test_domain,
+            train_domain,
+            to_parameters,
+            training_times,
+            objective_values,
+        )
+        volume_constraint = volume_constraint_generator(to_parameters.volume_fraction)
 
-    _, _, total_io_time = optimize(
-        density,
-        optimizationParams,
-        val_and_grad,
-        volume_constraint,
-        train_domain.Ny - 1,
-        train_domain.Nx - 1,
-    )
+        _, _, total_io_time = optimize(
+            density,
+            optimizationParams,
+            val_and_grad,
+            volume_constraint,
+            train_domain.Ny - 1,
+            train_domain.Nx - 1,
+        )
 
-    total_time = timer.get_time_seconds()
-    print(
-        f"\nTopology optimization took {Timer.prettify_seconds(total_time - total_io_time)} "
-        + f"(IO took {Timer.prettify_seconds(total_io_time)})"
-    )
+        total_time = timer.get_time_seconds()
+        print(
+            f"\nTopology optimization took {Timer.prettify_seconds(total_time - total_io_time)} "
+            + f"(IO took {Timer.prettify_seconds(total_io_time)})"
+        )
 
-    plt.figure()
-    plt.plot(np.arange(len(training_times)) + 1, training_times)
-    plt.xlabel("iteration")
-    plt.ylabel("DEM training time [s]")
-    plt.title(f"Total time = {total_time}s")
-    smart_savefig(to_parameters.output_folder + "/training_times.png", dpi=200)
-    training_times.append(total_time)
-    np.save(to_parameters.output_folder + "/training_times.npy", training_times)
+        plt.figure()
+        plt.plot(np.arange(len(training_times)) + 1, training_times)
+        plt.xlabel("iteration")
+        plt.ylabel("DEM training time [s]")
+        plt.title(f"Total time = {total_time}s")
+        smart_savefig(to_parameters.output_folder + "/training_times.png", dpi=200)
+        training_times.append(total_time)
+        np.save(to_parameters.output_folder + "/training_times.npy", training_times)
 
-    plt.figure()
-    plt.plot(np.arange(len(objective_values)) + 1, objective_values)
-    plt.xlabel("iteration")
-    plt.ylabel("compliance [J]")
-    smart_savefig(to_parameters.output_folder + "/objective_values.png", dpi=200)
-    np.save(
-        to_parameters.output_folder + "/objective_values.npy",
-        objective_values,
-    )
-    plt.close()
-
-
-if __name__ == "__main__":
-    main()
+        plt.figure()
+        plt.plot(np.arange(len(objective_values)) + 1, objective_values)
+        plt.xlabel("iteration")
+        plt.ylabel("compliance [J]")
+        smart_savefig(to_parameters.output_folder + "/objective_values.png", dpi=200)
+        np.save(
+            to_parameters.output_folder + "/objective_values.npy",
+            objective_values,
+        )
+        plt.close()
