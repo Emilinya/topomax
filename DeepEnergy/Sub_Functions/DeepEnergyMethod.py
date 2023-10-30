@@ -7,8 +7,8 @@ import matplotlib.pyplot as plt
 from torch.autograd import grad
 
 from Sub_Functions import utils as util
+from Sub_Functions.StrainEnergy import StrainEnergy
 from Sub_Functions.MultiLayerNet import MultiLayerNet
-from Sub_Functions.InternalEnergy import InternalEnergy
 from Sub_Functions.external_energy import calculate_external_energy
 from Sub_Functions.data_structs import Domain, TopOptParameters, NNParameters
 
@@ -39,9 +39,6 @@ class DeepEnergyMethod:
         self.to_parameters = to_parameters
         self.nn_parameters = nn_parameters
         self.example = example
-        self.InternalEnergy = InternalEnergy(
-            self.to_parameters.E, self.to_parameters.nu
-        )
 
     def train_model(
         self,
@@ -86,6 +83,10 @@ class DeepEnergyMethod:
             max_iter=20,
             line_search_fn="strong_wolfe",
         )
+
+        strain_energy = StrainEnergy(
+            self.to_parameters.E, self.to_parameters.nu, domain.dxdy
+        )
         start_time = time.time()
 
         def closure_generator(t: int):
@@ -94,8 +95,8 @@ class DeepEnergyMethod:
                 u_pred.double()
 
                 # ---- Calculate internal and external energies------
-                stored_energy = self.InternalEnergy.Elastic2DGaussQuad(
-                    u_pred, x, domain.dxdy, domain.shape, density, False
+                internal_energy = strain_energy.calculate_objective(
+                    u_pred, domain.shape, density
                 )
                 external_E = calculate_external_energy(
                     u_pred,
@@ -103,14 +104,14 @@ class DeepEnergyMethod:
                     neumannBC_idx,
                     neumannBC_values,
                 )
-                loss = stored_energy - external_E
+                loss = internal_energy - external_E
                 optimizer_LBFGS.zero_grad()
                 loss.backward()
 
                 if self.to_parameters.verbose:
                     print(
                         f"Iter: {t+1:d} Loss: {loss.item():.6e} "
-                        + f"IntE: {stored_energy.item():.4e} ExtE: {external_E.item():.4e}"
+                        + f"IntE: {internal_energy.item():.4e} ExtE: {external_E.item():.4e}"
                     )
                 self.loss_array.append(loss.data.cpu())
 
@@ -133,8 +134,8 @@ class DeepEnergyMethod:
         training_times.append(elapsed)
 
         u_pred = self.get_U(x, domain.length)
-        dfdrho, compliance = self.InternalEnergy.Elastic2DGaussQuad(
-            u_pred, x, domain.dxdy, domain.shape, density, True
+        dfdrho, compliance = strain_energy.calculate_objective_gradient(
+            u_pred, domain.shape, density
         )
         objective_values.append(compliance.cpu().detach().numpy())
 
