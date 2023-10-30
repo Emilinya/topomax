@@ -23,15 +23,7 @@ class DeepEnergyMethod:
         nn_parameters: NNParameters,
     ):
         # self.data = data
-        self.model = MultiLayerNet(
-            nn_parameters.input_size,
-            nn_parameters.neuron_count,
-            nn_parameters.output_size,
-            nn_parameters.activation_function,
-            nn_parameters.CNN_deviation,
-            nn_parameters.rff_deviation,
-            nn_parameters.layer_count,
-        )
+        self.model = MultiLayerNet(nn_parameters)
         self.model = self.model.to(device)
 
         self.loss_array = []
@@ -160,9 +152,7 @@ class DeepEnergyMethod:
         return False
 
     def get_U(self, x: torch.Tensor, length: float):
-        u = self.model(
-            x, self.nn_parameters.layer_count, self.nn_parameters.activation_function
-        )
+        u = self.model(x)
         phix = x[:, 0] / length
 
         if self.example == 1:

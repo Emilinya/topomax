@@ -1,52 +1,44 @@
-import rff
 import torch
+import rff.layers
+
+from Sub_Functions.data_structs import NNParameters
+
 
 class MultiLayerNet(torch.nn.Module):
-    def __init__(self, D_in, H, D_out,act_func, CNN_dev, rff_dev, N_Layers):
-        """
-        In the constructor we instantiate two nn.Linear modules and assign them as
-        member variables.
-        """
-        H=int(H)
-        super(MultiLayerNet, self).__init__()
-        
-        self.encoding = rff.layers.GaussianEncoding(sigma=rff_dev, input_size=D_in, encoded_size=H//2)
-        
-        N_Layers=int(N_Layers)
+    def __init__(self, parameters: NNParameters):
+        super().__init__()
 
-        ## Define loop to automate Layer definition  
-        self.linear = torch.nn.ModuleList()
+        input_size = parameters.input_size
+        output_size = parameters.output_size
+        neuron_count = parameters.neuron_count
+        rff_deviation = parameters.rff_deviation
+        CNN_deviation = parameters.CNN_deviation
 
-        for ii in range(N_Layers):
-            if ii==0:
-                self.linear.append(torch.nn.Linear(D_in, H))
-                torch.nn.init.constant_(self.linear[ii].bias, 0.)
-                torch.nn.init.normal_(self.linear[ii].weight, mean=0, std=CNN_dev)
-            elif ii==(N_Layers-1):
-                self.linear.append(torch.nn.Linear(H, D_out))
-                torch.nn.init.constant_(self.linear[ii].bias, 0.)
-                torch.nn.init.normal_(self.linear[ii].weight, mean=0, std=CNN_dev)
-            else:
-                self.linear.append(torch.nn.Linear(H,H))
-                torch.nn.init.constant_(self.linear[ii].bias, 0.)
-                torch.nn.init.normal_(self.linear[ii].weight, mean=0, std=CNN_dev)
-        
+        self.layer_count = parameters.layer_count
+        self.activation_function = getattr(torch, parameters.activation_function)
+        self.encoding = rff.layers.GaussianEncoding(
+            sigma=rff_deviation, input_size=input_size, encoded_size=neuron_count // 2
+        )
 
-    def forward(self, x,N_Layers,act_fn):
-        """
-        In the forward function we accept a Tensor of input data and we must return
-        a Tensor of output data. We can use Modules defined in the constructor as
-        well as arbitrary operators on Tensors.
-        """
-        activation_fn = getattr(torch,act_fn)       
-        y_auto = []
+        if self.layer_count < 2:
+            raise ValueError(
+                "Can't create MultiLayerNet with less than 2 layers "
+                + f"(tried to create one with {self.layer_count} layers)"
+            )
 
-        for ii in range(N_Layers):
-            if ii==0:
-                y_auto.append(self.encoding(x))
-            elif ii==(N_Layers-1):
-                y_auto.append(self.linear[-1](y_auto[-1]))
-            else:
-                y_auto.append(activation_fn(self.linear[ii](y_auto[ii-1])))
-        
-        return y_auto[-1]
+        self.linears = torch.nn.ModuleList()
+        for i in range(self.layer_count):
+            linear_inputs = input_size if i == 0 else neuron_count
+            linear_outputs = output_size if i == self.layer_count - 1 else neuron_count
+            self.linears.append(torch.nn.Linear(linear_inputs, linear_outputs))
+
+            torch.nn.init.constant_(self.linears[i].bias, 0.0)
+            torch.nn.init.normal_(self.linears[i].weight, mean=0, std=CNN_deviation)
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        y = self.encoding(x)
+        for i in range(1, self.layer_count - 1):
+            y = self.activation_function(self.linears[i](y))
+        y = self.linears[-1](y)
+
+        return y
