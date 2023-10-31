@@ -2,6 +2,7 @@ import io
 import os
 import sys
 import copy
+import pickle
 import warnings
 
 import torch
@@ -13,8 +14,9 @@ from sklearn.preprocessing import normalize
 from scipy.sparse import coo_matrix, csr_matrix
 
 from src.utils import Timer
-from DeepEnergy.src.MMA import optimize
 from designs.design_parser import parse_design
+from designs.definitions import ElasticityDesign
+from DeepEnergy.src.MMA import optimize
 from DeepEnergy.src.DeepEnergyMethod import DeepEnergyMethod
 from DeepEnergy.src.elasisity_problem import ElasticityProblem
 from DeepEnergy.src.data_structs import Domain, TopOptParameters, NNParameters
@@ -48,13 +50,6 @@ def create_density_filter(radius: float, domain: Domain) -> csr_matrix:
     ).tocsr()  # Normalize row-wise
 
     return W
-
-
-def volume_constraint_generator(volume_fraction: float):
-    def volume_constraint(rho: npt.NDArray[np.float64]):
-        return np.mean(rho) - volume_fraction, np.ones_like(rho) / len(rho)
-
-    return volume_constraint
 
 
 def hyperopt_main_generator(
@@ -144,6 +139,7 @@ def optimize_hyperparameters(
 class DeepEnergySolver:
     def __init__(self, design_file: str):
         domain_parameters, elasticity_design = parse_design(design_file)
+        assert isinstance(elasticity_design, ElasticityDesign)
 
         warnings.filterwarnings("ignore")
         npr.seed(2022)
@@ -174,8 +170,8 @@ class DeepEnergySolver:
             nu=0.3,
             verbose=False,
             filter_radius=0.25,
-            output_folder=f"DeepEnergy/{design}",
-            max_iterations=10,
+            output_folder=f"DeepEnergy/output/{design}",
+            max_iterations=80,
             volume_fraction=domain_parameters.volume_fraction,
             convergence_tolerances=5e-5 * np.ones(80),
         )
@@ -222,25 +218,34 @@ class DeepEnergySolver:
             "relTol": 0.0001,
         }
 
-        def val_and_grad(rho, iteration):
+        def val_and_grad(rho: npt.NDArray[np.float64], iteration: int):
             timer = Timer()
             objective = self.problem.calculate_objective(rho)
             objective_gradient = self.problem.calculate_objective_gradient()
             training_time = timer.get_time_seconds()
 
             Nx, Ny = self.problem.train_domain.shape
+            file_root = f"{self.to_parameters.output_folder}/k={iteration}"
             timer.restart()
             np.save(
-                f"{self.to_parameters.output_folder}/density_{iteration}.npy",
+                f"{file_root}_density.npy",
                 density.reshape((Nx - 1, Ny - 1)),
             )
+            data = {
+                "objective": objective,
+                "iteration": iteration,
+                "penalty": 3.0,
+                "domain_size": (self.train_domain.length, self.train_domain.height),
+            }
+            with open(f"{file_root}_data.dat", "wb") as datafile:
+                pickle.dump(data, datafile)
             io_time = timer.get_time_seconds()
 
             return objective, objective_gradient, training_time, io_time
 
-        volume_constraint = volume_constraint_generator(
-            self.to_parameters.volume_fraction
-        )
+        def volume_constraint(rho: npt.NDArray[np.float64]):
+            vf = self.to_parameters.volume_fraction
+            return np.mean(rho) - vf, np.ones_like(rho) / len(rho)
 
         os.makedirs(self.to_parameters.output_folder, exist_ok=True)
         _, _, total_io_time = optimize(

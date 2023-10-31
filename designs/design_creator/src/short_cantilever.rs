@@ -10,7 +10,7 @@ pub fn short_cantilever() -> Design {
             volume_fraction: 0.4,
         },
         problem_parameters: ElasticityParameters {
-            fixed_sides: vec![Side::Left, Side::Right],
+            fixed_sides: vec![Side::Left],
             body_force: None,
             tractions: Some(vec![Traction {
                 side: Side::Right,

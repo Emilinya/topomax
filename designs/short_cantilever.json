@@ -11,8 +11,7 @@
     },
     "problem_parameters": {
       "fixed_sides": [
-        "Left",
-        "Right"
+        "Left"
       ],
       "body_force": null,
       "tractions": [

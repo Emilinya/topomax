@@ -1,6 +1,7 @@
 import torch
 import numpy as np
 import numpy.typing as npt
+from scipy.sparse import csr_matrix
 
 from designs.definitions import ElasticityDesign
 from DeepEnergy.src.DeepEnergyMethod import DeepEnergyMethod
@@ -17,7 +18,7 @@ class ElasticityProblem:
         elasticity_design: ElasticityDesign,
         test_domain: Domain,
         train_domain: Domain,
-        input_filter: npt.NDArray[np.float64],
+        input_filter: csr_matrix,
         to_parameters: TopOptParameters,
         nn_parameters: NNParameters,
     ):
@@ -48,7 +49,7 @@ class ElasticityProblem:
 
         return self.objective_gradient
 
-    def calculate_objective(self, rho):
+    def calculate_objective(self, rho: npt.NDArray[np.float64]):
         filtered_rho = self.filter @ rho
 
         objective, objective_gradient = self.dem.train_model(
