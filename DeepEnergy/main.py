@@ -7,98 +7,18 @@ import torch
 import numpy as np
 import numpy.typing as npt
 import numpy.random as npr
-import matplotlib.pyplot as plt
 from hyperopt import fmin, tpe, hp, Trials
 from sklearn.preprocessing import normalize
 from scipy.sparse import coo_matrix, csr_matrix
 
+from DeepEnergy.src.utils import Timer
 from DeepEnergy.src.MMA import optimize
-from DeepEnergy.src.utils import Timer, smart_savefig
 from DeepEnergy.src.DeepEnergyMethod import DeepEnergyMethod
+from DeepEnergy.src.elasisity_problem import ElasticityProblem
 from DeepEnergy.src.data_structs import Domain, TopOptParameters, NNParameters
 
 
-def get_boundary_load(
-    domain: Domain, side: str, center: float, length: float, value: list[float]
-):
-    if side == "left":
-        side_condition = domain.coordinates[:, 0] == 0
-        side_points = domain.coordinates[:, 1]
-    elif side == "right":
-        side_condition = domain.coordinates[:, 0] == domain.length
-        side_points = domain.coordinates[:, 1]
-    elif side == "top":
-        side_condition = domain.coordinates[:, 1] == domain.height
-        side_points = domain.coordinates[:, 0]
-    elif side == "bottom":
-        side_condition = domain.coordinates[:, 1] == 0
-        side_points = domain.coordinates[:, 0]
-    else:
-        raise ValueError(f"Unknown side: '{side}'")
-
-    left_condition = side_points >= center - length / 2.0
-    right_condition = side_points <= center + length / 2.0
-    load_idxs = np.where(side_condition & left_condition & right_condition)
-    load_points = domain.coordinates[load_idxs, :][0]
-    load_values = np.ones(np.shape(load_points)) * value
-
-    return load_idxs, load_points, load_values
-
-
-def get_boundary_conditions(domain: Domain, example: int):
-    if example == 1:
-        # downward load on the top of the domain
-        load_idxs, load_points, load_values = get_boundary_load(
-            domain,
-            side="top",
-            center=domain.length / 2,
-            length=0.5,
-            value=[0.0, -2000.0],
-        )
-
-        # fixed on left and right side
-        def u0(x: torch.Tensor, y: torch.Tensor):
-            return 0
-
-        def m(x: torch.Tensor, y: torch.Tensor):
-            return x * (1 - x)
-
-    elif example == 2:
-        # downward load on the right side of the domain
-        _, dy = domain.dxdy
-        load_idxs, load_points, load_values = get_boundary_load(
-            domain,
-            side="right",
-            center=domain.height / 2,
-            length=dy,
-            value=[0.0, -2000.0],
-        )
-
-        # fixed on left side
-        def u0(x: torch.Tensor, y: torch.Tensor):
-            return 0
-
-        def m(x: torch.Tensor, y: torch.Tensor):
-            return x
-
-    else:
-        raise ValueError(f"Unknown example: {example}")
-
-    neumannBC = {
-        "neumann_1": {
-            "coord": load_points,
-            "known_value": load_values,
-            "penalty": 1.0,
-            "idx": np.asarray(load_idxs),
-        }
-    }
-
-    dirichletBC = {"m": m, "u0": u0}
-
-    return neumannBC, dirichletBC
-
-
-def density_filter(radius: float, domain: Domain) -> csr_matrix:
+def create_density_filter(radius: float, domain: Domain) -> csr_matrix:
     nex = domain.Nx - 1
     ney = domain.Ny - 1
     Lx = domain.length
@@ -126,70 +46,6 @@ def density_filter(radius: float, domain: Domain) -> csr_matrix:
     ).tocsr()  # Normalize row-wise
 
     return W
-
-
-def val_and_grad_generator(
-    dem: DeepEnergyMethod,
-    dfilter: csr_matrix,
-    test_domain: Domain,
-    train_domain: Domain,
-    to_parameters: TopOptParameters,
-    training_times: list[float],
-    objective_values: list[float],
-):
-    def val_and_grad(density: npt.NDArray[np.float64], iteration: int):
-        rho_tilda = dfilter @ density
-
-        dfdrho_tilda, compliance, training_time = dem.train_model(
-            rho_tilda,
-            train_domain,
-            iteration,
-            training_times,
-            objective_values,
-        )
-        dfdrho_tilda_npy = dfdrho_tilda.cpu().detach().numpy()
-
-        # Invert filter
-        ss = dfdrho_tilda_npy.shape
-        sensitivity = dfilter.T @ dfdrho_tilda_npy.flatten()
-
-        # Save plot
-        timer = Timer()
-        fig, axs = plt.subplots(2, 1, sharex="col")
-        ff = axs[0].imshow(
-            np.flipud(density.reshape(ss)),
-            extent=train_domain.extent,
-            cmap="binary",
-        )
-        plt.colorbar(ff, ax=axs[0])
-        axs[0].set_aspect("equal")
-        axs[0].set_title("Element density")
-        ff = axs[1].imshow(
-            np.flipud(sensitivity.reshape(ss)),
-            extent=train_domain.extent,
-            cmap="jet",
-        )
-        plt.colorbar(ff, ax=axs[1])
-        axs[1].set_aspect("equal")
-        axs[1].set_title("Sensitivity")
-        smart_savefig(
-            f"{to_parameters.output_folder}/design_{iteration}.png",
-            dpi=200,
-            bbox_inches="tight",
-        )
-        plt.close(fig)
-        np.save(
-            f"{to_parameters.output_folder}/density_{iteration}.npy",
-            density.reshape(ss),
-        )
-
-        # Save some data
-        dem.evaluate_model(test_domain, density.reshape(ss), iteration)
-
-        compliance = compliance.cpu().detach().numpy()
-        return compliance, sensitivity, training_time, timer.get_time_seconds()
-
-    return val_and_grad
 
 
 def volume_constraint_generator(volume_fraction: float):
@@ -298,31 +154,25 @@ class DeepEnergySolver:
             self.device = torch.device("cpu")
             print("CUDA not available, running on CPU")
 
-        self.example = example
-
-    def solve(self):
-        if self.example == 1:
-            train_domain = Domain(120 + 1, 30 + 1, 0, 0, 12, 2)
-        elif self.example == 2:
-            train_domain = Domain(90 + 1, 45 + 1, 0, 0, 10, 5)
+        if example == 1:
+            self.train_domain = Domain(120 + 1, 30 + 1, 0, 0, 12, 2)
+        elif example == 2:
+            self.train_domain = Domain(90 + 1, 45 + 1, 0, 0, 10, 5)
         else:
             sys.exit("example must be set to 1 or 2")
 
-        test_domain = copy.deepcopy(train_domain)
+        self.test_domain = copy.deepcopy(self.train_domain)
 
-        to_parameters = TopOptParameters(
+        self.to_parameters = TopOptParameters(
             E=2e5,
             nu=0.3,
             verbose=False,
             filter_radius=0.25,
-            output_folder=f"DeepEnergy/example{self.example}",
-            max_iterations=80,
+            output_folder=f"DeepEnergy/example{example}",
+            max_iterations=10,
             volume_fraction=0.4,
             convergence_tolerances=5e-5 * np.ones(80),
         )
-
-        # perform hyper parameter optimization (this should be in a separate program ...)
-        # optimize_hyperparameters(train_domain, example, device, to_parameters)
 
         nn_parameters = NNParameters(
             input_size=2,
@@ -336,48 +186,63 @@ class DeepEnergySolver:
             activation_function="rrelu",
         )
 
-        neumannBC, dirichletBC = get_boundary_conditions(train_domain, self.example)
-
-        dem = DeepEnergyMethod(
-            self.device, neumannBC, dirichletBC, to_parameters, nn_parameters
-        )
-
         with Timer("Generating density filter"):
-            W = density_filter(to_parameters.filter_radius, train_domain)
+            density_filter = create_density_filter(
+                self.to_parameters.filter_radius, self.train_domain
+            )
         print()
 
+        self.problem = ElasticityProblem(
+            self.device,
+            example,
+            self.test_domain,
+            self.train_domain,
+            density_filter,
+            self.to_parameters,
+            nn_parameters,
+        )
+
+    def solve(self):
         # initial density: constant density equal to the volume fraction
         density = (
-            np.ones((train_domain.Ny - 1) * (train_domain.Nx - 1))
-            * to_parameters.volume_fraction
+            np.ones((self.train_domain.Ny - 1) * (self.train_domain.Nx - 1))
+            * self.to_parameters.volume_fraction
         )
 
         timer = Timer()
-        training_times, objective_values = [], []
         optimizationParams = {
-            "maxIters": to_parameters.max_iterations,
+            "maxIters": self.to_parameters.max_iterations,
             "minIters": 2,
             "relTol": 0.0001,
         }
 
-        val_and_grad = val_and_grad_generator(
-            dem,
-            W,
-            test_domain,
-            train_domain,
-            to_parameters,
-            training_times,
-            objective_values,
+        def val_and_grad(rho, iteration):
+            timer = Timer()
+            objective = self.problem.calculate_objective(rho)
+            objective_gradient = self.problem.calculate_objective_gradient()
+            training_time = timer.get_time_seconds()
+
+            Nx, Ny = self.problem.train_domain.shape
+            timer.restart()
+            np.save(
+                f"{self.to_parameters.output_folder}/density_{iteration}.npy",
+                density.reshape((Nx - 1, Ny - 1)),
+            )
+            io_time = timer.get_time_seconds()
+
+            return objective, objective_gradient, training_time, io_time
+
+        volume_constraint = volume_constraint_generator(
+            self.to_parameters.volume_fraction
         )
-        volume_constraint = volume_constraint_generator(to_parameters.volume_fraction)
 
         _, _, total_io_time = optimize(
             density,
             optimizationParams,
             val_and_grad,
             volume_constraint,
-            train_domain.Ny - 1,
-            train_domain.Nx - 1,
+            self.train_domain.Ny - 1,
+            self.train_domain.Nx - 1,
         )
 
         total_time = timer.get_time_seconds()
@@ -385,23 +250,3 @@ class DeepEnergySolver:
             f"\nTopology optimization took {Timer.prettify_seconds(total_time - total_io_time)} "
             + f"(IO took {Timer.prettify_seconds(total_io_time)})"
         )
-
-        plt.figure()
-        plt.plot(np.arange(len(training_times)) + 1, training_times)
-        plt.xlabel("iteration")
-        plt.ylabel("DEM training time [s]")
-        plt.title(f"Total time = {total_time}s")
-        smart_savefig(to_parameters.output_folder + "/training_times.png", dpi=200)
-        training_times.append(total_time)
-        np.save(to_parameters.output_folder + "/training_times.npy", training_times)
-
-        plt.figure()
-        plt.plot(np.arange(len(objective_values)) + 1, objective_values)
-        plt.xlabel("iteration")
-        plt.ylabel("compliance [J]")
-        smart_savefig(to_parameters.output_folder + "/objective_values.png", dpi=200)
-        np.save(
-            to_parameters.output_folder + "/objective_values.npy",
-            objective_values,
-        )
-        plt.close()

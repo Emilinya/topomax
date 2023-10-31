@@ -1,13 +1,9 @@
-import time
 from typing import Callable
 
 import torch
 import numpy as np
 import numpy.typing as npt
-import matplotlib.pyplot as plt
-from torch.autograd import grad
 
-from DeepEnergy.src import utils as util
 from DeepEnergy.src.StrainEnergy import StrainEnergy
 from DeepEnergy.src.MultiLayerNet import MultiLayerNet
 from DeepEnergy.src.external_energy import calculate_external_energy
@@ -28,21 +24,16 @@ class DeepEnergyMethod:
         self.model = MultiLayerNet(nn_parameters)
         self.model = self.model.to(device)
 
-        self.loss_array = []
         self.device = device
         self.neumannBC = neumannBC
         self.dirichletBC = dirichletBC
         self.to_parameters = to_parameters
         self.nn_parameters = nn_parameters
 
-    def train_model(
-        self,
-        rho: npt.NDArray[np.float64],
-        domain: Domain,
-        iteration: int,
-        training_times: list[float],
-        objective_values: list[float],
-    ):
+        self.loss_array = []
+        self.iteration = 0
+
+    def train_model(self, rho: npt.NDArray[np.float64], domain: Domain):
         x = torch.from_numpy(domain.coordinates).float()
         x = x.to(self.device)
         x.requires_grad_(True)
@@ -50,21 +41,12 @@ class DeepEnergyMethod:
         density = torch.from_numpy(rho).float()
         density = torch.reshape(density, [domain.Ny - 1, domain.Nx - 1]).to(self.device)
 
-        neumannBC_coordinates: list[torch.Tensor] = []
-        neumannBC_penalty: list[torch.Tensor] = []
         neumannBC_values: list[torch.Tensor] = []
         neumannBC_idx: list[torch.Tensor] = []
 
         for bc in self.neumannBC.values():
-            neumannBC_coordinates.append(
-                torch.from_numpy(bc["coord"]).float().to(self.device)
-            )
-            neumannBC_coordinates[-1].requires_grad_(True)
             neumannBC_values.append(
                 torch.from_numpy(bc["known_value"]).float().to(self.device)
-            )
-            neumannBC_penalty.append(
-                torch.tensor(bc["penalty"]).float().to(self.device)
             )
             neumannBC_idx.append(torch.from_numpy(bc["idx"]).float().to(self.device))
 
@@ -78,7 +60,6 @@ class DeepEnergyMethod:
         strain_energy = StrainEnergy(
             self.to_parameters.E, self.to_parameters.nu, domain.dxdy
         )
-        start_time = time.time()
 
         def closure_generator(t: int):
             def closure():
@@ -117,20 +98,19 @@ class DeepEnergyMethod:
 
             # Check convergence
             if self.convergence_check(
-                self.loss_array, self.to_parameters.convergence_tolerances[iteration]
+                self.loss_array,
+                self.to_parameters.convergence_tolerances[self.iteration],
             ):
                 break
-
-        elapsed = time.time() - start_time
-        training_times.append(elapsed)
 
         u_pred = self.get_U(x, domain)
         dfdrho, compliance = strain_energy.calculate_objective_gradient(
             u_pred, domain.shape, density
         )
-        objective_values.append(compliance.cpu().detach().numpy())
 
-        return dfdrho, compliance, elapsed
+        self.iteration += 1
+
+        return compliance, dfdrho
 
     def convergence_check(self, loss_array: list[float], tolerance: float):
         num_check = 10
@@ -163,115 +143,3 @@ class DeepEnergyMethod:
         m, u0 = self.dirichletBC["m"], self.dirichletBC["u0"]
 
         return u_tilde * m(normed_x, normed_y) + u0(normed_x, normed_y)
-
-    def evaluate_model(
-        self, domain: Domain, density: npt.NDArray[np.float64], iteration: int
-    ):
-        Nx, Ny = domain.shape
-        # why do I here need to tile x and repeat y, while train_model
-        # uses a repeated x and tiled y?
-        xy = np.array(
-            [
-                np.tile(domain.x_ray, len(domain.y_ray)),
-                np.repeat(domain.y_ray, len(domain.x_ray)),
-            ]
-        ).T
-
-        xy_tensor = torch.from_numpy(xy).float()
-        xy_tensor = xy_tensor.to(self.device)
-        xy_tensor.requires_grad_(True)
-        # u_pred_torch = self.model(xy_tensor)
-        u_pred_torch = self.get_U(xy_tensor, domain)
-        duxdxy = grad(
-            u_pred_torch[:, 0].unsqueeze(1),
-            xy_tensor,
-            torch.ones(xy_tensor.size()[0], 1, device=self.device),
-            create_graph=True,
-            retain_graph=True,
-        )[0]
-        duydxy = grad(
-            u_pred_torch[:, 1].unsqueeze(1),
-            xy_tensor,
-            torch.ones(xy_tensor.size()[0], 1, device=self.device),
-            create_graph=True,
-            retain_graph=True,
-        )[0]
-
-        E11 = duxdxy[:, 0].unsqueeze(1)
-        E22 = duydxy[:, 1].unsqueeze(1)
-        E12 = (duxdxy[:, 1].unsqueeze(1) + duydxy[:, 0].unsqueeze(1)) / 2
-
-        E, nu = self.to_parameters.E, self.to_parameters.nu
-        S11 = E / (1 - nu**2) * (E11 + nu * E22)
-        S22 = E / (1 - nu**2) * (E22 + nu * E11)
-        S12 = E * E12 / (1 + nu)
-
-        u_pred = u_pred_torch.detach().cpu().numpy()
-
-        # flag = np.ones( [Nx*Ny,1] )
-        # threshold = np.max( density ) * 0.6
-        # mask = ( density.flatten() < threshold )
-        # flag[ mask , 0 ] = np.nan
-
-        E11_pred = E11.detach().cpu().numpy()  # * flag
-        E12_pred = E12.detach().cpu().numpy()  # * flag
-        E22_pred = E22.detach().cpu().numpy()  # * flag
-        S11_pred = S11.detach().cpu().numpy()  # * flag
-        S12_pred = S12.detach().cpu().numpy()  # * flag
-        S22_pred = S22.detach().cpu().numpy()  # * flag
-
-        # u_pred[:,0] *= flag[:,0]
-        # u_pred[:,1] *= flag[:,0]
-        surUx = u_pred[:, 0].reshape(Ny, Nx)
-        surUy = u_pred[:, 1].reshape(Ny, Nx)
-        surUz = np.zeros([Nx, Ny])
-
-        E11 = E11_pred.reshape(Ny, Nx)
-        E12 = E12_pred.reshape(Ny, Nx)
-        E22 = E22_pred.reshape(Ny, Nx)
-        S11 = S11_pred.reshape(Ny, Nx)
-        S12 = S12_pred.reshape(Ny, Nx)
-        S22 = S22_pred.reshape(Ny, Nx)
-
-        SVonMises = np.float64(
-            np.sqrt(
-                0.5 * ((S11 - S22) ** 2 + (S22) ** 2 + (-S11) ** 2 + 6 * (S12**2))
-            )
-        )
-        U = (np.float64(surUx), np.float64(surUy), np.float64(surUz))
-
-        np.save(
-            f"{self.to_parameters.output_folder}/itr_{iteration}.npy",
-            np.array(
-                [density, U, S11, S12, S22, E11, E12, E22, SVonMises], dtype=object
-            ),
-        )
-
-        write_fig = False
-        if write_fig:
-            _, axs = plt.subplots(3, 3, sharex="col")
-            data_dict = {
-                "Ux": (axs[0, 0], U[0]),
-                "Uy": (axs[0, 1], U[1]),
-                "Mises stress": (axs[0, 2], SVonMises),
-                "E11": (axs[1, 0], E11),
-                "E22": (axs[1, 1], E22),
-                "E12": (axs[1, 2], E12),
-                "S11": (axs[2, 0], S11),
-                "S22": (axs[2, 1], S22),
-                "S12": (axs[2, 2], S12),
-            }
-
-            for name, (ax, data) in data_dict.items():
-                ff = ax.imshow(np.flipud(data), extent=domain.extent, cmap="jet")
-                plt.colorbar(ff, ax=ax)
-                ax.set_aspect("equal")
-                ax.set_title(name)
-            plt.tight_layout()
-
-            util.smart_savefig(
-                f"{self.to_parameters.output_folder}/field_vars_{iteration}.png",
-                dpi=200,
-                bbox_inches="tight",
-            )
-            plt.close()
