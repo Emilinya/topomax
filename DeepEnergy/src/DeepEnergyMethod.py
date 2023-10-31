@@ -1,5 +1,3 @@
-from typing import Callable
-
 import torch
 import numpy as np
 import numpy.typing as npt
@@ -7,6 +5,7 @@ import numpy.typing as npt
 from DeepEnergy.src.StrainEnergy import StrainEnergy
 from DeepEnergy.src.MultiLayerNet import MultiLayerNet
 from DeepEnergy.src.external_energy import calculate_external_energy
+from DeepEnergy.src.bc_helpers import TractionPoints, DirichletEnforcer
 from DeepEnergy.src.data_structs import Domain, TopOptParameters, NNParameters
 
 
@@ -15,20 +14,20 @@ class DeepEnergyMethod:
     def __init__(
         self,
         device: torch.device,
-        neumannBC: dict[str, dict[str, npt.NDArray[np.float64] | float]],
-        dirichletBC: dict[str, Callable[[torch.Tensor, torch.Tensor], torch.Tensor]],
         to_parameters: TopOptParameters,
         nn_parameters: NNParameters,
+        dirichlet_enforcer: DirichletEnforcer,
+        traction_points_list: list[TractionPoints],
     ):
         # self.data = data
         self.model = MultiLayerNet(nn_parameters)
         self.model = self.model.to(device)
 
         self.device = device
-        self.neumannBC = neumannBC
-        self.dirichletBC = dirichletBC
         self.to_parameters = to_parameters
         self.nn_parameters = nn_parameters
+        self.dirichlet_enforcer = dirichlet_enforcer
+        self.traction_points_list = traction_points_list
 
         self.loss_array = []
         self.iteration = 0
@@ -44,11 +43,13 @@ class DeepEnergyMethod:
         neumannBC_values: list[torch.Tensor] = []
         neumannBC_idx: list[torch.Tensor] = []
 
-        for bc in self.neumannBC.values():
+        for traction_points in self.traction_points_list:
             neumannBC_values.append(
-                torch.from_numpy(bc["known_value"]).float().to(self.device)
+                torch.from_numpy(traction_points.known_value).float().to(self.device)
             )
-            neumannBC_idx.append(torch.from_numpy(bc["idx"]).float().to(self.device))
+            neumannBC_idx.append(
+                torch.from_numpy(traction_points.idx).float().to(self.device)
+            )
 
         optimizer_LBFGS = torch.optim.LBFGS(
             self.model.parameters(),
@@ -140,6 +141,4 @@ class DeepEnergyMethod:
         normed_x = (x[:, 0] / domain.length).unsqueeze(1)
         normed_y = (x[:, 1] / domain.height).unsqueeze(1)
 
-        m, u0 = self.dirichletBC["m"], self.dirichletBC["u0"]
-
-        return u_tilde * m(normed_x, normed_y) + u0(normed_x, normed_y)
+        return self.dirichlet_enforcer(u_tilde, normed_x, normed_y)

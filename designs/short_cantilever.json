@@ -2,7 +2,7 @@
   "Elasticity": {
     "objective": "MinimizeCompliance",
     "domain_parameters": {
-      "width": 6.0,
+      "width": 2.0,
       "height": 1.0,
       "penalties": [
         3.0
@@ -17,9 +17,9 @@
       "body_force": null,
       "tractions": [
         {
-          "side": "Top",
-          "center": 6.0,
-          "length": 0.5,
+          "side": "Right",
+          "center": 2.5,
+          "length": 0.1111111111111111,
           "value": [
             0.0,
             -2000.0

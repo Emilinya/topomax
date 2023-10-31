@@ -18,6 +18,7 @@ macro_rules! save_designs {
     };
 }
 save_designs! {
+    short_cantilever -> "../short_cantilever.json",
     cantilever -> "../cantilever.json",
     pipe_bend -> "../pipe_bend.json",
     twin_pipe -> "../twin_pipe.json",

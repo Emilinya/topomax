@@ -1,10 +1,10 @@
 use crate::definitions::*;
 
-pub fn bridge() -> Design {
+pub fn short_cantilever() -> Design {
     return Design::Elasticity(ProblemDesign {
         objective: ElasticityObjective::MinimizeCompliance,
         domain_parameters: DomainParameters {
-            width: 6.0,
+            width: 2.0,
             height: 1.0,
             penalties: vec![3.0],
             volume_fraction: 0.4,
@@ -13,9 +13,9 @@ pub fn bridge() -> Design {
             fixed_sides: vec![Side::Left, Side::Right],
             body_force: None,
             tractions: Some(vec![Traction {
-                side: Side::Top,
-                center: 6.0,
-                length: 0.5,
+                side: Side::Right,
+                center: 2.5,
+                length: 1.0 / 9.0,
                 value: (0.0, -2000.0),
             }]),
         },

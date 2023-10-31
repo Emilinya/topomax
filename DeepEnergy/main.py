@@ -1,4 +1,5 @@
 import io
+import os
 import sys
 import copy
 import warnings
@@ -13,6 +14,7 @@ from scipy.sparse import coo_matrix, csr_matrix
 
 from DeepEnergy.src.utils import Timer
 from DeepEnergy.src.MMA import optimize
+from designs.design_parser import parse_design
 from DeepEnergy.src.DeepEnergyMethod import DeepEnergyMethod
 from DeepEnergy.src.elasisity_problem import ElasticityProblem
 from DeepEnergy.src.data_structs import Domain, TopOptParameters, NNParameters
@@ -140,7 +142,9 @@ def optimize_hyperparameters(
 
 
 class DeepEnergySolver:
-    def __init__(self, example: int):
+    def __init__(self, design_file: str):
+        domain_parameters, elasticity_design = parse_design(design_file)
+
         warnings.filterwarnings("ignore")
         npr.seed(2022)
         torch.manual_seed(2022)
@@ -154,12 +158,14 @@ class DeepEnergySolver:
             self.device = torch.device("cpu")
             print("CUDA not available, running on CPU")
 
-        if example == 1:
+        design = os.path.splitext(os.path.split(design_file)[1])[0]
+
+        if design == "bridge":
             self.train_domain = Domain(120 + 1, 30 + 1, 0, 0, 12, 2)
-        elif example == 2:
+        elif design == "short_cantilever":
             self.train_domain = Domain(90 + 1, 45 + 1, 0, 0, 10, 5)
         else:
-            sys.exit("example must be set to 1 or 2")
+            sys.exit("example must be bridge or short_cantilever")
 
         self.test_domain = copy.deepcopy(self.train_domain)
 
@@ -168,9 +174,9 @@ class DeepEnergySolver:
             nu=0.3,
             verbose=False,
             filter_radius=0.25,
-            output_folder=f"DeepEnergy/example{example}",
+            output_folder=f"DeepEnergy/{design}",
             max_iterations=10,
-            volume_fraction=0.4,
+            volume_fraction=domain_parameters.volume_fraction,
             convergence_tolerances=5e-5 * np.ones(80),
         )
 
@@ -194,7 +200,7 @@ class DeepEnergySolver:
 
         self.problem = ElasticityProblem(
             self.device,
-            example,
+            elasticity_design,
             self.test_domain,
             self.train_domain,
             density_filter,
@@ -236,6 +242,7 @@ class DeepEnergySolver:
             self.to_parameters.volume_fraction
         )
 
+        os.makedirs(self.to_parameters.output_folder, exist_ok=True)
         _, _, total_io_time = optimize(
             density,
             optimizationParams,

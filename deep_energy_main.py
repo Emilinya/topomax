@@ -6,13 +6,14 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
 
     parser.add_argument(
-        "example",
-        type=int,
-        choices=[1, 2],
-        help="the example you want to run",
+        "design_file",
+        type=argparse.FileType("r"),
+        help="path to a json file where your problem is defined. See readme for more information",
     )
 
     args = parser.parse_args()
+    design_filename = args.design_file.name
+    args.design_file.close()
 
-    solver = DeepEnergySolver(args.example)
+    solver = DeepEnergySolver(design_filename)
     solver.solve()
