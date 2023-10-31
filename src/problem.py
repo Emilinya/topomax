@@ -5,7 +5,7 @@ import dolfin as df
 
 from src.filter import Filter
 from src.penalizers import Penalizer
-from src.utils import MeshFunctionWrapper
+from src.df_utils import MeshFunctionWrapper
 from designs.definitions import DomainParameters
 
 

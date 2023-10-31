@@ -5,7 +5,7 @@ import pytest
 import dolfin as df
 
 from src.solver import Solver
-from src.utils import load_function
+from src.df_utils import load_function
 
 
 @pytest.fixture()

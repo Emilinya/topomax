@@ -1,10 +1,10 @@
 import dolfin as df
 
 from src.domains import SidesDomain
-from src.utils import MeshFunctionWrapper
 from src.penalizers import FluidPenalizer
-from src.fluid_problem import BoundaryFlows
 from designs.definitions import Flow, Side
+from src.fluid_problem import BoundaryFlows
+from src.df_utils import MeshFunctionWrapper
 
 
 def contains_same_elements(list1: list, list2: list):

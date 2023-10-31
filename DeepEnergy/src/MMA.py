@@ -2,7 +2,7 @@ from scipy.sparse import diags
 from scipy.linalg import solve
 import numpy as np
 
-from DeepEnergy.src.utils import Timer, constrain
+from src.utils import Timer, constrain
 
 
 # %% Optimizer

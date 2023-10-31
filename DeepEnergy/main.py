@@ -12,7 +12,7 @@ from hyperopt import fmin, tpe, hp, Trials
 from sklearn.preprocessing import normalize
 from scipy.sparse import coo_matrix, csr_matrix
 
-from DeepEnergy.src.utils import Timer
+from src.utils import Timer
 from DeepEnergy.src.MMA import optimize
 from designs.design_parser import parse_design
 from DeepEnergy.src.DeepEnergyMethod import DeepEnergyMethod

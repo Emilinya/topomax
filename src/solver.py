@@ -4,9 +4,10 @@ import pickle
 import numpy as np
 import dolfin as df
 
+from src.utils import constrain
 from src.filter import HelmholtzFilter
+from src.df_utils import save_function
 from src.fluid_problem import FluidProblem
-from src.utils import constrain, save_function
 from src.elasisity_problem import ElasticityProblem
 from designs.definitions import FluidDesign, ElasticityDesign, ProblemType
 from designs.design_parser import parse_design
