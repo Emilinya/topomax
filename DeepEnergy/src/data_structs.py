@@ -1,5 +1,4 @@
 from dataclasses import dataclass
-import numpy.typing as npt
 import numpy as np
 
 
@@ -38,15 +37,8 @@ class Domain:
 
 
 @dataclass
-class TopOptParameters:
-    E: float
-    nu: float
-    verbose: bool
-    convergence_tolerance: float
-
-
-@dataclass
 class NNParameters:
+    verbose: bool
     input_size: int
     output_size: int
     layer_count: int
@@ -56,3 +48,4 @@ class NNParameters:
     rff_deviation: float
     iteration_count: int
     activation_function: str
+    convergence_tolerance: float

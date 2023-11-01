@@ -13,8 +13,8 @@ from src.utils import constrain
 from designs.design_parser import parse_design
 from designs.definitions import FluidDesign, ElasticityDesign, ProblemType
 from DeepEnergy.src.integrator import integrate
+from DeepEnergy.src.data_structs import Domain, NNParameters
 from DeepEnergy.src.elasisity_problem import ElasticityProblem
-from DeepEnergy.src.data_structs import Domain, NNParameters, TopOptParameters
 
 
 def expit(x):
@@ -112,14 +112,8 @@ class Solver:
 
         self.output_folder = f"DeepEnergy/output/{self.design_str}/data"
 
-        to_parameters = TopOptParameters(
-            E=2e5,
-            nu=0.3,
-            verbose=False,
-            convergence_tolerance=5e-5,
-        )
-
         nn_parameters = NNParameters(
+            verbose=False,
             input_size=2,
             output_size=2,
             layer_count=5,
@@ -129,6 +123,7 @@ class Solver:
             rff_deviation=0.119297,
             iteration_count=100,
             activation_function="rrelu",
+            convergence_tolerance=5e-5,
         )
 
         self.rho = np.ones(self.reduced_domain.shape) * volume_fraction
@@ -139,13 +134,13 @@ class Solver:
             sys.exit(1)
         elif isinstance(design, ElasticityDesign):
             self.problem = ElasticityProblem(
+                2e5,
+                0.3,
+                self.domain,
                 self.device,
-                design,
-                self.domain,
-                self.domain,
                 control_filter,
-                to_parameters,
                 nn_parameters,
+                design,
             )
         else:
             raise ValueError(

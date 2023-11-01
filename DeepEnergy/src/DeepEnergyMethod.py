@@ -4,17 +4,18 @@ import numpy.typing as npt
 
 from DeepEnergy.src.StrainEnergy import StrainEnergy
 from DeepEnergy.src.MultiLayerNet import MultiLayerNet
+from DeepEnergy.src.data_structs import Domain, NNParameters
 from DeepEnergy.src.external_energy import calculate_external_energy
 from DeepEnergy.src.bc_helpers import TractionPoints, DirichletEnforcer
-from DeepEnergy.src.data_structs import Domain, TopOptParameters, NNParameters
 
 
 class DeepEnergyMethod:
     # Instance attributes
     def __init__(
         self,
+        E: float,
+        nu: float,
         device: torch.device,
-        to_parameters: TopOptParameters,
         nn_parameters: NNParameters,
         dirichlet_enforcer: DirichletEnforcer,
         traction_points_list: list[TractionPoints],
@@ -23,8 +24,9 @@ class DeepEnergyMethod:
         self.model = MultiLayerNet(nn_parameters)
         self.model = self.model.to(device)
 
+        self.E = E
+        self.nu = nu
         self.device = device
-        self.to_parameters = to_parameters
         self.nn_parameters = nn_parameters
         self.dirichlet_enforcer = dirichlet_enforcer
         self.traction_points_list = traction_points_list
@@ -57,9 +59,7 @@ class DeepEnergyMethod:
             line_search_fn="strong_wolfe",
         )
 
-        strain_energy = StrainEnergy(
-            self.to_parameters.E, self.to_parameters.nu, domain.dxdy
-        )
+        strain_energy = StrainEnergy(self.E, self.nu, domain.dxdy)
 
         def closure_generator(t: int):
             def closure():
@@ -80,7 +80,7 @@ class DeepEnergyMethod:
                 optimizer_LBFGS.zero_grad()
                 loss.backward()
 
-                if self.to_parameters.verbose:
+                if self.nn_parameters.verbose:
                     print(
                         f"Iter: {t+1:d} Loss: {loss.item():.6e} "
                         + f"IntE: {internal_energy.item():.4e} ExtE: {external_E.item():.4e}"
@@ -99,7 +99,7 @@ class DeepEnergyMethod:
             # Check convergence
             if self.convergence_check(
                 self.loss_array,
-                self.to_parameters.convergence_tolerance,
+                self.nn_parameters.convergence_tolerance,
             ):
                 break
 

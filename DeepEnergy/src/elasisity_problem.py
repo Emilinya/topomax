@@ -6,7 +6,7 @@ from scipy.sparse import csr_matrix
 from designs.definitions import ElasticityDesign
 from DeepEnergy.src.DeepEnergyMethod import DeepEnergyMethod
 from DeepEnergy.src.bc_helpers import get_boundary_conditions
-from DeepEnergy.src.data_structs import Domain, NNParameters, TopOptParameters
+from DeepEnergy.src.data_structs import Domain, NNParameters
 
 
 class ElasticityProblem:
@@ -14,25 +14,24 @@ class ElasticityProblem:
 
     def __init__(
         self,
+        E: float,
+        nu: float,
+        domain: Domain,
         device: torch.device,
-        elasticity_design: ElasticityDesign,
-        test_domain: Domain,
-        train_domain: Domain,
         input_filter: csr_matrix,
-        to_parameters: TopOptParameters,
         nn_parameters: NNParameters,
+        elasticity_design: ElasticityDesign,
     ):
         self.filter = input_filter
-        self.test_domain = test_domain
-        self.train_domain = train_domain
-        self.to_parameters = to_parameters
+        self.domain = domain
 
         traction_points_list, dirichlet_enforcer = get_boundary_conditions(
-            train_domain, elasticity_design
+            domain, elasticity_design
         )
         self.dem = DeepEnergyMethod(
+            E,
+            nu,
             device,
-            to_parameters,
             nn_parameters,
             dirichlet_enforcer,
             traction_points_list,
@@ -53,9 +52,7 @@ class ElasticityProblem:
         rho_shape = rho.shape
         filtered_rho = self.filter @ rho.flatten()
 
-        objective, objective_gradient = self.dem.train_model(
-            filtered_rho, self.train_domain
-        )
+        objective, objective_gradient = self.dem.train_model(filtered_rho, self.domain)
 
         objective = objective.cpu().detach().numpy()
         objective_gradient = objective_gradient.cpu().detach().numpy()
