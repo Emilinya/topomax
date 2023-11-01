@@ -197,8 +197,8 @@ def main():
             if not os.path.isfile(data_path):
                 continue
 
-            k_str, name = data[:-4].split("_")
-            if name != "data":
+            k_str, *other = data[:-4].split("_")
+            if len(other) > 0:
                 continue
 
             k = int(k_str.split("=")[1])

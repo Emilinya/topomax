@@ -42,11 +42,7 @@ class TopOptParameters:
     E: float
     nu: float
     verbose: bool
-    filter_radius: float
-    output_folder: str
-    max_iterations: int
-    volume_fraction: float
-    convergence_tolerances: npt.NDArray[np.float64]
+    convergence_tolerance: float
 
 
 @dataclass

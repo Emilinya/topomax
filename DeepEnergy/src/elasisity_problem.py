@@ -50,7 +50,8 @@ class ElasticityProblem:
         return self.objective_gradient
 
     def calculate_objective(self, rho: npt.NDArray[np.float64]):
-        filtered_rho = self.filter @ rho
+        rho_shape = rho.shape
+        filtered_rho = self.filter @ rho.flatten()
 
         objective, objective_gradient = self.dem.train_model(
             filtered_rho, self.train_domain
@@ -60,6 +61,8 @@ class ElasticityProblem:
         objective_gradient = objective_gradient.cpu().detach().numpy()
 
         # invert filter
-        self.objective_gradient = self.filter.T @ objective_gradient.flatten()
+        self.objective_gradient = (
+            self.filter.T @ objective_gradient.flatten()
+        ).reshape(rho_shape)
 
         return objective

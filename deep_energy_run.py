@@ -1,6 +1,6 @@
 import argparse
 
-from DeepEnergy.main import DeepEnergySolver
+from DeepEnergy.src.solver import Solver
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -15,5 +15,5 @@ if __name__ == "__main__":
     design_filename = args.design_file.name
     args.design_file.close()
 
-    solver = DeepEnergySolver(design_filename)
+    solver = Solver(design_filename)
     solver.solve()

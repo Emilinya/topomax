@@ -30,7 +30,6 @@ class DeepEnergyMethod:
         self.traction_points_list = traction_points_list
 
         self.loss_array = []
-        self.iteration = 0
 
     def train_model(self, rho: npt.NDArray[np.float64], domain: Domain):
         x = torch.from_numpy(domain.coordinates).float()
@@ -100,7 +99,7 @@ class DeepEnergyMethod:
             # Check convergence
             if self.convergence_check(
                 self.loss_array,
-                self.to_parameters.convergence_tolerances[self.iteration],
+                self.to_parameters.convergence_tolerance,
             ):
                 break
 
@@ -108,8 +107,6 @@ class DeepEnergyMethod:
         dfdrho, compliance = strain_energy.calculate_objective_gradient(
             u_pred, domain.shape, density
         )
-
-        self.iteration += 1
 
         return compliance, dfdrho
 
