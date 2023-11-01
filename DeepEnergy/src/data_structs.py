@@ -32,7 +32,7 @@ class Domain:
             ]
         ).T
 
-        self.shape = (self.Nx, self.Ny)
+        self.shape = (self.Ny, self.Nx)
         self.extent = (self.x_min, self.length, self.y_min, self.height)
         self.dxdy = (self.length / (self.Nx - 1), self.height / (self.Ny - 1))
 

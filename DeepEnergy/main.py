@@ -224,12 +224,12 @@ class DeepEnergySolver:
             objective_gradient = self.problem.calculate_objective_gradient()
             training_time = timer.get_time_seconds()
 
-            Nx, Ny = self.problem.train_domain.shape
+            Ny, Nx = self.problem.train_domain.shape
             file_root = f"{self.to_parameters.output_folder}/k={iteration}"
             timer.restart()
             np.save(
                 f"{file_root}_rho.npy",
-                rho.reshape((Nx - 1, Ny - 1)),
+                rho.reshape((Ny - 1, Nx - 1)),
             )
             data = {
                 "objective": objective,

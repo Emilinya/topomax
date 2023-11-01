@@ -117,7 +117,7 @@ class StrainEnergy:
         self, u: torch.Tensor, shape: tuple[int, int], density: torch.Tensor
     ):
         _, dim = u.shape
-        U = torch.transpose(u.reshape(shape[0], shape[1], dim), 0, 1)
+        U = torch.transpose(u.reshape(shape[1], shape[0], dim), 0, 1)
 
         point_lists = self.get_gauss_points(U)
 
@@ -139,7 +139,7 @@ class StrainEnergy:
         self, u: torch.Tensor, shape: tuple[int, int], density: torch.Tensor
     ):
         _, dim = u.shape
-        U = torch.transpose(u.reshape(shape[0], shape[1], dim), 0, 1)
+        U = torch.transpose(u.reshape(shape[1], shape[0], dim), 0, 1)
 
         point_lists = self.get_gauss_points(U)
 
