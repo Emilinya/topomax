@@ -170,7 +170,7 @@ class DeepEnergySolver:
             nu=0.3,
             verbose=False,
             filter_radius=0.25,
-            output_folder=f"DeepEnergy/output/{design}",
+            output_folder=f"DeepEnergy/output/{design}/data",
             max_iterations=80,
             volume_fraction=domain_parameters.volume_fraction,
             convergence_tolerances=5e-5 * np.ones(80),
@@ -228,8 +228,8 @@ class DeepEnergySolver:
             file_root = f"{self.to_parameters.output_folder}/k={iteration}"
             timer.restart()
             np.save(
-                f"{file_root}_density.npy",
-                density.reshape((Nx - 1, Ny - 1)),
+                f"{file_root}_rho.npy",
+                rho.reshape((Nx - 1, Ny - 1)),
             )
             data = {
                 "objective": objective,

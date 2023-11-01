@@ -7,7 +7,6 @@ import matplotlib.pyplot as plt
 
 from designs.definitions import ProblemType
 from designs.design_parser import parse_design
-from src.df_utils import load_function, sample_function
 
 try:
     from tqdm import tqdm
@@ -75,32 +74,28 @@ def get_design_data(data_path: str):
         data_obj = pickle.load(datafile)
     objective = data_obj["objective"]
     w, h = data_obj["domain_size"]
+    k = data_obj["iteration"]
 
-    data_root, data_head = os.path.splitext(data_path)
-    rho_path = data_root + "_rho" + data_head
-
-    rho, *_ = load_function(rho_path)
-    _, data = sample_function(rho, 200, "center")
-    data = data[:, :, 0]
+    data_root, _ = os.path.split(data_path)
+    rho_path = os.path.join(data_root, f"{k=}_rho.npy")
+    data = np.load(rho_path)
 
     return data, objective, w, h
 
 
-def create_design_figure(ax, data: np.ndarray, w: float, h: float, N: int, cmap):
-    multiple = int(np.sqrt(data.size / (w * h * N**2)))
-    Nx, Ny = int(N * w * multiple), int(N * h * multiple)
-
+def create_design_figure(ax, data: np.ndarray, w: float, h: float, cmap):
+    Ny, Nx = data.shape
     X, Y = np.meshgrid(np.linspace(0, w, Nx), np.linspace(0, h, Ny))
     return ax.pcolormesh(X, Y, data, cmap=cmap, vmin=0, vmax=1)
 
 
-def plot_design(design, data_path: str, N: int, p: float, k: int, cmap):
+def plot_design(design, data_path: str, k: int, cmap):
     data, objective, w, h = get_design_data(data_path)
 
     plt.figure(figsize=(6.4 * w / h, 4.8))
     plt.rcParams.update({"font.size": 10 * np.sqrt(w / h)})
 
-    mappable = create_design_figure(plt, data, w, h, N, cmap)
+    mappable = create_design_figure(plt, data, w, h, cmap)
     plt.colorbar(mappable, label=r"$\rho(x, y)$ []")
     plt.xlim(0, w)
     plt.ylim(0, h)
@@ -108,15 +103,15 @@ def plot_design(design, data_path: str, N: int, p: float, k: int, cmap):
 
     plt.xlabel("$x$ []")
     plt.ylabel("$y$ []")
-    plt.title(f"{N=}, p={p:.5g}, k={k:.5g}, objective={objective:.3g}")
+    plt.title(f"k={k:.5g}, objective={objective:.3g}")
 
-    output_file = os.path.join("output", design, "figures", f"{N=}_{p=}_{k=}") + ".png"
+    output_file = os.path.join("DeepEnergy/output", design, "figures", f"{k=}") + ".png"
     os.makedirs(os.path.dirname(output_file), exist_ok=True)
     plt.savefig(output_file, dpi=200, bbox_inches="tight")
     plt.close()
 
 
-def multiplot(design: str, N: int, p: float, vals: list[tuple[str, int]], cmap):
+def multiplot(design: str, vals: list[tuple[str, int]], cmap):
     *_, w, h = get_design_data(vals[0][0])
     fig, axss = plt.subplots(
         2,
@@ -137,10 +132,10 @@ def multiplot(design: str, N: int, p: float, vals: list[tuple[str, int]], cmap):
         ax.axis("off")
         ax.set_aspect("equal", "box")
         data, _, w, h = get_design_data(data_path)
-        pcolormesh = create_design_figure(ax, data, w, h, N, cmap)
+        pcolormesh = create_design_figure(ax, data, w, h, cmap)
         ax.set_title(f"${k=}$")
     fig.colorbar(pcolormesh, ax=axss[:, -1], shrink=0.8, label=r"$\rho(x, y)$ []")
-    output_file = os.path.join("output", design, "figures", f"{N=}_{p=}_multi.png")
+    output_file = os.path.join("DeepEnergy/output", design, "figures", f"multi.png")
     plt.savefig(output_file, dpi=200, bbox_inches="tight")
 
 
@@ -184,64 +179,55 @@ def main():
     if len(sys.argv) > 1:
         selected_designs = sys.argv[1:]
 
-    # designs = {design: {N: {p: [(data_path, k)]}}}
-    designs: dict[str, dict[int, dict[float, list[tuple[str, int]]]]] = {}
+    # designs = {design: [(data_path, k)]}
+    designs: dict[str, list[tuple[str, int]]] = {}
 
-    for design in os.listdir("output"):
+    for design in os.listdir("DeepEnergy/output"):
         if selected_designs is not None and design not in selected_designs:
             continue
 
-        data_folder = os.path.join("output", design, "data")
+        data_folder = os.path.join("DeepEnergy", "output", design, "data")
         if not os.path.isdir(data_folder):
             continue
 
-        designs[design] = designs.get(design, {})
+        designs[design] = designs.get(design, [])
 
         for data in os.listdir(data_folder):
             data_path = os.path.join(data_folder, data)
             if not os.path.isfile(data_path):
                 continue
 
-            N_str, p_str, k_str, *other = data[:-4].split("_")
-            if other != []:
+            k_str, name = data[:-4].split("_")
+            if name != "data":
                 continue
 
-            N = int(N_str.split("=")[1])
-            p = float(p_str.split("=")[1])
             k = int(k_str.split("=")[1])
-
-            designs[design][N] = designs[design].get(N, {})
-            designs[design][N][p] = designs[design][N].get(p, [])
-            designs[design][N][p].append((data_path, k))
+            designs[design].append((data_path, k))
 
     plot_count = 0
-    for design_dict in designs.values():
-        for ps in design_dict.values():
-            for ks in ps.values():
-                ks.sort(key=lambda v: v[1])
-                ks[:] = reduce_length(ks, 6)
+    for ks in designs.values():
+        ks.sort(key=lambda v: v[1])
+        ks[:] = reduce_length(ks, 6)
 
-                plot_count += len(ks) + 1
+        plot_count += len(ks) + 1
 
     # we have no designs :(
     if plot_count == 0:
         sys.exit()
 
     with tqdm(total=plot_count) as pbar:
-        for design, design_dict in designs.items():
+        for design, ks in designs.items():
             parameters, *_ = parse_design(os.path.join("designs", design) + ".json")
             if parameters.problem == ProblemType.FLUID:
                 cmap = traa_cmap
             else:
                 cmap = highlight_cmap
 
-            for N, ps in design_dict.items():
-                for p, ks in ps.items():
-                    for data_path, k in ks:
-                        plot_design(design, data_path, N, p, k, cmap)
-                        pbar.update(1)
-                    multiplot(design, N, p, ks, cmap)
-                    pbar.update(1)
+            for data_path, k in ks:
+                plot_design(design, data_path, k, cmap)
+                pbar.update(1)
+            multiplot(design, ks, cmap)
+            pbar.update(1)
 
 
 if __name__ == "__main__":
