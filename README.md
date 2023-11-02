@@ -7,21 +7,19 @@ This is a topology optimization program based algorithm 8 from the paper *Proxim
 ## Usage/Examples
 
 ### Dependencies
-To install the packages this program depends on, simply run
-```bash
-pip install -r requirements.txt
-```
-this will install every dependency, except fenics-dolfin, which is not available on Windows. The [TopOpt](https://github.com/JohannesHaubner/TopOpt) repository includes a docker image which makes running the program on Windows easy, but as it is not my docker image, I can't guarantee that it will work forever. To use the docker image, simply run
+Topomax depends on FEniCS, which is not available on Windows. The [TopOpt](https://github.com/JohannesHaubner/TopOpt) repository includes a docker image which makes running the program on Windows easy, but as it is not my docker image, I can't guarantee that it will work forever. After [downloading docker](https://www.docker.com/products/docker-desktop/) you can simply run
 ```bash
 docker pull ghcr.io/johanneshaubner/topopt:latest
-docker run -it -v $(pwd):/topomax ghcr.io/johanneshaubner/topopt
+docker run -it -v "$(pwd):/topomax" -w /topomax ghcr.io/johanneshaubner/topopt
+pip install -r requirements.txt
 ```
 
 Then, in the docker container, you can run the program as normal:
 ```bash
-cd topomax
 python3 run.py designs/twin_pipe.json 40
 ```
+
+This also works if you are using Linux and Mac, but there you can also install FEniCS directly by following [their instalation instructions](https://fenicsproject.org/download/archive/). After installing FEniCS, you can install the rest of the dependencies using the requirements file.
 
 ### Running
 The program is run using `run.py`. This program takes in two command line arguments; a design file and the number of finite elements in a unit length. The folder `designs` contains some design files, and you can easily make a custom design using those files as a template. If the design is `path/to/design.json`, the output of the program is saved to `output/design/data`. The produced data can be visualized with `plot.py`, which automatically reads all the data files, and produces corresponding figures in `output/design/figures`. `plot.py` can also take a list of designs as an argument to limit which designs it will plot. For instance,
