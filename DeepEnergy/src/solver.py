@@ -186,9 +186,10 @@ class Solver:
 
     def step_size(self, k: int) -> float:
         if self.parameters.problem == ProblemType.ELASTICITY:
-            multiplier = 1
             if self.design_str == "bridge":
                 multiplier = 1 / 50
+            else:
+                multiplier = 2
             return 25 * (k + 1) * multiplier
         if self.parameters.problem == ProblemType.FLUID:
             return min(0.0015 * (k + 1), 0.015)
@@ -232,7 +233,6 @@ class Solver:
                 try:
                     psi = self.step(previous_psi, self.step_size(k))
                 except ValueError as e:
-                    print_values(k + 1, objective, objective_difference, difference)
                     print(f"EXIT: {e}")
                     break
 

@@ -6,16 +6,12 @@ This is a topology optimization program based algorithm 8 from the paper *Proxim
 
 ## Usage/Examples
 
-### Running
-The program is run using `run.py`. This program takes in two command line arguments; a design file and the number of finite elements in a unit length. The folder `designs` contains some design files, and you can easily make a custom design using those files as a template. If the design is `path/to/design.json`, the output of the program is saved to `output/design/data`. The produced data can be visualized with `plot.py`, which automatically reads all the data files, and produces corresponding figures in `output/design/figures`. `plot.py` can also take a list of designs as an argument to limit which designs it will plot. For instance,
+### Dependencies
+To install the packages this program depends on, simply run
 ```bash
-python3 plot.py design1 design2
+pip install -r requirements.txt
 ```
-will only create figures from `output/design1/data` and `output/design2/data`.
-
-### Docker
-Topomax uses fenics-dolfin, which is not available on Windows. The [TopOpt](https://github.com/JohannesHaubner/TopOpt) repository includes a docker image which makes running the program on Windows easy, but as it is not my docker image, I can't guarantee that it will work forever. To use the docker image, simply run
-
+this will install every dependency, except fenics-dolfin, which is not available on Windows. The [TopOpt](https://github.com/JohannesHaubner/TopOpt) repository includes a docker image which makes running the program on Windows easy, but as it is not my docker image, I can't guarantee that it will work forever. To use the docker image, simply run
 ```bash
 docker pull ghcr.io/johanneshaubner/topopt:latest
 docker run -it -v $(pwd):/topomax ghcr.io/johanneshaubner/topopt
@@ -26,6 +22,13 @@ Then, in the docker container, you can run the program as normal:
 cd topomax
 python3 run.py designs/twin_pipe.json 40
 ```
+
+### Running
+The program is run using `run.py`. This program takes in two command line arguments; a design file and the number of finite elements in a unit length. The folder `designs` contains some design files, and you can easily make a custom design using those files as a template. If the design is `path/to/design.json`, the output of the program is saved to `output/design/data`. The produced data can be visualized with `plot.py`, which automatically reads all the data files, and produces corresponding figures in `output/design/figures`. `plot.py` can also take a list of designs as an argument to limit which designs it will plot. For instance,
+```bash
+python3 plot.py design1 design2
+```
+will only create figures from `output/design1/data` and `output/design2/data`.
 
 ## Design file format
 The design files are written in json, but they are made by a Rust program. I did this so I could use Rust's rich type system to structure the data. I will therefore explain the design file format using the original Rust types. The root type is
