@@ -2,51 +2,13 @@ import os
 import sys
 import pickle
 import numpy as np
+from tqdm import tqdm
 from matplotlib import colors
 import matplotlib.pyplot as plt
 
 from designs.definitions import ProblemType
 from designs.design_parser import parse_design
 from FEM_src.utils import load_function, sample_function
-
-try:
-    from tqdm import tqdm
-except ModuleNotFoundError:
-
-    class tqdm:
-        """
-        A class that acts like tqdm.tqdm, which
-        is used to avoid a dependency on tqdm.
-        """
-
-        def __init__(self, total: int):
-            self.current_count = 0
-            self.total_count = total
-
-        def __enter__(self):
-            self.plot()
-            return self
-
-        def __exit__(self, exc_type, exc_val, exc_tb):
-            pass
-
-        def update(self, count):
-            self.current_count += count
-            self.plot()
-
-        def plot(self):
-            progress_str = f"{self.current_count}/{self.total_count}"
-
-            terminal_size = os.get_terminal_size().columns - 1
-            marker_space = terminal_size - (5 + len(progress_str))
-
-            progress = min(self.current_count / self.total_count, 1)
-            markers = int(progress * marker_space)
-
-            print(
-                f"\r├{'█'*markers}{' '*(marker_space - markers)}┤ ({progress_str})",
-                end="",
-            )
 
 
 def create_cmap(start, middle, end, name):
@@ -110,7 +72,7 @@ def plot_design(design, data_path: str, N: int, p: float, k: int, cmap):
     plt.ylabel("$y$ []")
     plt.title(f"{N=}, p={p:.5g}, k={k:.5g}, objective={objective:.3g}")
 
-    output_file = os.path.join("output", design, "figures", f"{N=}_{p=}_{k=}") + ".png"
+    output_file = os.path.join("output", "FEM", design, "figures", f"{N=}_{p=}_{k=}") + ".png"
     os.makedirs(os.path.dirname(output_file), exist_ok=True)
     plt.savefig(output_file, dpi=200, bbox_inches="tight")
     plt.close()
@@ -140,7 +102,7 @@ def multiplot(design: str, N: int, p: float, vals: list[tuple[str, int]], cmap):
         pcolormesh = create_design_figure(ax, data, w, h, N, cmap)
         ax.set_title(f"${k=}$")
     fig.colorbar(pcolormesh, ax=axss[:, -1], shrink=0.8, label=r"$\rho(x, y)$ []")
-    output_file = os.path.join("output", design, "figures", f"{N=}_{p=}_multi.png")
+    output_file = os.path.join("output", "FEM", design, "figures", f"{N=}_{p=}_multi.png")
     plt.savefig(output_file, dpi=200, bbox_inches="tight")
 
 
@@ -187,11 +149,11 @@ def main():
     # designs = {design: {N: {p: [(data_path, k)]}}}
     designs: dict[str, dict[int, dict[float, list[tuple[str, int]]]]] = {}
 
-    for design in os.listdir("output"):
+    for design in os.listdir(os.path.join("output", "FEM")):
         if selected_designs is not None and design not in selected_designs:
             continue
 
-        data_folder = os.path.join("output", design, "data")
+        data_folder = os.path.join("output", "FEM", design, "data")
         if not os.path.isdir(data_folder):
             continue
 

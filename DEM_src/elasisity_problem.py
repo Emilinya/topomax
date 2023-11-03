@@ -22,6 +22,7 @@ class ElasticityProblem:
         nn_parameters: NNParameters,
         elasticity_design: ElasticityDesign,
     ):
+        self.design = elasticity_design
         self.filter = input_filter
         self.domain = domain
 
