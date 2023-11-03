@@ -7,21 +7,17 @@ class Domain:
         self,
         Nx: int,
         Ny: int,
-        x_min: float,
-        y_min: float,
         length: float,
         height: float,
     ):
         self.Nx = Nx
         self.Ny = Ny
-        self.x_min = x_min
-        self.y_min = y_min
         self.length = length
         self.height = height
 
         # create points
-        self.x_ray = np.linspace(self.x_min, self.length, self.Nx)
-        self.y_ray = np.linspace(self.y_min, self.height, self.Ny)
+        self.x_ray = np.linspace(0.0, self.length, self.Nx)
+        self.y_ray = np.linspace(0.0, self.height, self.Ny)
 
         # create an array containing nodal coordinates
         self.coordinates = np.array(
@@ -32,7 +28,6 @@ class Domain:
         ).T
 
         self.shape = (self.Ny, self.Nx)
-        self.extent = (self.x_min, self.length, self.y_min, self.height)
         self.dxdy = (self.length / (self.Nx - 1), self.height / (self.Ny - 1))
 
 

@@ -10,11 +10,11 @@ from sklearn.preprocessing import normalize
 from scipy.sparse import coo_matrix, csr_matrix
 
 from src.utils import constrain
-from designs.design_parser import parse_design
-from designs.definitions import FluidDesign, ElasticityDesign, ProblemType
 from DEM_src.integrator import integrate
 from DEM_src.data_structs import Domain, NNParameters
 from DEM_src.elasisity_problem import ElasticityProblem
+from designs.definitions import FluidDesign, ElasticityDesign, ProblemType
+from designs.design_parser import parse_design
 
 
 def expit(x):
@@ -90,19 +90,17 @@ class Solver:
         if self.design_str == "bridge":
             self.width = 12
             self.height = 2
-            self.domain = Domain(120 + 1, 30 + 1, 0, 0, 12, 2)
+            self.domain = Domain(120, 30, 12, 2)
         elif self.design_str == "short_cantilever":
             self.width = 10
             self.height = 5
-            self.domain = Domain(90 + 1, 45 + 1, 0, 0, 10, 5)
+            self.domain = Domain(90, 45, 10, 5)
         else:
             sys.exit("example must be bridge or short_cantilever")
 
-        self.reduced_domain = Domain(
-            self.domain.Nx - 1,
-            self.domain.Ny - 1,
-            self.domain.x_min,
-            self.domain.y_min,
+        extended_domain = Domain(
+            self.domain.Nx + 1,
+            self.domain.Ny + 1,
             self.domain.length,
             self.domain.height,
         )
@@ -126,9 +124,9 @@ class Solver:
             convergence_tolerance=5e-5,
         )
 
-        self.rho = np.ones(self.reduced_domain.shape) * volume_fraction
+        self.rho = np.ones(self.domain.shape) * volume_fraction
 
-        control_filter = create_density_filter(0.25, self.domain)
+        control_filter = create_density_filter(0.25, extended_domain)
 
         if isinstance(design, FluidDesign):
             sys.exit(1)
@@ -136,7 +134,7 @@ class Solver:
             self.problem = ElasticityProblem(
                 2e5,
                 0.3,
-                self.domain,
+                extended_domain,
                 self.device,
                 control_filter,
                 nn_parameters,
@@ -158,8 +156,8 @@ class Solver:
         c = 0
         max_iterations = 10
         for _ in range(max_iterations):
-            error = integrate(expit(half_step + c), self.reduced_domain) - volume
-            derivative = integrate(expit_diff(half_step + c), self.reduced_domain)
+            error = integrate(expit(half_step + c), self.domain) - volume
+            derivative = integrate(expit_diff(half_step + c), self.domain)
 
             if derivative == 0.0:
                 raise ValueError(
@@ -248,7 +246,7 @@ class Solver:
 
                 previous_rho = expit(previous_psi)
                 difference = np.sqrt(
-                    integrate((self.rho - previous_rho) ** 2, self.reduced_domain)
+                    integrate((self.rho - previous_rho) ** 2, self.domain)
                 )
 
                 if difference < self.tolerance(k):
@@ -267,7 +265,7 @@ class Solver:
 
         np.save(
             f"{file_root}_rho.npy",
-            rho.reshape(self.reduced_domain.shape),
+            rho.reshape(self.domain.shape),
         )
 
         data = {
