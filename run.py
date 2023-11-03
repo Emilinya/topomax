@@ -1,6 +1,6 @@
 import argparse
 
-from src.solver import Solver
+from FEM_src.solver import Solver
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()

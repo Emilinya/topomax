@@ -12,9 +12,9 @@ from scipy.sparse import coo_matrix, csr_matrix
 from src.utils import constrain
 from designs.design_parser import parse_design
 from designs.definitions import FluidDesign, ElasticityDesign, ProblemType
-from DeepEnergy.src.integrator import integrate
-from DeepEnergy.src.data_structs import Domain, NNParameters
-from DeepEnergy.src.elasisity_problem import ElasticityProblem
+from DEM_src.integrator import integrate
+from DEM_src.data_structs import Domain, NNParameters
+from DEM_src.elasisity_problem import ElasticityProblem
 
 
 def expit(x):
@@ -110,7 +110,7 @@ class Solver:
         volume_fraction = self.parameters.volume_fraction
         self.volume = self.width * self.height * volume_fraction
 
-        self.output_folder = f"DeepEnergy/output/{self.design_str}/data"
+        self.output_folder = f"output/DEM/{self.design_str}/data"
 
         nn_parameters = NNParameters(
             verbose=False,

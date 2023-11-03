@@ -2,11 +2,11 @@ import torch
 import numpy as np
 import numpy.typing as npt
 
-from DeepEnergy.src.StrainEnergy import StrainEnergy
-from DeepEnergy.src.MultiLayerNet import MultiLayerNet
-from DeepEnergy.src.data_structs import Domain, NNParameters
-from DeepEnergy.src.external_energy import calculate_external_energy
-from DeepEnergy.src.bc_helpers import TractionPoints, DirichletEnforcer
+from DEM_src.StrainEnergy import StrainEnergy
+from DEM_src.MultiLayerNet import MultiLayerNet
+from DEM_src.data_structs import Domain, NNParameters
+from DEM_src.external_energy import calculate_external_energy
+from DEM_src.bc_helpers import TractionPoints, DirichletEnforcer
 
 
 class DeepEnergyMethod:

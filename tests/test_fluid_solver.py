@@ -4,8 +4,8 @@ import pickle
 import pytest
 import dolfin as df
 
-from src.solver import Solver
-from src.df_utils import load_function
+from FEM_src.solver import Solver
+from FEM_src.utils import load_function
 
 
 @pytest.fixture()

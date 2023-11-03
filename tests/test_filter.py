@@ -1,7 +1,7 @@
 import numpy as np
 import dolfin as df
 
-from src.filter import HelmholtzFilter
+from FEM_src.filter import HelmholtzFilter
 
 
 def initialize(N):

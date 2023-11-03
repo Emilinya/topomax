@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 
 from designs.definitions import ProblemType
 from designs.design_parser import parse_design
-from src.df_utils import load_function, sample_function
+from FEM_src.utils import load_function, sample_function
 
 try:
     from tqdm import tqdm

@@ -1,6 +1,6 @@
 import argparse
 
-from DeepEnergy.src.solver import Solver
+from DEM_src.solver import Solver
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()

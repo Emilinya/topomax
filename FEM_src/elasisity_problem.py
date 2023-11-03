@@ -3,10 +3,10 @@ from __future__ import annotations
 import numpy as np
 import dolfin as df
 
-from src.filter import Filter
-from src.problem import Problem
-from src.domains import SidesDomain
-from src.penalizers import ElasticPenalizer
+from FEM_src.filter import Filter
+from FEM_src.problem import Problem
+from FEM_src.domains import SidesDomain
+from FEM_src.penalizers import ElasticPenalizer
 from designs.definitions import (
     DomainParameters,
     ElasticityDesign,

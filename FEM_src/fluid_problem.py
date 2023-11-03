@@ -2,10 +2,10 @@ from __future__ import annotations
 
 import dolfin as df
 
-from src.filter import Filter
-from src.problem import Problem
-from src.penalizers import FluidPenalizer
-from src.domains import SidesDomain, RegionDomain
+from FEM_src.filter import Filter
+from FEM_src.problem import Problem
+from FEM_src.penalizers import FluidPenalizer
+from FEM_src.domains import SidesDomain, RegionDomain
 from designs.definitions import DomainParameters, FluidDesign, Side, Flow
 
 

@@ -4,9 +4,9 @@ import numpy.typing as npt
 from scipy.sparse import csr_matrix
 
 from designs.definitions import ElasticityDesign
-from DeepEnergy.src.DeepEnergyMethod import DeepEnergyMethod
-from DeepEnergy.src.bc_helpers import get_boundary_conditions
-from DeepEnergy.src.data_structs import Domain, NNParameters
+from DEM_src.DeepEnergyMethod import DeepEnergyMethod
+from DEM_src.bc_helpers import get_boundary_conditions
+from DEM_src.data_structs import Domain, NNParameters
 
 
 class ElasticityProblem:

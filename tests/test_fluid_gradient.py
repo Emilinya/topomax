@@ -1,7 +1,7 @@
 import dolfin as df
 import numpy as np
 
-from src.solver import Solver
+from FEM_src.solver import Solver
 
 def test_fluid_gradient():
     solver = Solver(10, "designs/twin_pipe.json")

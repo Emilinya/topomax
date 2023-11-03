@@ -1,7 +1,7 @@
 import torch
 import numpy as np
 
-from DeepEnergy.src.data_structs import Domain
+from DEM_src.data_structs import Domain
 from designs.definitions import Side, Traction, ElasticityDesign
 
 

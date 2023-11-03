@@ -3,7 +3,7 @@ import pytest
 import numpy as np
 import dolfin as df
 
-from src.df_utils import save_function, load_function
+from FEM_src.utils import save_function, load_function
 
 
 @pytest.fixture()

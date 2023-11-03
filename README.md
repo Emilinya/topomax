@@ -2,20 +2,20 @@
 
 # Topomax
 
-This is a topology optimization program based algorithm 8 from the paper *Proximal Galerkin: A structure-preserving finite element method for pointwise bound constraints* by Brendan Keith and Thomas M. Surowiec. It uses design files to define the boundary conditions and other parameters for your optimization problem in an easy-to-read way.
+This is a topology optimization program based algorithm 8 from the paper *Proximal Galerkin: A structure-preserving finite element method for pointwise bound constraints* by Brendan Keith and Thomas M. Surowiec. It uses design files to define the boundary conditions and other parameters for your optimization problem in an easy-to-read way. Topomax was made for the paper *Comparing Classical and Machine Learning Based Approaches to Topology Optimization* by Emilie Dørum, and as such, it implements both the finite element method and the deep energy method. The deep energy implementation is based on the paper *Deep energy method in topology optimization applications* by Junyan He, Charul Chadha, Shashank Kushwaha, Seid Koric, Diab Abueidda and Iwona Jasiuk, where I have heavily rewritten the [source code they provided](https://github.com/Jasiuk-Research-Group/DeepEnergy-TopOpt).
 
-## Usage/Examples
+## Usage
 
 ### Dependencies
 Topomax depends on FEniCS, which is not available on Windows. The [TopOpt](https://github.com/JohannesHaubner/TopOpt) repository includes a docker image which makes running the program on Windows easy, but as it is not my docker image, I can't guarantee that it will work forever. After [downloading docker](https://www.docker.com/products/docker-desktop/) you can simply run
 ```bash
 docker pull ghcr.io/johanneshaubner/topopt:latest
 docker run -it -v "$(pwd):/topomax" -w /topomax ghcr.io/johanneshaubner/topopt
-pip install -r requirements.txt
 ```
 
 Then, in the docker container, you can run the program as normal:
 ```bash
+pip install -r requirements.txt
 python3 run.py designs/twin_pipe.json 40
 ```
 
@@ -118,14 +118,14 @@ pub struct CircularRegion {
 and represents a force with a given value that acts on a circle with a given center and radius. The `fixed_sides` parameter represents a side where the material is fixed in place.
 
 ## Running Tests
-To run tests, run the following command:
+This program uses pytest for testing, so running them is simply done by running
 ```bash
 pytest
 ```
 
-If you are using docker, pytest is not installed by default, so you first need to run
+The requirements file does not include pytest, so you first need to run
 ```bash
-conda install pytest
+pip install pytest
 ```
 
 ## License

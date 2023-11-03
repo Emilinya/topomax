@@ -3,9 +3,9 @@ from abc import ABC, abstractmethod
 
 import dolfin as df
 
-from src.filter import Filter
-from src.penalizers import Penalizer
-from src.df_utils import MeshFunctionWrapper
+from FEM_src.filter import Filter
+from FEM_src.penalizers import Penalizer
+from FEM_src.utils import MeshFunctionWrapper
 from designs.definitions import DomainParameters
 
 

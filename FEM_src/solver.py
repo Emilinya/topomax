@@ -5,10 +5,10 @@ import numpy as np
 import dolfin as df
 
 from src.utils import constrain
-from src.filter import HelmholtzFilter
-from src.df_utils import save_function
-from src.fluid_problem import FluidProblem
-from src.elasisity_problem import ElasticityProblem
+from FEM_src.filter import HelmholtzFilter
+from FEM_src.utils import save_function
+from FEM_src.fluid_problem import FluidProblem
+from FEM_src.elasisity_problem import ElasticityProblem
 from designs.definitions import FluidDesign, ElasticityDesign, ProblemType
 from designs.design_parser import parse_design
 
@@ -40,7 +40,7 @@ class Solver:
         self,
         N: int,
         design_file: str,
-        data_path: str = "data",
+        data_path: str = "output",
         skip_multiple: int = 1,
     ):
         self.N = N
@@ -209,7 +209,7 @@ class Solver:
 
     def save_rho(self, rho, objective: float, k: int, penalty: float):
         design = os.path.splitext(os.path.basename(self.design_file))[0]
-        file_root = f"{self.data_path}/{design}/data/N={self.N}_p={penalty}_{k=}"
+        file_root = f"{self.data_path}/FEM/{design}/data/N={self.N}_p={penalty}_{k=}"
         os.makedirs(os.path.dirname(file_root), exist_ok=True)
 
         rho_file = file_root + "_rho.dat"

@@ -1,7 +1,7 @@
 import numpy as np
 import numpy.typing as npt
 
-from DeepEnergy.src.data_structs import Domain
+from DEM_src.data_structs import Domain
 
 
 def integrate(data: npt.NDArray[np.float64], domain: Domain) -> float:
