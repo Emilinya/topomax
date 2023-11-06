@@ -9,26 +9,32 @@ from FEM_src.utils import load_function
 
 
 @pytest.fixture()
-def cleanup():
+def data_path():
+    return os.path.join("tests", "test_data")
+
+
+@pytest.fixture()
+def output_folder(data_path):
+    return os.path.join(data_path, "FEM", "diffuser", "data")
+
+
+@pytest.fixture()
+def cleanup(output_folder):
     yield
-    for filename in os.listdir("tests/test_data/diffuser/data"):
+    for filename in os.listdir(output_folder):
         if filename in ["correct_data.dat", "correct_rho.dat"]:
             continue
-        os.remove(os.path.join("tests/test_data/diffuser/data", filename))
+        os.remove(os.path.join(output_folder, filename))
 
 
-def test_fluid_solver(cleanup):
-    solver = Solver(
-        20, "designs/diffuser.json", data_path="tests/test_data", skip_multiple=999
-    )
+def test_fluid_solver(data_path, output_folder, cleanup):
+    solver = Solver(20, "designs/diffuser.json", data_path=data_path, skip_multiple=999)
     solver.solve()
 
-    data_path = "tests/test_data/diffuser/data"
-
-    solver_data = os.path.join(data_path, "N=20_p=0.1_k=18.dat")
+    solver_data = os.path.join(output_folder, "N=20_p=0.1_k=18.dat")
     assert os.path.isfile(solver_data)
 
-    solver_rho = os.path.join(data_path, "N=20_p=0.1_k=18_rho.dat")
+    solver_rho = os.path.join(output_folder, "N=20_p=0.1_k=18_rho.dat")
     assert os.path.isfile(solver_rho)
 
     with open(solver_data, "rb") as datafile:
@@ -36,10 +42,10 @@ def test_fluid_solver(cleanup):
     solver_rho, mesh, function_space = load_function(solver_rho)
     solver_objective = solver_obj["objective"]
 
-    with open(os.path.join(data_path, "correct_data.dat"), "rb") as datafile:
+    with open(os.path.join(output_folder, "correct_data.dat"), "rb") as datafile:
         correct_obj = pickle.load(datafile)
     correct_rho, *_ = load_function(
-        os.path.join(data_path, "correct_rho.dat"), mesh, function_space
+        os.path.join(output_folder, "correct_rho.dat"), mesh, function_space
     )
     correct_objective = correct_obj["objective"]
 
