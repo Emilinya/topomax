@@ -41,17 +41,6 @@ class DeepEnergyMethod:
         density = torch.from_numpy(rho).float()
         density = torch.reshape(density, [domain.Ny - 1, domain.Nx - 1]).to(self.device)
 
-        neumannBC_values: list[torch.Tensor] = []
-        neumannBC_idx: list[torch.Tensor] = []
-
-        for traction_points in self.traction_points_list:
-            neumannBC_values.append(
-                torch.from_numpy(traction_points.known_value).float().to(self.device)
-            )
-            neumannBC_idx.append(
-                torch.from_numpy(traction_points.idx).float().to(self.device)
-            )
-
         optimizer_LBFGS = torch.optim.LBFGS(
             self.model.parameters(),
             lr=self.nn_parameters.learning_rate,
@@ -73,8 +62,8 @@ class DeepEnergyMethod:
                 external_E = calculate_external_energy(
                     u_pred,
                     domain.dxdy,
-                    neumannBC_idx,
-                    neumannBC_values,
+                    self.device,
+                    self.traction_points_list,
                 )
                 loss = internal_energy - external_E
                 optimizer_LBFGS.zero_grad()

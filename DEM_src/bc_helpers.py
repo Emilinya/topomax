@@ -32,28 +32,31 @@ class TractionPoints:
         if side == Side.LEFT:
             side_condition = domain.coordinates[:, 0] == 0
             side_points = domain.coordinates[:, 1]
+            self.side_index = 1
         elif side == Side.RIGHT:
             side_condition = domain.coordinates[:, 0] == domain.length
             side_points = domain.coordinates[:, 1]
+            self.side_index = 1
         elif side == Side.TOP:
             side_condition = domain.coordinates[:, 1] == domain.height
             side_points = domain.coordinates[:, 0]
+            self.side_index = 0
         elif side == Side.BOTTOM:
             side_condition = domain.coordinates[:, 1] == 0
             side_points = domain.coordinates[:, 0]
+            self.side_index = 0
         else:
             raise ValueError(f"Unknown side: '{side}'")
 
         left_condition = side_points >= center - length / 2.0
         right_condition = side_points <= center + length / 2.0
-        load_idxs = np.where(side_condition & left_condition & right_condition)
-        load_points = domain.coordinates[load_idxs, :][0]
+        (load_indices,) = np.where(side_condition & left_condition & right_condition)
+        load_points = domain.coordinates[load_indices, :]
         load_values = np.ones(np.shape(load_points)) * value
 
-        self.penalty = 1.0
-        self.coord = load_points
-        self.known_value = load_values
-        self.idx = np.asarray(load_idxs)
+        self.values = load_values
+        self.points = load_points
+        self.indices = load_indices
 
 
 def get_boundary_conditions(domain: Domain, elasticity_design: ElasticityDesign):

@@ -185,9 +185,9 @@ class Solver:
     def step_size(self, k: int) -> float:
         if self.parameters.problem == ProblemType.ELASTICITY:
             if self.design_str == "bridge":
-                multiplier = 1 / 50
+                multiplier = 1 / 100
             else:
-                multiplier = 2
+                multiplier = 1 / 8
             return 25 * (k + 1) * multiplier
         if self.parameters.problem == ProblemType.FLUID:
             return min(0.0015 * (k + 1), 0.015)
