@@ -6,6 +6,7 @@ pub fn triangle() -> Design {
         domain_parameters: DomainParameters {
             width: 1.0,
             height: 1.0,
+            step_size: 25.0,
             penalties: vec![3.0],
             volume_fraction: 0.5,
         },

@@ -228,6 +228,7 @@ class DomainParameters:
     width: float
     height: float
     problem: ProblemType
+    step_size: float
     penalties: list[float]
     volume_fraction: float
 
@@ -237,6 +238,7 @@ class DomainParameters:
             parameter_dict["width"],
             parameter_dict["height"],
             ProblemType.from_string(problem),
+            parameter_dict["step_size"],
             parameter_dict["penalties"],
             parameter_dict["volume_fraction"],
         )

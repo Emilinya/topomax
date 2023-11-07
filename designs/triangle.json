@@ -4,6 +4,7 @@
     "domain_parameters": {
       "width": 1.0,
       "height": 1.0,
+      "step_size": 25.0,
       "penalties": [
         3.0
       ],

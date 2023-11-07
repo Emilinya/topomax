@@ -127,11 +127,11 @@ class Solver:
         return self.project(half_step, self.volume)
 
     def step_size(self, k: int) -> float:
-        if self.parameters.problem == ProblemType.ELASTICITY:
-            return 25 * (k + 1)
+        step = self.parameters.step_size * (k + 1)
         if self.parameters.problem == ProblemType.FLUID:
-            return min(0.0015 * (k + 1), 0.015)
-        raise ValueError(f"Unknown problem: {self.parameters.problem}")
+            # TODO: delete this?
+            step = min(step, 0.015)
+        return step
 
     def tolerance(self, k: int) -> float:
         itol = 1e-2
@@ -146,7 +146,6 @@ class Solver:
 
         for penalty in self.parameters.penalties:
             self.problem.set_penalization(penalty)
-
 
             difference = float("Infinity")
             objective = float(self.problem.calculate_objective(self.rho))

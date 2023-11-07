@@ -179,15 +179,7 @@ class Solver:
         return self.project(half_step, self.volume)
 
     def step_size(self, k: int) -> float:
-        if self.parameters.problem == ProblemType.ELASTICITY:
-            if self.design_str == "bridge":
-                multiplier = 1 / 100
-            else:
-                multiplier = 1 / 8
-            return 25 * (k + 1) * multiplier
-        if self.parameters.problem == ProblemType.FLUID:
-            return min(0.0015 * (k + 1), 0.015)
-        raise ValueError(f"Unknown problem: {self.parameters.problem}")
+        return self.parameters.step_size * (k + 1)
 
     def tolerance(self, k: int) -> float:
         itol = 1e-2

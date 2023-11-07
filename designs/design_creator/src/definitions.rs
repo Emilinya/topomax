@@ -67,6 +67,7 @@ pub struct ElasticityParameters {
 pub struct DomainParameters {
     pub width: f64,
     pub height: f64,
+    pub step_size: f64,
     pub penalties: Vec<f32>,
     pub volume_fraction: f64,
 }
