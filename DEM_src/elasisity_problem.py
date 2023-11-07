@@ -14,8 +14,6 @@ class ElasticityProblem:
 
     def __init__(
         self,
-        E: float,
-        nu: float,
         domain: Domain,
         device: torch.device,
         input_filter: csr_matrix,
@@ -27,11 +25,11 @@ class ElasticityProblem:
         self.domain = domain
 
         traction_points_list, dirichlet_enforcer = get_boundary_conditions(
-            domain, elasticity_design
+            domain, self.design
         )
         self.dem = DeepEnergyMethod(
-            E,
-            nu,
+            self.design.parameters.young_modulus,
+            self.design.parameters.poisson_ratio,
             device,
             nn_parameters,
             dirichlet_enforcer,

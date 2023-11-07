@@ -37,6 +37,7 @@ pub struct FluidParameters {
     pub flows: Vec<Flow>,
     pub no_slip: Option<Vec<Side>>,
     pub zero_pressure: Option<Vec<Side>>,
+    pub viscosity: f64,
 }
 
 #[derive(Serialize)]
@@ -58,6 +59,8 @@ pub struct ElasticityParameters {
     pub fixed_sides: Vec<Side>,
     pub body_force: Option<Force>,
     pub tractions: Option<Vec<Traction>>,
+    pub young_modulus: f64,
+    pub poisson_ratio: f64,
 }
 
 #[derive(Serialize)]

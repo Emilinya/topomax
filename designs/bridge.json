@@ -2,8 +2,8 @@
   "Elasticity": {
     "objective": "MinimizeCompliance",
     "domain_parameters": {
-      "width": 6.0,
-      "height": 1.0,
+      "width": 12.0,
+      "height": 2.0,
       "penalties": [
         3.0
       ],
@@ -25,7 +25,9 @@
             -2000.0
           ]
         }
-      ]
+      ],
+      "young_modulus": 200000.0,
+      "poisson_ratio": 0.3
     }
   }
 }

@@ -133,6 +133,7 @@ class FluidParameters:
     no_slip: list[Side] | None
     zero_pressure: list[Side] | None
     max_region: SquareRegion | None
+    viscosity: float
 
     @classmethod
     def from_dict(cls, parameter_dict: dict):
@@ -152,7 +153,9 @@ class FluidParameters:
         if parameter_dict.get("max_region") is not None:
             max_region = SquareRegion.from_dict(parameter_dict["max_region"])
 
-        return cls(flows, no_slip, zero_pressure, max_region)
+        return cls(
+            flows, no_slip, zero_pressure, max_region, parameter_dict["viscosity"]
+        )
 
 
 @dataclass
@@ -193,6 +196,8 @@ class ElasticityParameters:
     fixed_sides: list[Side]
     body_force: Force | None
     tractions: list[Traction] | None
+    young_modulus: float
+    poisson_ratio: float
 
     @classmethod
     def from_dict(cls, parameter_dict: dict):
@@ -209,7 +214,13 @@ class ElasticityParameters:
                 for traction_dict in parameter_dict["tractions"]
             ]
 
-        return cls(fixed_sides, body_force, tractions)
+        return cls(
+            fixed_sides,
+            body_force,
+            tractions,
+            parameter_dict["young_modulus"],
+            parameter_dict["poisson_ratio"],
+        )
 
 
 @dataclass

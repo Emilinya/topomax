@@ -39,7 +39,8 @@
         ],
         "no_slip": null,
         "zero_pressure": null,
-        "max_region": null
+        "max_region": null,
+        "viscosity": 1.0
       }
     }
   }

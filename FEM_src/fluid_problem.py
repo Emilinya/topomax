@@ -58,7 +58,7 @@ class FluidProblem(Problem):
         self.design = design
         super().__init__(input_filter, mesh, parameters)
 
-        self.viscosity = 1.0
+        self.viscosity = design.parameters.viscosity
         self.penalizer: FluidPenalizer = FluidPenalizer()
 
         self.u = None

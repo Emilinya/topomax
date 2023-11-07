@@ -19,6 +19,8 @@ pub fn cantilever() -> Design {
                 value: (0.0, -1.0),
             }),
             tractions: None,
+            young_modulus: 5.0 / 2.0,
+            poisson_ratio: 1.0 / 4.0,
         },
     })
 }

@@ -38,6 +38,7 @@ pub fn twin_pipe() -> Design {
             ],
             no_slip: None,
             zero_pressure: None,
+            viscosity: 1.0,
         },
     })
 }

@@ -25,7 +25,8 @@
         }
       ],
       "no_slip": null,
-      "zero_pressure": null
+      "zero_pressure": null,
+      "viscosity": 1.0
     }
   }
 }

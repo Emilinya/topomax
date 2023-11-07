@@ -85,16 +85,14 @@ class Solver:
         self.parameters, design = parse_design(design_file)
 
         # define domain
+        self.width = self.parameters.width
+        self.height = self.parameters.height
 
         self.design_str = os.path.splitext(os.path.split(design_file)[1])[0]
         if self.design_str == "bridge":
-            self.width = 12
-            self.height = 2
-            self.domain = Domain(120, 30, 12, 2)
+            self.domain = Domain(120, 30, self.width, self.height)
         elif self.design_str == "short_cantilever":
-            self.width = 10
-            self.height = 5
-            self.domain = Domain(90, 45, 10, 5)
+            self.domain = Domain(90, 45, self.width, self.height)
         else:
             sys.exit("example must be bridge or short_cantilever")
 
@@ -132,8 +130,6 @@ class Solver:
             sys.exit(1)
         elif isinstance(design, ElasticityDesign):
             self.problem = ElasticityProblem(
-                2e5,
-                0.3,
                 extended_domain,
                 self.device,
                 control_filter,
