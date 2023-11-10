@@ -16,19 +16,14 @@ class Domain:
         self.height = height
 
         # create points
-        self.x_ray = np.linspace(0.0, self.length, self.Nx)
-        self.y_ray = np.linspace(0.0, self.height, self.Ny)
+        x_ray = np.linspace(0.0, self.length, self.Nx + 1)
+        y_ray = np.linspace(0.0, self.height, self.Ny + 1)
 
-        # create an array containing nodal coordinates
-        self.coordinates = np.array(
-            [
-                np.repeat(self.x_ray, len(self.y_ray)),
-                np.tile(self.y_ray, len(self.x_ray)),
-            ]
-        ).T
+        self.x_grid, self.y_grid = np.meshgrid(x_ray, y_ray)
 
-        self.shape = (self.Ny, self.Nx)
-        self.dxdy = (self.length / (self.Nx - 1), self.height / (self.Ny - 1))
+        self.intervals = (self.Ny, self.Nx)
+        self.shape = (self.Ny + 1, self.Nx + 1)
+        self.dxdy = (self.length / self.Nx, self.height / self.Ny)
 
 
 @dataclass

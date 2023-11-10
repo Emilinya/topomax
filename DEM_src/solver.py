@@ -34,19 +34,17 @@ def logit(x):
 
 
 def create_density_filter(radius: float, domain: Domain) -> csr_matrix:
-    nex = domain.Nx - 1
-    ney = domain.Ny - 1
-    Lx = domain.length
-    Ly = domain.height
+    # we can't use domain.x_grid as it has shape (Nx+1, Ny+1)
+    x_ray = np.linspace(0, domain.length, domain.Nx)
+    y_ray = np.linspace(0, domain.height, domain.Ny)
+    x_grid, y_grid = np.meshgrid(x_ray, y_ray)
+    X = x_grid.flatten()
+    Y = y_grid.flatten()
 
-    xx = np.linspace(0, Lx, nex)
-    yy = np.linspace(0, Ly, ney)
-    X, Y = np.meshgrid(xx, yy)
-    X = X.flatten()
-    Y = Y.flatten()
+    total = domain.Nx * domain.Ny
 
     wi, wj, wv = [], [], []
-    for eid in range(nex * ney):
+    for eid in range(total):
         my_X = X[eid]
         my_Y = Y[eid]
 
@@ -57,7 +55,7 @@ def create_density_filter(radius: float, domain: Domain) -> csr_matrix:
         wv += list(radius - dist[neighbours])
 
     W = normalize(
-        coo_matrix((wv, (wi, wj)), shape=(nex * ney, nex * ney)), norm="l1", axis=1
+        coo_matrix((wv, (wi, wj)), shape=(total, total)), norm="l1", axis=1
     ).tocsr()  # Normalize row-wise
 
     return W
@@ -96,13 +94,6 @@ class Solver:
         else:
             sys.exit("example must be bridge or short_cantilever")
 
-        extended_domain = Domain(
-            self.domain.Nx + 1,
-            self.domain.Ny + 1,
-            self.domain.length,
-            self.domain.height,
-        )
-
         volume_fraction = self.parameters.volume_fraction
         self.volume = self.width * self.height * volume_fraction
 
@@ -122,15 +113,15 @@ class Solver:
             convergence_tolerance=5e-5,
         )
 
-        self.rho = np.ones(self.domain.shape) * volume_fraction
+        self.rho = np.ones(self.domain.intervals) * volume_fraction
 
-        control_filter = create_density_filter(0.25, extended_domain)
+        control_filter = create_density_filter(0.25, self.domain)
 
         if isinstance(design, FluidDesign):
             sys.exit(1)
         elif isinstance(design, ElasticityDesign):
             self.problem = ElasticityProblem(
-                extended_domain,
+                self.domain,
                 self.device,
                 control_filter,
                 nn_parameters,
@@ -253,7 +244,7 @@ class Solver:
 
         np.save(
             f"{file_root}_rho.npy",
-            rho.reshape(self.domain.shape),
+            rho.reshape(self.domain.intervals),
         )
 
         data = {

@@ -34,12 +34,14 @@ class DeepEnergyMethod:
         self.loss_array = []
 
     def train_model(self, rho: npt.NDArray[np.float64], domain: Domain):
-        x = torch.from_numpy(domain.coordinates).float()
+        x = torch.from_numpy(
+            np.array([domain.x_grid.T.flat, domain.y_grid.T.flat]).T
+        ).float()
         x = x.to(self.device)
         x.requires_grad_(True)
 
         density = torch.from_numpy(rho).float()
-        density = torch.reshape(density, [domain.Ny - 1, domain.Nx - 1]).to(self.device)
+        density = torch.reshape(density, domain.intervals).to(self.device)
 
         optimizer_LBFGS = torch.optim.LBFGS(
             self.model.parameters(),
@@ -62,7 +64,6 @@ class DeepEnergyMethod:
                 external_E = calculate_external_energy(
                     u_pred,
                     domain.dxdy,
-                    self.device,
                     self.traction_points_list,
                 )
                 loss = internal_energy - external_E

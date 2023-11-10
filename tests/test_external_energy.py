@@ -1,49 +1,100 @@
-import numpy as np
-import torch
+import sys
 
-from DEM_src.external_energy import calculate_external_energy
-from DEM_src.bc_helpers import TractionPoints
+import torch
+import numpy as np
+
 from DEM_src.data_structs import Domain
+from DEM_src.bc_helpers import TractionPoints
 from designs.definitions import Traction, Side
+from DEM_src.external_energy import calculate_external_energy
+
+
+def f_linear(x, y):
+    return x * y
+
+
+def F_linear(H: float, c: float, l: float):
+    return H * c * l
+
+
+def f_trig(x, y):
+    return np.sin(9 * x) * np.sin(9 * y)
+
+
+def F_trig(H: float, c: float, l: float):
+    return 2 / 9 * np.sin(9 * H) * np.sin(9 * c) * np.sin(9 * l / 2)
+
+
+def calculate_error(
+    f,
+    F,
+    domain: Domain,
+    traction: Traction,
+    traction_points_list: list[TractionPoints],
+):
+    values = f(domain.x_grid, domain.y_grid)
+    u = torch.from_numpy(np.array([values.T.flat, values.T.flat]).T).float()
+
+    numeric = float(calculate_external_energy(u, domain.dxdy, traction_points_list))
+
+    if traction.side in (Side.LEFT, Side.RIGHT):
+        analytic = F(domain.length, traction.center, traction.length)
+    elif traction.side in (Side.TOP, Side.BOTTOM):
+        analytic = F(domain.height, traction.center, traction.length)
+    else:
+        sys.exit("???")
+
+    return abs((numeric - analytic) / analytic) * 100
+
+
+def get_errors(Ns: list[int], domain: Domain, traction: Traction):
+    linear_err_list = []
+    trig_err_list = []
+
+    for N in Ns:
+        N_domain = Domain(domain.Nx * N, domain.Ny * N, domain.length, domain.height)
+        traction_points_list = [TractionPoints(N_domain, traction)]
+
+        linear_err_list.append(
+            calculate_error(
+                f_linear, F_linear, N_domain, traction, traction_points_list
+            )
+        )
+
+        trig_err_list.append(
+            calculate_error(f_trig, F_trig, N_domain, traction, traction_points_list)
+        )
+
+    linear_degree = np.polynomial.Polynomial.fit(
+        np.log(Ns), np.log(np.array(linear_err_list) + 1e-14), 1
+    ).coef[1]
+    trig_degree = np.polynomial.Polynomial.fit(
+        np.log(Ns), np.log(np.array(trig_err_list) + 1e-14), 1
+    ).coef[1]
+
+    return linear_degree, trig_degree
 
 
 def test_calculate_external_energy():
-    device = torch.device("cpu")
+    Ns = list(range(1, 100))
 
-    Ns = [1, 5, 10, 20]
-    xy_err_list = []
-    yx_err_list = []
+    bridge_domain = Domain(4, 1, 12, 2)
+    bridge_traction = Traction(Side.TOP, bridge_domain.length / 2, 0.5, (0.0, 1.0))
 
-    l = 0.5
-    for N in Ns:
-        domain = Domain(12 * N, 3 * N, 12, 2)
+    cantilever_domain = Domain(10, 5, 2, 1)
+    cantilever_traction = Traction(
+        Side.RIGHT, cantilever_domain.height / 2, 0.5, (0.0, 1.0)
+    )
 
-        # we want to calculate int_\delta\Omega u \cdot t dx
-        # set t = (0, -1) if (L-l)/2 < x < (L+l)/2, y=H
-        traction_points_list = [
-            TractionPoints(
-                domain, Traction(Side.TOP, domain.length / 2, l, (0.0, -1.0))
-            )
-        ]
+    bridge_linear_degree, bridge_trig_degree = get_errors(
+        Ns, bridge_domain, bridge_traction
+    )
+    assert bridge_trig_degree <= -2
+    assert bridge_linear_degree <= -2
 
-        # if u = (x, y), then int_\delta\Omega u \cdot t = int_{(L-l)/2}^{(L+l)/2} -H dx = -lH
-        u = torch.from_numpy(domain.coordinates).float()
-        numeric = float(
-            calculate_external_energy(u, domain.dxdy, device, traction_points_list)
-        )
-        analytic = -l * domain.height
-        xy_err_list.append(abs(numeric - analytic) / abs(analytic) * 100)
+    cantilever_linear_degree, cantilever_trig_degree = get_errors(
+        Ns, cantilever_domain, cantilever_traction
+    )
 
-        # if u = (y, x), then int_\delta\Omega u \cdot t = int_{(L-l)/2}^{(L+l)/2} -x dx = -lL/2
-        u_rev = torch.from_numpy(domain.coordinates[:, ::-1].copy()).float()
-        numeric = float(
-            calculate_external_energy(u_rev, domain.dxdy, device, traction_points_list)
-        )
-        analytic = -l * domain.length / 2
-        yx_err_list.append(abs(numeric - analytic) / abs(analytic) * 100)
-
-    xy_degree = np.polynomial.Polynomial.fit(np.log(Ns), np.log(xy_err_list), 1).coef[1]
-    yx_degree = np.polynomial.Polynomial.fit(np.log(Ns), np.log(yx_err_list), 1).coef[1]
-
-    assert xy_degree <= -2
-    assert yx_degree <= -2
+    assert cantilever_trig_degree <= -2
+    assert cantilever_linear_degree <= -2
