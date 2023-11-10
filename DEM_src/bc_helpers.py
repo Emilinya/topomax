@@ -52,8 +52,12 @@ class TractionPoints:
 
         if side in (Side.LEFT, Side.RIGHT):
             self.side_index = 1
+            self.stride = 1
+            self.width = domain.Ny + 1
         elif side in (Side.TOP, Side.BOTTOM):
             self.side_index = 0
+            self.stride = domain.Ny + 1
+            self.width = domain.Nx + 1
 
         left_condition = side_points >= left
         right_condition = side_points <= right

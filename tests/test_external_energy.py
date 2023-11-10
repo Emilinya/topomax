@@ -65,18 +65,15 @@ def get_errors(Ns: list[int], domain: Domain, traction: Traction):
             calculate_error(f_trig, F_trig, N_domain, traction, traction_points_list)
         )
 
-    linear_degree = np.polynomial.Polynomial.fit(
-        np.log(Ns), np.log(np.array(linear_err_list) + 1e-14), 1
-    ).coef[1]
     trig_degree = np.polynomial.Polynomial.fit(
         np.log(Ns), np.log(np.array(trig_err_list) + 1e-14), 1
     ).coef[1]
 
-    return linear_degree, trig_degree
+    return np.average(linear_err_list), trig_degree
 
 
 def test_calculate_external_energy():
-    Ns = list(range(1, 100))
+    Ns = list(range(2, 100))
 
     bridge_domain = Domain(4, 1, 12, 2)
     bridge_traction = Traction(Side.TOP, bridge_domain.length / 2, 0.5, (0.0, 1.0))
@@ -86,15 +83,15 @@ def test_calculate_external_energy():
         Side.RIGHT, cantilever_domain.height / 2, 0.5, (0.0, 1.0)
     )
 
-    bridge_linear_degree, bridge_trig_degree = get_errors(
+    bridge_linear_average, bridge_trig_degree = get_errors(
         Ns, bridge_domain, bridge_traction
     )
-    assert bridge_trig_degree <= -2
-    assert bridge_linear_degree <= -2
+    assert bridge_trig_degree <= -3
+    assert bridge_linear_average < 1e-5
 
-    cantilever_linear_degree, cantilever_trig_degree = get_errors(
+    cantilever_linear_average, cantilever_trig_degree = get_errors(
         Ns, cantilever_domain, cantilever_traction
     )
 
-    assert cantilever_trig_degree <= -2
-    assert cantilever_linear_degree <= -2
+    assert cantilever_trig_degree <= -3
+    assert cantilever_linear_average < 1e-5

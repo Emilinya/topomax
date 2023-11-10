@@ -13,12 +13,35 @@ def calculate_external_energy(
         u_points = u[traction_points.indices]
         ds = dxdy[traction_points.side_index]
 
-        dot_product = torch.sum(torch.tensor(traction_points.value) * u_points, dim=1)
+        traction = torch.tensor(traction_points.value)
+        dot_product = torch.sum(traction * u_points, dim=1)
 
-        # the bug sure looks silly written like ths
-        if len(dot_product) == 1:
-            external_energy += dot_product[0] * ds / 4
-        else:
-            external_energy += torch.trapezoid(dot_product, dx=ds)
+        left_lerp, right_lerp = 0.0, 0.0
+
+        # if we are not on the left edge, add left lerp correction
+        if traction_points.indices[0] % traction_points.width != 0:
+            ul = u[traction_points.indices[0] - traction_points.stride]
+            left_product = torch.sum(traction * ul)
+
+            lt = traction_points.left_error / ds
+            left_lerp = (
+                traction_points.left_error
+                * (left_product * lt + dot_product[0] * (2 - lt))
+                / 2
+            )
+
+        # if we are not on the right edge, add right lerp correction
+        if (traction_points.indices[-1] + 1) % traction_points.width != 0:
+            ur = u[traction_points.indices[-1] + traction_points.stride]
+            right_product = torch.sum(traction * ur)
+
+            rt = traction_points.right_error / ds
+            right_lerp = (
+                traction_points.right_error
+                * (right_product * rt + dot_product[-1] * (2 - rt))
+                / 2
+            )
+
+        return left_lerp + right_lerp + torch.trapezoid(dot_product, dx=ds)
 
     return external_energy
