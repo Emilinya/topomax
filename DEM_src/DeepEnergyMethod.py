@@ -2,9 +2,9 @@ import torch
 import numpy as np
 import numpy.typing as npt
 
-from DEM_src.StrainEnergy import StrainEnergy
 from DEM_src.MultiLayerNet import MultiLayerNet
 from DEM_src.data_structs import Domain, NNParameters
+from DEM_src.ObjectiveCalculator import ObjectiveCalculator
 from DEM_src.external_energy import calculate_external_energy
 from DEM_src.bc_helpers import TractionPoints, DirichletEnforcer
 
@@ -13,23 +13,21 @@ class DeepEnergyMethod:
     # Instance attributes
     def __init__(
         self,
-        E: float,
-        nu: float,
         device: torch.device,
         nn_parameters: NNParameters,
         dirichlet_enforcer: DirichletEnforcer,
         traction_points_list: list[TractionPoints],
+        objective_calculator: ObjectiveCalculator,
     ):
         # self.data = data
         self.model = MultiLayerNet(nn_parameters)
         self.model = self.model.to(device)
 
-        self.E = E
-        self.nu = nu
         self.device = device
         self.nn_parameters = nn_parameters
         self.dirichlet_enforcer = dirichlet_enforcer
         self.traction_points_list = traction_points_list
+        self.objective_calculator = objective_calculator
 
         self.loss_array = []
 
@@ -50,15 +48,13 @@ class DeepEnergyMethod:
             line_search_fn="strong_wolfe",
         )
 
-        strain_energy = StrainEnergy(self.E, self.nu, domain.dxdy)
-
         def closure_generator(t: int):
             def closure():
                 u_pred = self.get_U(x, domain)
                 u_pred.double()
 
                 # ---- Calculate internal and external energies------
-                internal_energy = strain_energy.calculate_objective(
+                internal_energy = self.objective_calculator.calculate_objective(
                     u_pred, domain.shape, density
                 )
                 external_E = calculate_external_energy(
@@ -94,7 +90,7 @@ class DeepEnergyMethod:
                 break
 
         u_pred = self.get_U(x, domain)
-        dfdrho, compliance = strain_energy.calculate_objective_gradient(
+        dfdrho, compliance = self.objective_calculator.calculate_objective_gradient(
             u_pred, domain.shape, density
         )
 

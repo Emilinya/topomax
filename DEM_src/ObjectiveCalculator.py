@@ -1,13 +1,13 @@
+from __future__ import annotations
+from abc import ABC, abstractmethod
 from typing import Callable
 
 import torch
 import numpy as np
 import numpy.typing as npt
 
-from src.penalizers import ElasticPenalizer
 
-
-class ObjectiveCalculator:
+class ObjectiveCalculator(ABC):
     def __init__(self, dxdy: tuple[float, float]):
         self.Jinv, self.detJ = self.calculate_jacobian(dxdy)
         self.shape_derivatives = self.get_shape_derivatives()
@@ -117,46 +117,14 @@ class ObjectiveCalculator:
             for i in range(len(self.shape_derivatives))
         )
 
-
-class StrainEnergy(ObjectiveCalculator):
-    def __init__(self, E: float, nu: float, dxdy: tuple[float, float]):
-        super().__init__(dxdy)
-        self.E = E
-        self.nu = nu
-
-        self.penalizer = ElasticPenalizer()
-        self.penalizer.set_penalization(3)
-
-    def calculate_strain_energy(self, grad: list[list[torch.Tensor]]):
-        # strains at all gauss quadrature points
-        e_xx = grad[0][0]
-        e_yy = grad[1][1]
-        e_xy = 0.5 * (grad[1][0] + grad[0][1])
-
-        # stresses at all gauss quadrature points
-        S_xx = self.E * (e_xx + self.nu * e_yy) / (1 - self.nu**2)
-        S_yy = self.E * (e_yy + self.nu * e_xx) / (1 - self.nu**2)
-        S_xy = self.E * e_xy / (1 + self.nu)
-
-        strain_energy = e_xx * S_xx + e_yy * S_yy + 2 * e_xy * S_xy
-
-        return strain_energy
-
+    @abstractmethod
     def calculate_objective_gradient(
         self, u: torch.Tensor, shape: tuple[int, int], density: torch.Tensor
-    ):
-        strain_energies = self.evaluate(u, shape, self.calculate_strain_energy)
-        strain_energy_at_element = 0.5 * strain_energies * self.detJ
+    ) -> tuple[torch.Tensor, torch.Tensor]:
+        ...
 
-        objective = torch.sum(self.penalizer(density) * strain_energy_at_element)
-        gradient = -self.penalizer.derivative(density) * strain_energy_at_element
-
-        return gradient, objective
-
+    @abstractmethod
     def calculate_objective(
         self, u: torch.Tensor, shape: tuple[int, int], density: torch.Tensor
-    ):
-        strain_energies = self.evaluate(u, shape, self.calculate_strain_energy)
-        strain_energy_at_element = 0.5 * strain_energies * self.detJ
-
-        return torch.sum(self.penalizer(density) * strain_energy_at_element)
+    ) -> torch.Tensor:
+        ...
