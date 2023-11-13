@@ -6,7 +6,7 @@ pub fn short_cantilever() -> Design {
         domain_parameters: DomainParameters {
             width: 10.0,
             height: 5.0,
-            step_size: 25.0 / 8.0,
+            step_size: 5.0,
             penalties: vec![3.0],
             volume_fraction: 0.4,
         },
