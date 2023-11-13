@@ -6,7 +6,7 @@ import dolfin as df
 from FEM_src.filter import Filter
 from FEM_src.problem import Problem
 from FEM_src.domains import SidesDomain
-from FEM_src.penalizers import ElasticPenalizer
+from src.penalizers import ElasticPenalizer
 from designs.definitions import (
     DomainParameters,
     ElasticityDesign,

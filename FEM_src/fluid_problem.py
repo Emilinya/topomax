@@ -4,9 +4,9 @@ import dolfin as df
 
 from FEM_src.filter import Filter
 from FEM_src.problem import Problem
-from FEM_src.penalizers import FluidPenalizer
 from FEM_src.domains import SidesDomain, RegionDomain
 from designs.definitions import DomainParameters, FluidDesign, Side, Flow
+from src.penalizers import FluidPenalizer
 
 
 class BoundaryFlows(df.UserExpression):

@@ -3,7 +3,7 @@ import dolfin as df
 from designs.definitions import Flow, Side
 from FEM_src.domains import SidesDomain
 from FEM_src.utils import MeshFunctionWrapper
-from FEM_src.penalizers import FluidPenalizer
+from src.penalizers import FluidPenalizer
 from FEM_src.fluid_problem import BoundaryFlows
 
 
