@@ -76,25 +76,31 @@ class ObjectiveCalculator(ABC):
 
     def get_grad_U(
         self, gauss_point: int, point_lists: list[list[torch.Tensor]]
-    ) -> list[list[torch.Tensor]]:
-        dN_dxy_list = np.array(
+    ) -> torch.Tensor:
+        dxdy_list = np.array(
             [
                 np.matmul(self.Jinv, dN_dsy[:, gauss_point].reshape((2, 1)))
                 for dN_dsy in self.shape_derivatives
             ]
         ).reshape((len(self.shape_derivatives), 2))
-
         Ux_list, Uy_list = point_lists
-        dUxdx = sum(dx * Ux for dx, Ux in zip(dN_dxy_list[:, 0], Ux_list))
-        dUxdy = sum(dy * Ux for dy, Ux in zip(dN_dxy_list[:, 1], Ux_list))
-        dUydx = sum(dx * Uy for dx, Uy in zip(dN_dxy_list[:, 0], Uy_list))
-        dUydy = sum(dy * Uy for dy, Uy in zip(dN_dxy_list[:, 1], Uy_list))
 
-        return [[dUxdx, dUxdy], [dUydx, dUydy]]
+        gradient = torch.zeros((len(point_lists), 2, *Ux_list[0].shape))
+
+        for i in range(len(self.shape_derivatives)):
+            dx, dy = dxdy_list[i, :]
+            Ux, Uy = Ux_list[i], Uy_list[i]
+
+            gradient[0, 0, :, :] += Ux * dx
+            gradient[0, 1, :, :] += Ux * dy
+            gradient[1, 0, :, :] += Uy * dx
+            gradient[1, 1, :, :] += Uy * dy
+
+        return gradient
 
     def value_at_gauss_point(
         self,
-        function: Callable[[list[list[torch.Tensor]]], torch.Tensor],
+        function: Callable[[torch.Tensor], torch.Tensor],
         gauss_point: int,
         point_lists: list[list[torch.Tensor]],
     ):
@@ -105,7 +111,7 @@ class ObjectiveCalculator(ABC):
         self,
         u: torch.Tensor,
         shape: tuple[int, int],
-        function: Callable[[list[list[torch.Tensor]]], torch.Tensor],
+        function: Callable[[torch.Tensor], torch.Tensor],
     ):
         _, dim = u.shape
         U = torch.transpose(u.reshape(shape[1], shape[0], dim), 0, 1)
@@ -121,7 +127,7 @@ class ObjectiveCalculator(ABC):
     def calculate_objective_gradient(
         self, u: torch.Tensor, shape: tuple[int, int], density: torch.Tensor
     ) -> tuple[torch.Tensor, torch.Tensor]:
-        ...
+        """Returns the tuple (gradient, objective)"""
 
     @abstractmethod
     def calculate_objective(
