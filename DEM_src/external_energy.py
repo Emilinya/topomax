@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import torch
 
 from DEM_src.bc_helpers import TractionPoints
