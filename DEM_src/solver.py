@@ -10,10 +10,12 @@ from sklearn.preprocessing import normalize
 from scipy.sparse import coo_matrix, csr_matrix
 
 from src.utils import constrain
+from DEM_src.data_structs import Domain
 from DEM_src.integrator import integrate
-from DEM_src.data_structs import Domain, NNParameters
+# from DEM_src.fluid_problem import FluidProblem
+from DEM_src.DeepEnergyMethod import NNParameters
 from DEM_src.elasisity_problem import ElasticityProblem
-from designs.definitions import FluidDesign, ElasticityDesign, ProblemType
+from designs.definitions import FluidDesign, ElasticityDesign
 from designs.design_parser import parse_design
 
 
@@ -88,11 +90,17 @@ class Solver:
 
         self.design_str = os.path.splitext(os.path.split(design_file)[1])[0]
         if self.design_str == "bridge":
-            self.domain = Domain(120, 30, self.width, self.height)
+            Nx = 120
+            Ny = 30
         elif self.design_str == "short_cantilever":
-            self.domain = Domain(90, 45, self.width, self.height)
+            Nx = 90
+            Ny = 45
         else:
-            sys.exit("example must be bridge or short_cantilever")
+            N = 40
+            Nx = int(self.width * N)
+            Ny = int(self.height * N)
+
+        self.domain = Domain(Nx, Ny, self.width, self.height)
 
         volume_fraction = self.parameters.volume_fraction
         self.volume = self.width * self.height * volume_fraction
@@ -115,11 +123,16 @@ class Solver:
 
         self.rho = np.ones(self.domain.intervals) * volume_fraction
 
-        control_filter = create_density_filter(0.25, self.domain)
-
         if isinstance(design, FluidDesign):
-            sys.exit(1)
+            # self.problem = FluidProblem(
+            #     self.domain,
+            #     self.device,
+            #     design,
+            #     nn_parameters,
+            # )
+            sys.exit("Fluid optimization is unimplemented!")
         elif isinstance(design, ElasticityDesign):
+            control_filter = create_density_filter(0.25, self.domain)
             self.problem = ElasticityProblem(
                 self.domain,
                 self.device,

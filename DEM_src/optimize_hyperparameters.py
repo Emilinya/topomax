@@ -6,9 +6,9 @@ import numpy as np
 from hyperopt import fmin, tpe, hp, Trials
 
 from DEM_src.solver import Solver
-from DEM_src.DeepEnergyMethod import DeepEnergyMethod
-from DEM_src.data_structs import Domain, NNParameters
+from DEM_src.data_structs import Domain
 from DEM_src.bc_helpers import get_boundary_conditions
+from DEM_src.DeepEnergyMethod import NNParameters, DeepEnergyMethod
 from designs.definitions import ElasticityDesign
 
 

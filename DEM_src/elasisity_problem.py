@@ -5,12 +5,12 @@ import numpy as np
 import numpy.typing as npt
 from scipy.sparse import csr_matrix
 
-from src.penalizers import ElasticPenalizer
 from designs.definitions import ElasticityDesign
-from DEM_src.data_structs import Domain, NNParameters
-from DEM_src.DeepEnergyMethod import DeepEnergyMethod
+from src.penalizers import ElasticPenalizer
+from DEM_src.data_structs import Domain
 from DEM_src.ObjectiveCalculator import ObjectiveCalculator
 from DEM_src.external_energy import calculate_external_energy
+from DEM_src.DeepEnergyMethod import NNParameters, DeepEnergyMethod
 from DEM_src.bc_helpers import get_boundary_conditions, TractionPoints
 
 
