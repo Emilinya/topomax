@@ -5,10 +5,9 @@ import numpy as np
 import numpy.typing as npt
 
 from DEM_src.MultiLayerNet import MultiLayerNet
+from DEM_src.bc_helpers import DirichletEnforcer
 from DEM_src.data_structs import Domain, NNParameters
 from DEM_src.ObjectiveCalculator import ObjectiveCalculator
-from DEM_src.external_energy import calculate_external_energy
-from DEM_src.bc_helpers import TractionPoints, DirichletEnforcer
 
 
 class DeepEnergyMethod:
@@ -18,7 +17,6 @@ class DeepEnergyMethod:
         device: torch.device,
         nn_parameters: NNParameters,
         dirichlet_enforcer: DirichletEnforcer,
-        traction_points_list: list[TractionPoints],
         objective_calculator: ObjectiveCalculator,
     ):
         # self.data = data
@@ -28,7 +26,6 @@ class DeepEnergyMethod:
         self.device = device
         self.nn_parameters = nn_parameters
         self.dirichlet_enforcer = dirichlet_enforcer
-        self.traction_points_list = traction_points_list
         self.objective_calculator = objective_calculator
 
         self.loss_array = []
@@ -56,23 +53,14 @@ class DeepEnergyMethod:
                 u_pred.double()
 
                 # ---- Calculate internal and external energies------
-                internal_energy = self.objective_calculator.calculate_objective(
+                loss = self.objective_calculator.calculate_potential_power(
                     u_pred, domain.shape, density
                 )
-                external_E = calculate_external_energy(
-                    u_pred,
-                    domain.dxdy,
-                    self.traction_points_list,
-                )
-                loss = internal_energy - external_E
                 optimizer_LBFGS.zero_grad()
                 loss.backward()
 
                 if self.nn_parameters.verbose:
-                    print(
-                        f"Iter: {t+1:d} Loss: {loss.item():.6e} "
-                        + f"IntE: {internal_energy.item():.4e} ExtE: {external_E.item():.4e}"
-                    )
+                    print(f"Iter: {t+1:d} - Loss: {loss.item():.6e}")
                 self.loss_array.append(loss.data.cpu())
 
                 return float(loss)
@@ -92,11 +80,11 @@ class DeepEnergyMethod:
                 break
 
         u_pred = self.get_U(x, domain)
-        dfdrho, compliance = self.objective_calculator.calculate_objective_gradient(
+        objective, gradient = self.objective_calculator.calculate_objective_and_gradient(
             u_pred, domain.shape, density
         )
 
-        return compliance, dfdrho
+        return objective, gradient
 
     def convergence_check(self, loss_array: list[float], tolerance: float):
         num_check = 10

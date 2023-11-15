@@ -1,6 +1,8 @@
 from __future__ import annotations
-from abc import ABC, abstractmethod
+
+import sys
 from typing import Callable
+from abc import ABC, abstractmethod
 
 import torch
 import numpy as np
@@ -9,6 +11,7 @@ import numpy.typing as npt
 
 class ObjectiveCalculator(ABC):
     def __init__(self, dxdy: tuple[float, float]):
+        self.dxdy = dxdy
         self.Jinv, self.detJ = self.calculate_jacobian(dxdy)
         self.shape_derivatives = self.get_shape_derivatives()
 
@@ -118,19 +121,26 @@ class ObjectiveCalculator(ABC):
 
         point_lists = self.get_gauss_points(U)
 
-        return sum(
+        value = sum(
             self.value_at_gauss_point(function, i, point_lists)
             for i in range(len(self.shape_derivatives))
         )
 
-    @abstractmethod
-    def calculate_objective_gradient(
-        self, u: torch.Tensor, shape: tuple[int, int], density: torch.Tensor
-    ) -> tuple[torch.Tensor, torch.Tensor]:
-        """Returns the tuple (gradient, objective)"""
+        # this only happens if len(self.shape_derivatives) == 0, which it should never be.
+        # Nevertheless, the type checker gets angry if I don't do this, so I might as well
+        if isinstance(value, int):
+            sys.exit(f"evaluate returned {value}, this should not happen!")
+
+        return value
 
     @abstractmethod
-    def calculate_objective(
+    def calculate_potential_power(
         self, u: torch.Tensor, shape: tuple[int, int], density: torch.Tensor
     ) -> torch.Tensor:
         ...
+
+    @abstractmethod
+    def calculate_objective_and_gradient(
+        self, u: torch.Tensor, shape: tuple[int, int], density: torch.Tensor
+    ) -> tuple[torch.Tensor, torch.Tensor]:
+        """Returns the tuple (objective, gradient)"""

@@ -9,17 +9,23 @@ from src.penalizers import ElasticPenalizer
 from designs.definitions import ElasticityDesign
 from DEM_src.data_structs import Domain, NNParameters
 from DEM_src.DeepEnergyMethod import DeepEnergyMethod
-from DEM_src.bc_helpers import get_boundary_conditions
 from DEM_src.ObjectiveCalculator import ObjectiveCalculator
+from DEM_src.external_energy import calculate_external_energy
+from DEM_src.bc_helpers import get_boundary_conditions, TractionPoints
 
 
 class StrainEnergy(ObjectiveCalculator):
     def __init__(
-        self, Young_modulus: float, Poisson_ratio: float, dxdy: tuple[float, float]
+        self,
+        dxdy: tuple[float, float],
+        Young_modulus: float,
+        Poisson_ratio: float,
+        traction_points_list: list[TractionPoints],
     ):
         super().__init__(dxdy)
         self.lamé_mu = Young_modulus / (2 * (1 + Poisson_ratio))
         self.lamé_lda = self.lamé_mu * Poisson_ratio / (0.5 - Poisson_ratio)
+        self.traction_points_list = traction_points_list
 
         self.penalizer = ElasticPenalizer()
         self.penalizer.set_penalization(3)
@@ -40,16 +46,24 @@ class StrainEnergy(ObjectiveCalculator):
 
         return torch.einsum("ijkl,ijkl->kl", σ, ε)
 
-    def calculate_objective(
+    def calculate_potential_power(
         self, u: torch.Tensor, shape: tuple[int, int], density: torch.Tensor
     ):
-        """Calculate φ(ρ) = ½∫r(ρ)σ:ε dx"""
+        """Calculate φ(ρ) = ½∫r(ρ)σ:ε dx - ∫t·u ds"""
 
         strain_energies = self.evaluate(u, shape, self.calculate_strain_energy)
 
-        return 0.5 * torch.sum(self.penalizer(density) * strain_energies * self.detJ)
+        internal_energy = 0.5 * torch.sum(
+            self.penalizer(density) * strain_energies * self.detJ
+        )
 
-    def calculate_objective_gradient(
+        external_energy = calculate_external_energy(
+            u, self.dxdy, self.traction_points_list
+        )
+
+        return internal_energy - external_energy
+
+    def calculate_objective_and_gradient(
         self, u: torch.Tensor, shape: tuple[int, int], density: torch.Tensor
     ):
         """Calculate ∇φ = -½r'(ρ)σ:ε and φ = ½∫r(ρ)σ:ε dx"""
@@ -60,7 +74,7 @@ class StrainEnergy(ObjectiveCalculator):
         objective = torch.sum(self.penalizer(density) * strain_energy_at_element)
         gradient = -self.penalizer.derivative(density) * strain_energy_at_element
 
-        return gradient, objective
+        return objective, gradient
 
 
 class ElasticityProblem:
@@ -82,16 +96,16 @@ class ElasticityProblem:
             domain, self.design
         )
         strain_energy = StrainEnergy(
+            self.domain.dxdy,
             self.design.parameters.young_modulus,
             self.design.parameters.poisson_ratio,
-            self.domain.dxdy,
+            traction_points_list,
         )
 
         self.dem = DeepEnergyMethod(
             device,
             nn_parameters,
             dirichlet_enforcer,
-            traction_points_list,
             strain_energy,
         )
 

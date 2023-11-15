@@ -22,7 +22,7 @@ def compare_output(design):
     density = torch.reshape(density, solver.domain.intervals)
 
     objective_calculator = solver.problem.dem.objective_calculator
-    gradient, objective = objective_calculator.calculate_objective_gradient(
+    objective, gradient = objective_calculator.calculate_objective_and_gradient(
         x, solver.domain.shape, density
     )
 
