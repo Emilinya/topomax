@@ -15,8 +15,6 @@ from DEM_src.ObjectiveCalculator import ObjectiveCalculator
 @dataclass
 class NNParameters:
     verbose: bool
-    input_size: int
-    output_size: int
     layer_count: int
     neuron_count: int
     learning_rate: float
@@ -32,12 +30,13 @@ class DeepEnergyMethod:
     def __init__(
         self,
         device: torch.device,
+        output_size: int,
         nn_parameters: NNParameters,
         dirichlet_enforcer: DirichletEnforcer,
         objective_calculator: ObjectiveCalculator,
     ):
         # self.data = data
-        self.model = MultiLayerNet(nn_parameters)
+        self.model = MultiLayerNet(2, output_size, nn_parameters)
         self.model = self.model.to(device)
 
         self.device = device
@@ -133,11 +132,9 @@ class DeepEnergyMethod:
 
 
 class MultiLayerNet(torch.nn.Module):
-    def __init__(self, parameters: NNParameters):
+    def __init__(self, input_size, output_size, parameters: NNParameters):
         super().__init__()
 
-        input_size = parameters.input_size
-        output_size = parameters.output_size
         neuron_count = parameters.neuron_count
         rff_deviation = parameters.rff_deviation
         CNN_deviation = parameters.CNN_deviation

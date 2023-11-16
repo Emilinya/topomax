@@ -102,8 +102,12 @@ class ElasticityProblem:
             traction_points_list,
         )
 
+        # Note: Making this code work with 3D requires a
+        # lot more work than just changing the value below
+        dimension = 2
         self.dem = DeepEnergyMethod(
             device,
+            dimension,
             nn_parameters,
             dirichlet_enforcer,
             strain_energy,

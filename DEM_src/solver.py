@@ -109,8 +109,6 @@ class Solver:
 
         nn_parameters = NNParameters(
             verbose=False,
-            input_size=2,
-            output_size=2,
             layer_count=5,
             neuron_count=68,
             learning_rate=1.73553,
