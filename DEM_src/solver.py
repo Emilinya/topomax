@@ -12,7 +12,7 @@ from scipy.sparse import coo_matrix, csr_matrix
 from src.utils import constrain
 from DEM_src.data_structs import Domain
 from DEM_src.integrator import integrate
-# from DEM_src.fluid_problem import FluidProblem
+from DEM_src.fluid_problem import FluidProblem
 from DEM_src.DeepEnergyMethod import NNParameters
 from DEM_src.elasisity_problem import ElasticityProblem
 from designs.definitions import FluidDesign, ElasticityDesign
@@ -122,13 +122,12 @@ class Solver:
         self.rho = np.ones(self.domain.intervals) * volume_fraction
 
         if isinstance(design, FluidDesign):
-            # self.problem = FluidProblem(
-            #     self.domain,
-            #     self.device,
-            #     design,
-            #     nn_parameters,
-            # )
-            sys.exit("Fluid optimization is unimplemented!")
+            self.problem = FluidProblem(
+                self.domain,
+                self.device,
+                design,
+                nn_parameters,
+            )
         elif isinstance(design, ElasticityDesign):
             control_filter = create_density_filter(0.25, self.domain)
             self.problem = ElasticityProblem(
