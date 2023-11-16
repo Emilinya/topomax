@@ -30,7 +30,7 @@ class StrainEnergy(ObjectiveCalculator):
         self.penalizer = ElasticPenalizer()
         self.penalizer.set_penalization(3)
 
-    def calculate_strain_energy(self, grad: torch.Tensor):
+    def calculate_strain_energy(self, _, grad: torch.Tensor):
         """
         Calculate σ:ε, where
         ε = (∇u + ∇uᵀ)/2, σ = λ∇⋅uI + 2με
@@ -44,14 +44,14 @@ class StrainEnergy(ObjectiveCalculator):
         identity = torch.eye(2).reshape((2, 2, 1, 1))
         σ = self.lamé_lda * div_u * identity + 2 * self.lamé_mu * ε
 
-        return torch.einsum("ijkl,ijkl->kl", σ, ε)
+        return [torch.einsum("ijkl,ijkl->kl", σ, ε)]
 
     def calculate_potential_power(
         self, u: torch.Tensor, shape: tuple[int, int], density: torch.Tensor
     ):
-        """Calculate φ(ρ) = ½∫r(ρ)σ:ε dx - ∫t·u ds"""
+        """Calculate ψ(u; ρ) = ½∫r(ρ)σ:ε dx - ∫t·u ds"""
 
-        strain_energies = self.evaluate(u, shape, self.calculate_strain_energy)
+        (strain_energies,) = self.evaluate(u, shape, self.calculate_strain_energy)
 
         internal_energy = 0.5 * torch.sum(
             self.penalizer(density) * strain_energies * self.detJ
@@ -66,9 +66,9 @@ class StrainEnergy(ObjectiveCalculator):
     def calculate_objective_and_gradient(
         self, u: torch.Tensor, shape: tuple[int, int], density: torch.Tensor
     ):
-        """Calculate ∇φ = -½r'(ρ)σ:ε and φ = ½∫r(ρ)σ:ε dx"""
+        """Calculate ∇ϕ(ρ; u) = -½r'(ρ)σ:ε and ϕ(ρ; u) = ½∫r(ρ)σ:ε dx"""
 
-        strain_energies = self.evaluate(u, shape, self.calculate_strain_energy)
+        (strain_energies,) = self.evaluate(u, shape, self.calculate_strain_energy)
         strain_energy_at_element = 0.5 * strain_energies * self.detJ
 
         objective = torch.sum(self.penalizer(density) * strain_energy_at_element)

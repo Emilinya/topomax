@@ -77,61 +77,61 @@ class ObjectiveCalculator(ABC):
 
         return point_lists
 
-    def get_grad_U(
+    def get_grad_u(
         self, gauss_point: int, point_lists: list[list[torch.Tensor]]
-    ) -> torch.Tensor:
+    ) -> tuple[torch.Tensor, torch.Tensor]:
         dxdy_list = np.array(
             [
                 np.matmul(self.Jinv, dN_dsy[:, gauss_point].reshape((2, 1)))
                 for dN_dsy in self.shape_derivatives
             ]
         ).reshape((len(self.shape_derivatives), 2))
-        Ux_list, Uy_list = point_lists
 
-        gradient = torch.zeros((len(point_lists), 2, *Ux_list[0].shape))
+        shape = point_lists[0][0].shape
+        u = torch.zeros((len(point_lists), *shape))
+        gradient = torch.zeros((len(point_lists), 2, *shape))
 
         for i in range(len(self.shape_derivatives)):
             dx, dy = dxdy_list[i, :]
-            Ux, Uy = Ux_list[i], Uy_list[i]
 
-            gradient[0, 0, :, :] += Ux * dx
-            gradient[0, 1, :, :] += Ux * dy
-            gradient[1, 0, :, :] += Uy * dx
-            gradient[1, 1, :, :] += Uy * dy
+            for j, Ux_list in enumerate(point_lists):
+                Ux = Ux_list[i]
 
-        return gradient
+                u[j, :, :] += Ux
+
+                gradient[j, 0, :, :] += Ux * dx
+                gradient[j, 1, :, :] += Ux * dy
+
+        u /= len(self.shape_derivatives)
+
+        return u, gradient
 
     def value_at_gauss_point(
         self,
-        function: Callable[[torch.Tensor], torch.Tensor],
+        function: Callable[[torch.Tensor, torch.Tensor], list[torch.Tensor]],
         gauss_point: int,
         point_lists: list[list[torch.Tensor]],
     ):
-        grad = self.get_grad_U(gauss_point, point_lists)
-        return function(grad)
+        u, grad = self.get_grad_u(gauss_point, point_lists)
+        return function(u, grad)
 
     def evaluate(
         self,
         u: torch.Tensor,
         shape: tuple[int, int],
-        function: Callable[[torch.Tensor], torch.Tensor],
+        function: Callable[[torch.Tensor, torch.Tensor], list[torch.Tensor]],
     ):
         _, dim = u.shape
         U = torch.transpose(u.reshape(shape[1], shape[0], dim), 0, 1)
 
         point_lists = self.get_gauss_points(U)
 
-        value = sum(
-            self.value_at_gauss_point(function, i, point_lists)
-            for i in range(len(self.shape_derivatives))
-        )
+        values = self.value_at_gauss_point(function, 0, point_lists)
+        for i in range(1, len(self.shape_derivatives)):
+            for j, v in enumerate(self.value_at_gauss_point(function, i, point_lists)):
+                values[j] += v
 
-        # this only happens if len(self.shape_derivatives) == 0, which it should never be.
-        # Nevertheless, the type checker gets angry if I don't do this, so I might as well
-        if isinstance(value, int):
-            sys.exit(f"evaluate returned {value}, this should not happen!")
-
-        return value
+        return values
 
     @abstractmethod
     def calculate_potential_power(
