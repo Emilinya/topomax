@@ -10,8 +10,8 @@ from src.penalizers import ElasticPenalizer
 from DEM_src.data_structs import Domain
 from DEM_src.ObjectiveCalculator import ObjectiveCalculator
 from DEM_src.external_energy import calculate_external_energy
+from DEM_src.bc_helpers import ElasticityEnforcer, TractionPoints
 from DEM_src.DeepEnergyMethod import NNParameters, DeepEnergyMethod
-from DEM_src.bc_helpers import get_boundary_conditions, TractionPoints
 
 
 class StrainEnergy(ObjectiveCalculator):
@@ -92,9 +92,15 @@ class ElasticityProblem:
         self.filter = input_filter
         self.domain = domain
 
-        traction_points_list, dirichlet_enforcer = get_boundary_conditions(
-            domain, self.design
+        traction_points_list: list[TractionPoints] = []
+        if self.design.parameters.tractions:
+            for traction in self.design.parameters.tractions:
+                traction_points_list.append(TractionPoints(self.domain, traction))
+
+        dirichlet_enforcer = ElasticityEnforcer(
+            self.design.parameters, self.domain, device
         )
+
         strain_energy = StrainEnergy(
             self.domain.dxdy,
             self.design.parameters.young_modulus,

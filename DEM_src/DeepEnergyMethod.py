@@ -65,7 +65,7 @@ class DeepEnergyMethod:
 
         def closure_generator(t: int):
             def closure():
-                u_pred = self.get_U(x, domain)
+                u_pred = self.dirichlet_enforcer(self.model(x))
                 u_pred.double()
 
                 # ---- Calculate internal and external energies------
@@ -95,7 +95,7 @@ class DeepEnergyMethod:
             ):
                 break
 
-        u_pred = self.get_U(x, domain)
+        u_pred = self.dirichlet_enforcer(self.model(x))
         return self.objective_calculator.calculate_objective_and_gradient(
             u_pred, domain.shape, density
         )
@@ -117,18 +117,6 @@ class DeepEnergyMethod:
             return True
 
         return False
-
-    def get_U(
-        self,
-        x: torch.Tensor,
-        domain: Domain,
-    ):
-        u_tilde: torch.Tensor = self.model(x)
-
-        normed_x = (x[:, 0] / domain.length).unsqueeze(1)
-        normed_y = (x[:, 1] / domain.height).unsqueeze(1)
-
-        return self.dirichlet_enforcer(u_tilde, normed_x, normed_y)
 
 
 class MultiLayerNet(torch.nn.Module):

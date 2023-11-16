@@ -1,31 +1,55 @@
 from __future__ import annotations
 
+from abc import ABC, abstractmethod
+
 import torch
 import numpy as np
 
 from DEM_src.data_structs import Domain
-from designs.definitions import Side, Traction, ElasticityDesign
+from designs.definitions import Side, Traction, ElasticityParameters
 
 
-class DirichletEnforcer:
-    def __init__(self, fixed_sides: list[Side]):
-        self.fixed_sides = sorted(list(set(fixed_sides)), key=lambda v: v.value)
+class DirichletEnforcer(ABC):
+    def create_zero_enforcer(
+        self, sides: list[Side], domain: Domain, device: torch.device
+    ):
+        # ensure that sides does not contain any duplicates
+        sides = sorted(list(set(sides)), key=lambda v: v.value)
 
-    def __call__(self, u: torch.Tensor, x: torch.Tensor, y: torch.Tensor):
-        zero_enforcer = torch.ones_like(u)
-        for side in self.fixed_sides:
+        # normalize x- and y-values
+        flat_norm_x = domain.x_grid.T.flatten().reshape((-1, 1)) / domain.length
+        flat_norm_y = domain.y_grid.T.flatten().reshape((-1, 1)) / domain.height
+
+        zero_enforcer = np.ones((flat_norm_x.size, 2))
+        for side in sides:
             if side == Side.LEFT:
-                zero_enforcer *= x
+                zero_enforcer *= flat_norm_x
             elif side == Side.RIGHT:
-                zero_enforcer *= 1 - x
+                zero_enforcer *= 1 - flat_norm_x
             elif side == Side.TOP:
-                zero_enforcer *= 1 - y
+                zero_enforcer *= 1 - flat_norm_y
             elif side == Side.BOTTOM:
-                zero_enforcer *= y
+                zero_enforcer *= flat_norm_y
             else:
                 raise ValueError(f"Unknown side: '{side}'")
 
-        return u * zero_enforcer
+        return torch.from_numpy(zero_enforcer).to(device).float()
+
+    @abstractmethod
+    def __call__(self, u: torch.Tensor) -> torch.Tensor:
+        ...
+
+
+class ElasticityEnforcer(DirichletEnforcer):
+    def __init__(
+        self, parameters: ElasticityParameters, domain: Domain, device: torch.device
+    ):
+        self.zero_enforcer = self.create_zero_enforcer(
+            parameters.fixed_sides, domain, device
+        )
+
+    def __call__(self, u: torch.Tensor):
+        return u * self.zero_enforcer
 
 
 class TractionPoints:
@@ -72,15 +96,3 @@ class TractionPoints:
         self.indices = load_indices
         self.left_error = load_points[0, self.side_index] - left
         self.right_error = right - load_points[-1, self.side_index]
-
-
-def get_boundary_conditions(domain: Domain, elasticity_design: ElasticityDesign):
-    assert elasticity_design.parameters.tractions is not None
-
-    traction_points_list: list[TractionPoints] = []
-    for traction in elasticity_design.parameters.tractions:
-        traction_points_list.append(TractionPoints(domain, traction))
-
-    dirichlet_enforcer = DirichletEnforcer(elasticity_design.parameters.fixed_sides)
-
-    return traction_points_list, dirichlet_enforcer
