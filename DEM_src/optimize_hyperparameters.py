@@ -3,31 +3,23 @@ import os
 
 import torch
 import numpy as np
+import numpy.typing as npt
 from hyperopt import fmin, tpe, hp, Trials
 
 from DEM_src.solver import Solver
-from DEM_src.data_structs import Domain
-from DEM_src.bc_helpers import get_boundary_conditions
-from DEM_src.DeepEnergyMethod import NNParameters, DeepEnergyMethod
-from designs.definitions import ElasticityDesign
+from DEM_src.fluid_problem import FluidProblem
+from DEM_src.DeepEnergyMethod import NNParameters
+from DEM_src.elasisity_problem import ElasticityProblem
 
 
 def hyperopt_main_generator(
-    E: float,
-    nu: float,
-    density,
-    domain: Domain,
-    device: torch.device,
+    rho: npt.NDArray,
+    problem: FluidProblem | ElasticityProblem,
     datafile: io.TextIOWrapper,
-    elasticity_design: ElasticityDesign,
 ):
-    extended_domain = Domain(domain.Nx + 1, domain.Ny + 1, domain.length, domain.height)
-
     def hyperopt_main(x_var: dict[str, int | float | str]):
         nn_parameters = NNParameters(
             verbose=False,
-            input_size=2,
-            output_size=2,
             layer_count=int(x_var["layer_count"]),
             neuron_count=int(x_var["neuron_count"]),
             learning_rate=float(x_var["learning_rate"]),
@@ -38,39 +30,23 @@ def hyperopt_main_generator(
             convergence_tolerance=5e-5,
         )
 
-        # STEP 1: SETUP DOMAIN - COLLECT CLEAN DATABASE
-        traction_points_list, dirichlet_enforcer = get_boundary_conditions(
-            extended_domain, elasticity_design
-        )
-
-        # STEP 2: SETUP MODEL
-        dem = DeepEnergyMethod(
-            E, nu, device, nn_parameters, dirichlet_enforcer, traction_points_list
-        )
-
-        # STEP 3: TRAIN MODEL
-        loss, _ = dem.train_model(density, extended_domain)
+        problem.dem.set_nn_parameters(nn_parameters)
+        loss = problem.calculate_objective(rho)
         datafile.write(f"{x_var} - loss: {loss:.5e}\n")
 
-        return float(loss)
+        return loss
 
     return hyperopt_main
 
 
 def optimize_hyperparameters(
-    E: float,
-    nu: float,
-    density,
-    domain: Domain,
-    device: torch.device,
+    rho,
+    problem: FluidProblem | ElasticityProblem,
     datafile_path: str,
-    elasticity_design: ElasticityDesign,
 ):
     os.makedirs(os.path.dirname(datafile_path), exist_ok=True)
     with open(datafile_path, "w") as datafile:
-        hyperopt_main = hyperopt_main_generator(
-            E, nu, density, domain, device, datafile, elasticity_design
-        )
+        hyperopt_main = hyperopt_main_generator(rho, problem, datafile)
 
         activation_functions = ["tanh", "relu", "rrelu", "sigmoid"]
         space = {
@@ -107,12 +83,4 @@ def run(design_path: str):
 
     design = os.path.splitext(os.path.basename(design_path))[0]
     datafile_path = f"output/hyperopt/{design}_hyperopt.txt"
-    optimize_hyperparameters(
-        solver.problem.dem.E,
-        solver.problem.dem.nu,
-        solver.rho,
-        solver.domain,
-        solver.device,
-        datafile_path,
-        solver.problem.design,
-    )
+    optimize_hyperparameters(solver.rho, solver.problem, datafile_path)

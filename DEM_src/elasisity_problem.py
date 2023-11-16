@@ -119,7 +119,7 @@ class ElasticityProblem:
             strain_energy,
         )
 
-        self.objective_gradient = None
+        self.objective_gradient: npt.NDArray[np.float64] | None = None
 
     def calculate_objective_gradient(self):
         if self.objective_gradient is None:
@@ -144,4 +144,4 @@ class ElasticityProblem:
             self.filter.T @ objective_gradient.flatten()
         ).reshape(rho_shape)
 
-        return objective
+        return float(objective)

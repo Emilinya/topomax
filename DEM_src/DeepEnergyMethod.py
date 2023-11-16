@@ -40,11 +40,17 @@ class DeepEnergyMethod:
         self.model = self.model.to(device)
 
         self.device = device
+        self.output_size = output_size
         self.nn_parameters = nn_parameters
         self.dirichlet_enforcer = dirichlet_enforcer
         self.objective_calculator = objective_calculator
 
         self.loss_array = []
+
+    def set_nn_parameters(self, nn_parameters: NNParameters):
+        self.model = MultiLayerNet(2, self.output_size, nn_parameters)
+        self.model = self.model.to(self.device)
+        self.nn_parameters = nn_parameters
 
     def train_model(self, rho: npt.NDArray[np.float64], domain: Domain):
         x = torch.from_numpy(

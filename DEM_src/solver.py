@@ -195,7 +195,7 @@ class Solver:
 
         for penalty in self.parameters.penalties:
             difference = float("Infinity")
-            objective = float(self.problem.calculate_objective(self.rho))
+            objective = self.problem.calculate_objective(self.rho)
             objective_difference = None
 
             print(f"{f'Penalty: {constrain(penalty, 6)}':^59}")
@@ -225,7 +225,7 @@ class Solver:
 
                 self.rho = expit(psi)
                 previous_objective = objective
-                objective = float(self.problem.calculate_objective(self.rho))
+                objective = self.problem.calculate_objective(self.rho)
                 objective_difference = previous_objective - objective
 
                 if np.isnan(objective):

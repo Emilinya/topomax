@@ -98,7 +98,7 @@ class FluidProblem:
             fluid_energy,
         )
 
-        self.objective_gradient = None
+        self.objective_gradient: npt.NDArray[np.float64] | None = None
 
     def calculate_objective_gradient(self):
         if self.objective_gradient is None:
@@ -115,4 +115,4 @@ class FluidProblem:
         objective = objective.cpu().detach().numpy()
         self.objective_gradient = objective_gradient.cpu().detach().numpy()
 
-        return objective
+        return float(objective)
