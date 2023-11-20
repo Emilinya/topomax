@@ -20,40 +20,30 @@ class FluidEnergy(ObjectiveCalculator):
         self.penalizer = FluidPenalizer()
         self.penalizer.set_penalization(0.1)
 
-    def calculate_potential(self, up: torch.Tensor, grad_up: torch.Tensor):
-        """Calculate |u|², |∇u|² and ∇p·u + (∇·u)p."""
+    def calculate_potential(self, u: torch.Tensor, grad_u: torch.Tensor):
+        """Calculate |u|², |∇u|² and |∇·u|²."""
 
-        p = up[2, :, :]
-        u = up[:2, :, :]
-        grad_p = grad_up[2, :, :, :]
-        grad_u = grad_up[:2, :, :, :]
+        u_norm, grad_u_norm = self.calculate_norms(u, grad_u)
         div_u = grad_u[0][0] + grad_u[1][1]
 
-        u_norm, grad_u_norm = self.calculate_norms(up, grad_up)
+        return [u_norm, grad_u_norm, div_u**2]
 
-        grad_p_dot = torch.sum(grad_p * u, 0)
-        div_u_prod = div_u * p
-
-        return [u_norm, grad_u_norm, grad_p_dot + div_u_prod]
-
-    def calculate_norms(self, up: torch.Tensor, grad_up: torch.Tensor):
+    def calculate_norms(self, u: torch.Tensor, grad_u: torch.Tensor):
         """Calculate |u|² and |∇u|²."""
-
-        u = up[:2, :, :]
-        grad_u = grad_up[:2, :, :, :]
 
         return [torch.sum(u**2, 0), torch.sum(grad_u**2, [0, 1])]
 
     def calculate_potential_power(
         self, u: torch.Tensor, shape: tuple[int, int], density: torch.Tensor
     ):
-        """Calculate ψ(u; ρ) = ∫r(ρ)|u|² + μ|∇u|² + ∇p·u + (∇·u)p dx."""
+        """Calculate ψ(u; ρ) = ∫½(r(ρ)|u|² + μ|∇u|²) + γ|∇·u|² dx."""
 
-        u_norm, grad_norm, p_products = self.evaluate(
-            u, shape, self.calculate_potential
-        )
+        u_norm, grad_norm, div_norm = self.evaluate(u, shape, self.calculate_potential)
+        gamma = 1000000
+
         potential = (
-            self.penalizer(density) * u_norm + self.viscocity * grad_norm + p_products
+            0.5 * (self.penalizer(density) * u_norm + self.viscocity * grad_norm)
+            + gamma * div_norm
         )
 
         return torch.sum(potential * self.detJ)
@@ -88,8 +78,7 @@ class FluidProblem:
         dirichlet_enforcer = FluidEnforcer(self.design.parameters, self.domain, device)
         fluid_energy = FluidEnergy(self.domain.dxdy, self.design.parameters.viscosity)
 
-        # two dimensjons for the flow velocity, and one for the pressure
-        dimension = 3
+        dimension = 2
         self.dem = DeepEnergyMethod(
             device,
             dimension,

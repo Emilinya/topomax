@@ -76,9 +76,8 @@ class FluidEnforcer(DirichletEnforcer):
             no_slips = fluid_parameters.no_slip
 
         self.zero_enforcer = self.create_zero_enforcer(
-            flow_sides + no_slips, domain, device, 3
+            flow_sides + no_slips, domain, device, 2
         )
-        self.zero_enforcer[:, 2] = 1
 
         self.flow_enforcer = self.create_flow_enforcer(
             fluid_parameters.flows, domain, device
@@ -108,7 +107,6 @@ class FluidEnforcer(DirichletEnforcer):
     ):
         flow_enforcer_ux = np.zeros_like(domain.x_grid)
         flow_enforcer_uy = np.zeros_like(domain.y_grid)
-        flow_enforcer_p = np.zeros_like(domain.y_grid)
 
         for flow in flows:
             side, center, length, rate = flow.to_tuple()
@@ -133,9 +131,7 @@ class FluidEnforcer(DirichletEnforcer):
                 raise ValueError(f"Unknown side: '{side}'")
 
         return (
-            torch.from_numpy(
-                flatten([flow_enforcer_ux, flow_enforcer_uy, flow_enforcer_p])
-            )
+            torch.from_numpy(flatten([flow_enforcer_ux, flow_enforcer_uy]))
             .float()
             .to(device)
         )
