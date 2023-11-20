@@ -10,6 +10,10 @@ import numpy.typing as npt
 
 
 class ObjectiveCalculator(ABC):
+    """
+    A class that contains the logic to calculate integrals and derivatives numerically.
+    """
+
     def __init__(self, dxdy: tuple[float, float]):
         self.dxdy = dxdy
         self.Jinv, self.detJ = self.calculate_jacobian(dxdy)
@@ -27,7 +31,7 @@ class ObjectiveCalculator(ABC):
         return Jinv, detJ
 
     def get_shape_derivatives(self) -> list[npt.NDArray[np.float64]]:
-        """differentiation of shape functions at gauss quadrature points"""
+        """Differentiation of shape functions at gauss quadrature points"""
         dN_dsy_1 = np.array(
             [
                 [-0.394337567, -0.105662433, -0.105662433, -0.394337567],
@@ -56,23 +60,20 @@ class ObjectiveCalculator(ABC):
         return [dN_dsy_1, dN_dsy_2, dN_dsy_3, dN_dsy_4]
 
     def get_gauss_points(self, U: torch.Tensor):
-        """what does this function do? I don't know"""
-        Ny, _, dim = U.shape
-
-        axis = -1
-        slice1 = [slice(None)] * 2
-        slice2 = [slice(None)] * 2
-        slice1[axis] = slice(1, None)
-        slice2[axis] = slice(None, -1)
-
+        dim = U.shape[-1]
         point_lists: list[list[torch.Tensor]] = []
         for i in range(dim):
+            """
+               abcd       abc                    bcd
+            Ux=efgh, UxN1=efg , UxN2=efg , UxN3= fgh, UxN4= fgh.
+               ijkl                  ijk                    jkl
+            """
             Ux = U[:, :, i]
+            UxN1 = Ux[:-1, :-1]
+            UxN2 = Ux[1:, :-1]
+            UxN3 = Ux[:-1, 1:]
+            UxN4 = Ux[1:, 1:]
 
-            UxN1 = Ux[: (Ny - 1)][tuple(slice2)]
-            UxN2 = Ux[1:Ny][tuple(slice2)]
-            UxN3 = Ux[0 : (Ny - 1)][tuple(slice1)]
-            UxN4 = Ux[1:Ny][tuple(slice1)]
             point_lists.append([UxN1, UxN2, UxN3, UxN4])
 
         return point_lists
