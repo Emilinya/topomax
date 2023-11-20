@@ -10,3 +10,10 @@ def get_convergance(Ns: list[int], error_func: Callable[[int], float]) -> float:
 
     poly = np.polynomial.Polynomial.fit(np.log(Ns), np.log(errors), 1)
     return poly.coef[1]
+
+def get_average(Ns: list[int], error_func: Callable[[int], float]) -> float:
+    errors = []
+    for N in Ns:
+        errors.append(error_func(N))
+
+    return np.mean(errors)

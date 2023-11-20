@@ -5,8 +5,9 @@ import numpy as np
 
 from DEM_src.data_structs import Domain
 from DEM_src.bc_helpers import TractionPoints
-from designs.definitions import Traction, Side
 from DEM_src.external_energy import calculate_external_energy
+from tests.utils import get_average, get_convergance
+from designs.definitions import Traction, Side
 
 
 def f_linear(x, y):
@@ -47,31 +48,6 @@ def calculate_error(
     return abs((numeric - analytic) / analytic) * 100
 
 
-def get_errors(Ns: list[int], domain: Domain, traction: Traction):
-    linear_err_list = []
-    trig_err_list = []
-
-    for N in Ns:
-        N_domain = Domain(domain.Nx * N, domain.Ny * N, domain.length, domain.height)
-        traction_points_list = [TractionPoints(N_domain, traction)]
-
-        linear_err_list.append(
-            calculate_error(
-                f_linear, F_linear, N_domain, traction, traction_points_list
-            )
-        )
-
-        trig_err_list.append(
-            calculate_error(f_trig, F_trig, N_domain, traction, traction_points_list)
-        )
-
-    trig_degree = np.polynomial.Polynomial.fit(
-        np.log(Ns), np.log(np.array(trig_err_list) + 1e-14), 1
-    ).coef[1]
-
-    return np.average(linear_err_list), trig_degree
-
-
 def test_calculate_external_energy():
     Ns = list(range(2, 100))
 
@@ -83,15 +59,26 @@ def test_calculate_external_energy():
         Side.RIGHT, cantilever_domain.height / 2, 0.5, (0.0, 1.0)
     )
 
-    bridge_linear_average, bridge_trig_degree = get_errors(
-        Ns, bridge_domain, bridge_traction
-    )
-    assert bridge_trig_degree <= -3
-    assert bridge_linear_average < 1e-5
+    # this is not hacky at all, don't worry
+    def get_get_error_function(domain, traction):
+        def get_error_function(f, F):
+            def error_function(N):
+                N_domain = Domain(
+                    domain.Nx * N, domain.Ny * N, domain.length, domain.height
+                )
+                traction_points_list = [TractionPoints(N_domain, traction)]
 
-    cantilever_linear_average, cantilever_trig_degree = get_errors(
-        Ns, cantilever_domain, cantilever_traction
-    )
+                return calculate_error(f, F, N_domain, traction, traction_points_list)
 
-    assert cantilever_trig_degree <= -3
-    assert cantilever_linear_average < 1e-5
+            return error_function
+
+        return get_error_function
+
+    for domain, traction in [
+        (bridge_domain, bridge_traction),
+        (cantilever_domain, cantilever_traction),
+    ]:
+        get_error_function = get_get_error_function(domain, traction)
+
+        assert get_convergance(Ns, get_error_function(f_trig, F_trig)) <= -3
+        assert get_average(Ns, get_error_function(f_linear, F_linear)) < 1e-5

@@ -2,6 +2,7 @@ import numpy as np
 import dolfin as df
 
 from FEM_src.filter import HelmholtzFilter
+from tests.utils import get_convergance
 
 
 def initialize(N):
@@ -19,17 +20,6 @@ def initialize(N):
     rho = df.Function(control_space)
 
     return mesh, rho
-
-
-def error_at_mesh_size(N, design_filter, rho_expression, filtered_rho_expression):
-    mesh, rho = initialize(N)
-
-    rho.interpolate(rho_expression)
-    filtered_rho = design_filter.apply(rho)
-
-    return df.errornorm(
-        filtered_rho, filtered_rho_expression, "L2", degree_rise=2, mesh=mesh
-    )
 
 
 def test_HelmholtzFilter():
@@ -55,15 +45,15 @@ def test_HelmholtzFilter():
 
     # even if the filter works, the error will still be relatively large due to the smoothness
     # of the analytical solution. If the filter works, the error will be proporitonal to 1/N^2
-    Ns = range(10, 90 + 1, 20)
-    errors = []
-    for N in Ns:
-        error = error_at_mesh_size(
-            N, design_filter, rho_expression, filtered_rho_expression
+    def error_func(N):
+        mesh, rho = initialize(N)
+
+        rho.interpolate(rho_expression)
+        filtered_rho = design_filter.apply(rho)
+
+        return df.errornorm(
+            filtered_rho, filtered_rho_expression, "L2", degree_rise=2, mesh=mesh
         )
-        errors.append(error)
 
-    poly = np.polynomial.Polynomial.fit(np.log(Ns), np.log(errors), 1)
-    degree = poly.coef[1]
-
-    assert degree <= -2
+    Ns = list(range(10, 90 + 1, 20))
+    assert get_convergance(Ns, error_func) <= -2
