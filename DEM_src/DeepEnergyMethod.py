@@ -7,6 +7,7 @@ import rff.layers
 import numpy as np
 import numpy.typing as npt
 
+from DEM_src.utils import flatten
 from DEM_src.data_structs import Domain
 from DEM_src.bc_helpers import DirichletEnforcer
 from DEM_src.ObjectiveCalculator import ObjectiveCalculator
@@ -53,9 +54,7 @@ class DeepEnergyMethod:
         self.nn_parameters = nn_parameters
 
     def train_model(self, rho: npt.NDArray[np.float64], domain: Domain):
-        x = torch.from_numpy(
-            np.array([domain.x_grid.T.flat, domain.y_grid.T.flat]).T
-        ).float()
+        x = torch.from_numpy(flatten([domain.x_grid, domain.y_grid])).float()
         x = x.to(self.device)
         x.requires_grad_(True)
 

@@ -6,6 +6,7 @@ import torch
 import numpy as np
 import numpy.typing as npt
 
+from DEM_src.utils import flatten
 from DEM_src.data_structs import Domain
 from designs.definitions import (
     Side,
@@ -133,13 +134,7 @@ class FluidEnforcer(DirichletEnforcer):
 
         return (
             torch.from_numpy(
-                np.array(
-                    [
-                        flow_enforcer_ux.T.flat,
-                        flow_enforcer_uy.T.flat,
-                        flow_enforcer_p.T.flat,
-                    ]
-                ).T
+                flatten([flow_enforcer_ux, flow_enforcer_uy, flow_enforcer_p])
             )
             .float()
             .to(device)
