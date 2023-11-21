@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass
 
 import torch
@@ -15,7 +16,6 @@ from DEM_src.ObjectiveCalculator import ObjectiveCalculator
 
 @dataclass
 class NNParameters:
-    verbose: bool
     layer_count: int
     neuron_count: int
     learning_rate: float
@@ -31,6 +31,7 @@ class DeepEnergyMethod:
     def __init__(
         self,
         device: torch.device,
+        verbose: bool,
         output_size: int,
         nn_parameters: NNParameters,
         dirichlet_enforcer: DirichletEnforcer,
@@ -41,6 +42,7 @@ class DeepEnergyMethod:
         self.model = self.model.to(device)
 
         self.device = device
+        self.verbose = verbose
         self.output_size = output_size
         self.nn_parameters = nn_parameters
         self.dirichlet_enforcer = dirichlet_enforcer
@@ -70,7 +72,7 @@ class DeepEnergyMethod:
 
         def closure_generator(t: int):
             def closure():
-                u_pred = self.dirichlet_enforcer(self.model(x))
+                u_pred = self.get_u(x)
                 u_pred.double()
 
                 # ---- Calculate internal and external energies------
@@ -80,8 +82,10 @@ class DeepEnergyMethod:
                 optimizer_LBFGS.zero_grad()
                 loss.backward()
 
-                if self.nn_parameters.verbose:
-                    print(f"Iter: {t+1:d} - Loss: {loss.item():.6e}")
+                if self.verbose:
+                    line = f"Iter: {t+1:^3} - Loss: {loss.item():.6g}"
+                    twidth = os.get_terminal_size().columns
+                    print(f"\r{line}{' '*(twidth - len(line))}", end="")
                 self.loss_array.append(loss.data.cpu())
 
                 return float(loss)
@@ -100,10 +104,35 @@ class DeepEnergyMethod:
             ):
                 break
 
-        u_pred = self.dirichlet_enforcer(self.model(x))
+        if self.verbose:
+            print()
+
         return self.objective_calculator.calculate_objective_and_gradient(
+            self.get_u(x), domain.shape, density
+        )
+
+    def get_loss(self, rho: npt.NDArray[np.float64], domain: Domain):
+        density = torch.from_numpy(rho).float()
+        density = torch.reshape(density, domain.intervals).to(self.device)
+
+        u_pred = self.get_u(domain=domain)
+        loss = self.objective_calculator.calculate_potential_power(
             u_pred, domain.shape, density
         )
+
+        return float(loss)
+
+    def get_u(self, x: torch.Tensor | None = None, domain: Domain | None = None):
+        if x is None:
+            if domain is None:
+                raise ValueError(
+                    "get_u must get either x or domain, they can't both be None"
+                )
+
+            x = torch.from_numpy(flatten([domain.x_grid, domain.y_grid])).float()
+            x = x.to(self.device)
+
+        return self.dirichlet_enforcer(self.model(x))
 
     def convergence_check(self, loss_array: list[float], tolerance: float):
         num_check = 10

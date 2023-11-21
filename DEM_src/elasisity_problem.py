@@ -84,8 +84,8 @@ class ElasticityProblem:
         self,
         domain: Domain,
         device: torch.device,
+        verbose: bool,
         input_filter: csr_matrix,
-        nn_parameters: NNParameters,
         elasticity_design: ElasticityDesign,
     ):
         self.design = elasticity_design
@@ -108,11 +108,23 @@ class ElasticityProblem:
             traction_points_list,
         )
 
+        nn_parameters = NNParameters(
+            layer_count=5,
+            neuron_count=68,
+            learning_rate=1.73553,
+            CNN_deviation=0.062264,
+            rff_deviation=0.119297,
+            iteration_count=100,
+            activation_function="rrelu",
+            convergence_tolerance=5e-5,
+        )
+
         # Note: Making this code work with 3D requires a
         # lot more work than just changing the value below
         dimension = 2
         self.dem = DeepEnergyMethod(
             device,
+            verbose,
             dimension,
             nn_parameters,
             dirichlet_enforcer,

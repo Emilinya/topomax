@@ -13,7 +13,6 @@ from src.utils import constrain
 from DEM_src.data_structs import Domain
 from DEM_src.integrator import integrate
 from DEM_src.fluid_problem import FluidProblem
-from DEM_src.DeepEnergyMethod import NNParameters
 from DEM_src.elasisity_problem import ElasticityProblem
 from designs.definitions import FluidDesign, ElasticityDesign
 from designs.design_parser import parse_design
@@ -66,7 +65,7 @@ def create_density_filter(radius: float, domain: Domain) -> csr_matrix:
 class Solver:
     """Class that solves a given topology optimization problem using a magical algorithm."""
 
-    def __init__(self, design_file: str):
+    def __init__(self, design_file: str, data_path="output", verbose=False):
         warnings.filterwarnings("ignore")
         npr.seed(2022)
         torch.manual_seed(2022)
@@ -105,19 +104,7 @@ class Solver:
         volume_fraction = self.parameters.volume_fraction
         self.volume = self.width * self.height * volume_fraction
 
-        self.output_folder = f"output/DEM/{self.design_str}/data"
-
-        nn_parameters = NNParameters(
-            verbose=False,
-            layer_count=5,
-            neuron_count=68,
-            learning_rate=1.73553,
-            CNN_deviation=0.062264,
-            rff_deviation=0.119297,
-            iteration_count=100,
-            activation_function="rrelu",
-            convergence_tolerance=5e-5,
-        )
+        self.output_folder = f"{data_path}/DEM/{self.design_str}/data"
 
         self.rho = np.ones(self.domain.intervals) * volume_fraction
 
@@ -125,16 +112,16 @@ class Solver:
             self.problem = FluidProblem(
                 self.domain,
                 self.device,
+                verbose,
                 design,
-                nn_parameters,
             )
         elif isinstance(design, ElasticityDesign):
             control_filter = create_density_filter(0.25, self.domain)
             self.problem = ElasticityProblem(
                 self.domain,
                 self.device,
+                verbose,
                 control_filter,
-                nn_parameters,
                 design,
             )
         else:

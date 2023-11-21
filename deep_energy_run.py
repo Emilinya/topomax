@@ -34,5 +34,5 @@ if __name__ == "__main__":
     if optimize_hyperparameters:
         run(design_filename, data_path)
     else:
-        solver = Solver(design_filename)
+        solver = Solver(design_filename, data_path)
         solver.solve()

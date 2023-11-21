@@ -1,12 +1,10 @@
 import io
 import os
 
-import torch
 import numpy as np
 import numpy.typing as npt
 from hyperopt import fmin, tpe, hp, Trials
 
-from DEM_src.utils import flatten
 from DEM_src.solver import Solver
 from DEM_src.fluid_problem import FluidProblem
 from DEM_src.DeepEnergyMethod import NNParameters
@@ -17,10 +15,10 @@ def hyperopt_main_generator(
     rho: npt.NDArray,
     problem: FluidProblem | ElasticityProblem,
     datafile: io.TextIOWrapper,
+    iteration_data: dict[str, int | float],
 ):
     def hyperopt_main(x_var: dict[str, int | float | str]):
         nn_parameters = NNParameters(
-            verbose=False,
             layer_count=int(x_var["layer_count"]),
             neuron_count=int(x_var["neuron_count"]),
             learning_rate=float(x_var["learning_rate"]),
@@ -31,27 +29,28 @@ def hyperopt_main_generator(
             convergence_tolerance=5e-5,
         )
 
+        i = iteration_data["iteration"]
+        N = iteration_data["iteration_count"]
+        min_loss = iteration_data["min_loss"]
+        text = f"hyperopt iteration {i+1}/{N} ({int((i+1)/N*100)}%). Min loss: {min_loss:.6g}"
+
+        terminal_width = os.get_terminal_size().columns
+        left_width = int((terminal_width - (len(text) + 2)) / 2)
+        right_width = (terminal_width - (len(text) + 2)) - left_width
+
+        if i != 0:
+            # we don't want to spam the terminal - move cursor up 3 rows
+            # to overwrite previous line (why 3 and not 2?)
+            print("\033[3A")
+        print(f"{'─'*left_width} {text} {'─'*right_width}")
+
         problem.dem.set_nn_parameters(nn_parameters)
         problem.dem.train_model(rho, problem.domain)
+        loss = problem.dem.get_loss(rho, problem.domain)
 
-        x = torch.from_numpy(
-            flatten([problem.domain.x_grid, problem.domain.y_grid])
-        ).float()
-        x = x.to(problem.dem.device)
-
-        density = torch.from_numpy(rho).float()
-        density = torch.reshape(density, problem.domain.intervals).to(
-            problem.dem.device
-        )
-
-        u = problem.dem.dirichlet_enforcer(problem.dem.model(x))
-        loss = float(
-            problem.dem.objective_calculator.calculate_potential_power(
-                u, problem.domain.shape, density
-            )
-        )
-
-        datafile.write(f"{x_var} - loss: {loss:.5e}\n")
+        datafile.write(f"{x_var} - loss: {loss:.6g}\n")
+        iteration_data["iteration"] += 1
+        iteration_data["min_loss"] = min(loss, iteration_data["min_loss"])
 
         return loss
 
@@ -65,7 +64,12 @@ def optimize_hyperparameters(
 ):
     os.makedirs(os.path.dirname(datafile_path), exist_ok=True)
     with open(datafile_path, "w") as datafile:
-        hyperopt_main = hyperopt_main_generator(rho, problem, datafile)
+        iteration_data = {
+            "iteration": 0,
+            "iteration_count": 100,
+            "min_loss": float("Infinity"),
+        }
+        hyperopt_main = hyperopt_main_generator(rho, problem, datafile, iteration_data)
 
         activation_functions = ["tanh", "relu", "rrelu", "sigmoid"]
         space = {
@@ -88,6 +92,7 @@ def optimize_hyperparameters(
             trials=Trials(),
             rstate=np.random.default_rng(2019),
             max_queue_len=2,
+            verbose=False,
         )
         assert best is not None
 
@@ -98,7 +103,7 @@ def optimize_hyperparameters(
 
 
 def run(design_path: str, output_path: str = "output"):
-    solver = Solver(design_path)
+    solver = Solver(design_path, verbose=True)
 
     design = os.path.splitext(os.path.basename(design_path))[0]
     datafile_path = f"{output_path}/hyperopt/{design}_hyperopt.txt"

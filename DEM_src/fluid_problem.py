@@ -69,8 +69,8 @@ class FluidProblem:
         self,
         domain: Domain,
         device: torch.device,
+        verbose: bool,
         fluid_design: FluidDesign,
-        nn_parameters: NNParameters,
     ):
         self.design = fluid_design
         self.domain = domain
@@ -78,9 +78,21 @@ class FluidProblem:
         dirichlet_enforcer = FluidEnforcer(self.design.parameters, self.domain, device)
         fluid_energy = FluidEnergy(self.domain.dxdy, self.design.parameters.viscosity)
 
+        nn_parameters = NNParameters(
+            layer_count=5,
+            neuron_count=68,
+            learning_rate=1.73553,
+            CNN_deviation=0.062264,
+            rff_deviation=0.119297,
+            iteration_count=100,
+            activation_function="rrelu",
+            convergence_tolerance=5e-5,
+        )
+
         dimension = 2
         self.dem = DeepEnergyMethod(
             device,
+            verbose,
             dimension,
             nn_parameters,
             dirichlet_enforcer,
