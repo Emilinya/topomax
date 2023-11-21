@@ -13,12 +13,16 @@ from DEM_src.DeepEnergyMethod import NNParameters, DeepEnergyMethod
 
 
 class FluidEnergy(ObjectiveCalculator):
-    def __init__(self, dxdy: tuple[float, float], viscocity: float):
+    def __init__(self, dxdy: tuple[float, float], viscocity: float, gamma: float):
         super().__init__(dxdy)
         self.viscocity = viscocity
 
+        self.gamma = gamma
         self.penalizer = FluidPenalizer()
         self.penalizer.set_penalization(0.1)
+
+    def set_gamma(self, gamma: float):
+        self.gamma = gamma
 
     def calculate_potential(self, u: torch.Tensor, grad_u: torch.Tensor):
         """Calculate |u|², |∇u|² and |∇·u|²."""
@@ -39,11 +43,10 @@ class FluidEnergy(ObjectiveCalculator):
         """Calculate ψ(u; ρ) = ∫½(r(ρ)|u|² + μ|∇u|²) + γ|∇·u|² dx."""
 
         u_norm, grad_norm, div_norm = self.evaluate(u, shape, self.calculate_potential)
-        gamma = 1000000
 
         potential = (
             0.5 * (self.penalizer(density) * u_norm + self.viscocity * grad_norm)
-            + gamma * div_norm
+            + self.gamma * div_norm
         )
 
         return torch.sum(potential * self.detJ)
@@ -73,19 +76,22 @@ class FluidProblem:
         fluid_design: FluidDesign,
     ):
         self.design = fluid_design
+        self.verbose = verbose
         self.domain = domain
 
         dirichlet_enforcer = FluidEnforcer(self.design.parameters, self.domain, device)
-        fluid_energy = FluidEnergy(self.domain.dxdy, self.design.parameters.viscosity)
+        fluid_energy = FluidEnergy(
+            self.domain.dxdy, self.design.parameters.viscosity, 1
+        )
 
         nn_parameters = NNParameters(
             layer_count=5,
-            neuron_count=68,
-            learning_rate=1.73553,
-            CNN_deviation=0.062264,
-            rff_deviation=0.119297,
+            neuron_count=66,
+            learning_rate=1.3330789490587558,
+            CNN_deviation=0.36941508201470885,
+            rff_deviation=0.7239620095758805,
             iteration_count=100,
-            activation_function="rrelu",
+            activation_function="sigmoid",
             convergence_tolerance=5e-5,
         )
 
@@ -111,6 +117,19 @@ class FluidProblem:
         return self.objective_gradient
 
     def calculate_objective(self, rho: npt.NDArray[np.float64]):
+        assert isinstance(self.dem.objective_calculator, FluidEnergy)
+
+        gammas = [1e0, 1e1, 1e2, 1e3]
+
+        for gamma in gammas[:-1]:
+            if self.verbose:
+                print(f"γ = {gamma}")
+            self.dem.objective_calculator.set_gamma(gamma)
+            self.dem.train_model(rho, self.domain)
+
+        if self.verbose:
+            print(f"γ = {gammas[-1]}")
+        self.dem.objective_calculator.set_gamma(gammas[-1])
         objective, objective_gradient = self.dem.train_model(rho, self.domain)
 
         objective = objective.cpu().detach().numpy()
