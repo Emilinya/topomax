@@ -6,6 +6,7 @@ import numpy as np
 import numpy.typing as npt
 from hyperopt import fmin, tpe, hp, Trials
 
+from DEM_src.utils import flatten
 from DEM_src.solver import Solver
 from DEM_src.fluid_problem import FluidProblem
 from DEM_src.DeepEnergyMethod import NNParameters
@@ -31,7 +32,25 @@ def hyperopt_main_generator(
         )
 
         problem.dem.set_nn_parameters(nn_parameters)
-        loss = problem.calculate_objective(rho)
+        problem.dem.train_model(rho, problem.domain)
+
+        x = torch.from_numpy(
+            flatten([problem.domain.x_grid, problem.domain.y_grid])
+        ).float()
+        x = x.to(problem.dem.device)
+
+        density = torch.from_numpy(rho).float()
+        density = torch.reshape(density, problem.domain.intervals).to(
+            problem.dem.device
+        )
+
+        u = problem.dem.dirichlet_enforcer(problem.dem.model(x))
+        loss = float(
+            problem.dem.objective_calculator.calculate_potential_power(
+                u, problem.domain.shape, density
+            )
+        )
+
         datafile.write(f"{x_var} - loss: {loss:.5e}\n")
 
         return loss
@@ -78,9 +97,9 @@ def optimize_hyperparameters(
         datafile.write(f"\n--- Optimal parameters ---\n{best}")
 
 
-def run(design_path: str):
+def run(design_path: str, output_path: str = "output"):
     solver = Solver(design_path)
 
     design = os.path.splitext(os.path.basename(design_path))[0]
-    datafile_path = f"output/hyperopt/{design}_hyperopt.txt"
+    datafile_path = f"{output_path}/hyperopt/{design}_hyperopt.txt"
     optimize_hyperparameters(solver.rho, solver.problem, datafile_path)
