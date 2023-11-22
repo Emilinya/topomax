@@ -19,6 +19,12 @@ if __name__ == "__main__":
         help="the folder where the data output is stored (default: 'output')",
     )
     parser.add_argument(
+        "-v",
+        "--verbose",
+        action="store_true",
+        help="with this flag, the program wil print the loss as the DEM trains",
+    )
+    parser.add_argument(
         "-o",
         "--optimize_hyperparameters",
         action="store_true",
@@ -26,13 +32,11 @@ if __name__ == "__main__":
     )
 
     args = parser.parse_args()
-    optimize_hyperparameters = args.optimize_hyperparameters
     design_filename = args.design_file.name
-    data_path = args.data_path
     args.design_file.close()
 
-    if optimize_hyperparameters:
-        run(design_filename, data_path)
+    if args.optimize_hyperparameters:
+        run(design_filename, args.data_path)
     else:
-        solver = Solver(design_filename, data_path)
+        solver = Solver(design_filename, args.data_path, verbose=args.verbose)
         solver.solve()
