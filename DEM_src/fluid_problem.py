@@ -119,17 +119,7 @@ class FluidProblem:
     def calculate_objective(self, rho: npt.NDArray[np.float64]):
         assert isinstance(self.dem.objective_calculator, FluidEnergy)
 
-        gammas = [1e0, 1e1, 1e2, 1e3]
-
-        for gamma in gammas[:-1]:
-            if self.verbose:
-                print(f"γ = {gamma}")
-            self.dem.objective_calculator.set_gamma(gamma)
-            self.dem.train_model(rho, self.domain)
-
-        if self.verbose:
-            print(f"γ = {gammas[-1]}")
-        self.dem.objective_calculator.set_gamma(gammas[-1])
+        self.dem.objective_calculator.set_gamma(500)
         objective, objective_gradient = self.dem.train_model(rho, self.domain)
 
         objective = objective.cpu().detach().numpy()
