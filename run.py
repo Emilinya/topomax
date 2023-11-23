@@ -1,6 +1,8 @@
 import argparse
 
-from FEM_src.solver import Solver
+from FEM_src.solver import Solver as FEMSolver
+from DEM_src.solver import Solver as DEMSolver
+from DEM_src.optimize_hyperparameters import run
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -24,6 +26,26 @@ if __name__ == "__main__":
         help="the folder where the data output is stored (default: 'output')",
     )
     parser.add_argument(
+        "-n",
+        "--use_neural_network_solver",
+        action="store_true",
+        help="with this flag, the program wil solve the state equation using the "
+        + "DEM instead of the FEM. The DEM is worse in every way, don't use it.",
+    )
+    parser.add_argument(
+        "-v",
+        "--verbose",
+        action="store_true",
+        help="with this flag, the program wil print the loss as the DEM trains, "
+        + "if you are using the DEM solver",
+    )
+    parser.add_argument(
+        "-o",
+        "--optimize_hyperparameters",
+        action="store_true",
+        help="with this flag, the program wil optimize the hyperparameters for the given design",
+    )
+    parser.add_argument(
         "-k",
         "--skip_multiple",
         type=int,
@@ -34,17 +56,20 @@ if __name__ == "__main__":
     )
 
     args = parser.parse_args()
-
-    N = args.N
-    data_path = args.data_path
-    skip_multiple = args.skip_multiple
     design_filename = args.design_file.name
     args.design_file.close()
 
-    solver = Solver(
-        N,
-        design_filename,
-        data_path,
-        skip_multiple,
-    )
-    solver.solve()
+    if args.optimize_hyperparameters:
+        run(design_filename, args.data_path)
+    else:
+        if args.use_neural_network_solver:
+            solver = DEMSolver(args.N, design_filename, args.data_path, args.verbose)
+            solver.solve()
+        else:
+            solver = FEMSolver(
+                args.N,
+                design_filename,
+                args.data_path,
+                args.skip_multiple,
+            )
+            solver.solve()
