@@ -1,5 +1,4 @@
 import os
-import sys
 import pickle
 import warnings
 
@@ -65,7 +64,7 @@ def create_density_filter(radius: float, domain: Domain) -> csr_matrix:
 class Solver:
     """Class that solves a given topology optimization problem using a magical algorithm."""
 
-    def __init__(self, design_file: str, data_path="output", verbose=False):
+    def __init__(self, N: int, design_file: str, data_path="output", verbose=False):
         warnings.filterwarnings("ignore")
         npr.seed(2022)
         torch.manual_seed(2022)
@@ -79,6 +78,7 @@ class Solver:
             self.device = torch.device("cpu")
             print("CUDA not available, running on CPU")
 
+        self.N = N
         self.design_file = design_file
 
         self.parameters, design = parse_design(design_file)
@@ -95,9 +95,8 @@ class Solver:
             Nx = 90
             Ny = 45
         else:
-            N = 40
-            Nx = int(self.width * N)
-            Ny = int(self.height * N)
+            Nx = int(self.width * self.N)
+            Ny = int(self.height * self.N)
 
         self.domain = Domain(Nx, Ny, self.width, self.height)
 
@@ -182,14 +181,13 @@ class Solver:
 
         for penalty in self.parameters.penalties:
             self.problem.set_penalization(penalty)
+            print(f"{f'Penalty: {constrain(penalty, 6)}':^59}")
+            print("Iteration │ Objective │ ΔObjective │     Δρ    │ Tolerance ")
+            print("──────────┼───────────┼────────────┼───────────┼───────────")
 
             difference = float("Infinity")
             objective = self.problem.calculate_objective(self.rho)
             objective_difference = None
-
-            print(f"{f'Penalty: {constrain(penalty, 6)}':^59}")
-            print("Iteration │ Objective │ ΔObjective │     Δρ    │ Tolerance ")
-            print("──────────┼───────────┼────────────┼───────────┼───────────")
 
             def print_values(k, objective, objective_difference, difference):
                 print(
@@ -238,7 +236,7 @@ class Solver:
             self.save_rho(self.rho, objective, k + 1, penalty)
 
     def save_rho(self, rho, objective: float, k: int, penalty: float):
-        file_root = f"{self.output_folder}/{k=}"
+        file_root = f"{self.output_folder}/N={self.N}_p={penalty}_{k=}"
         os.makedirs(os.path.dirname(file_root), exist_ok=True)
 
         np.save(

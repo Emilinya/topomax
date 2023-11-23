@@ -12,6 +12,12 @@ if __name__ == "__main__":
         help="path to a json file where your problem is defined. See readme for more information",
     )
     parser.add_argument(
+        "N",
+        metavar="element_count",
+        type=int,
+        help="the number of finite elements in a unit length",
+    )
+    parser.add_argument(
         "-d",
         "--data_path",
         required=False,
@@ -38,5 +44,5 @@ if __name__ == "__main__":
     if args.optimize_hyperparameters:
         run(design_filename, args.data_path)
     else:
-        solver = Solver(design_filename, args.data_path, verbose=args.verbose)
+        solver = Solver(args.N, design_filename, args.data_path, args.verbose)
         solver.solve()

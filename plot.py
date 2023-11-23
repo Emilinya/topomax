@@ -5,6 +5,7 @@ import numpy as np
 from tqdm import tqdm
 from matplotlib import colors
 import matplotlib.pyplot as plt
+from matplotlib.axes import Axes
 
 from designs.definitions import ProblemType
 from designs.design_parser import parse_design
@@ -32,18 +33,22 @@ def create_cmap(start, middle, end, name):
     return colors.LinearSegmentedColormap(name, segmentdata=cdict)
 
 
-def get_design_data(data_path: str):
+def get_design_data(solver: str, data_path: str):
     with open(data_path, "rb") as datafile:
         data_obj = pickle.load(datafile)
     objective = data_obj["objective"]
     w, h = data_obj["domain_size"]
 
-    data_root, data_head = os.path.splitext(data_path)
-    rho_path = data_root + "_rho" + data_head
+    data_root, _ = os.path.splitext(data_path)
 
-    rho, *_ = load_function(rho_path)
-    _, data = sample_function(rho, 200, "center")
-    data = data[:, :, 0]
+    if solver == "FEM":
+        rho_path = data_root + "_rho.dat"
+        rho, *_ = load_function(rho_path)
+        _, data = sample_function(rho, 200 / min(w, h), "center")
+        data = data[:, :, 0]
+    else:
+        rho_path = data_root + "_rho.npy"
+        data = np.load(rho_path)
 
     return data, objective, w, h
 
@@ -56,8 +61,8 @@ def create_design_figure(ax, data: np.ndarray, w: float, h: float, N: int, cmap)
     return ax.pcolormesh(X, Y, data, cmap=cmap, vmin=0, vmax=1)
 
 
-def plot_design(design, data_path: str, N: int, p: float, k: int, cmap):
-    data, objective, w, h = get_design_data(data_path)
+def plot_design(solver: str, design, data_path: str, N: int, p: float, k: int, cmap):
+    data, objective, w, h = get_design_data(solver, data_path)
 
     plt.figure(figsize=(6.4 * w / h, 4.8))
     plt.rcParams.update({"font.size": 10 * np.sqrt(w / h)})
@@ -72,14 +77,18 @@ def plot_design(design, data_path: str, N: int, p: float, k: int, cmap):
     plt.ylabel("$y$ []")
     plt.title(f"{N=}, p={p:.5g}, k={k:.5g}, objective={objective:.3g}")
 
-    output_file = os.path.join("output", "FEM", design, "figures", f"{N=}_{p=}_{k=}") + ".png"
+    output_file = (
+        os.path.join("output", solver, design, "figures", f"{N=}_{p=}_{k=}") + ".png"
+    )
     os.makedirs(os.path.dirname(output_file), exist_ok=True)
     plt.savefig(output_file, dpi=200, bbox_inches="tight")
     plt.close()
 
 
-def multiplot(design: str, N: int, p: float, vals: list[tuple[str, int]], cmap):
-    *_, w, h = get_design_data(vals[0][0])
+def multiplot(
+    solver: str, design: str, N: int, p: float, vals: list[tuple[str, int]], cmap
+):
+    *_, w, h = get_design_data(solver, vals[0][0])
     fig, axss = plt.subplots(
         2,
         3,
@@ -96,13 +105,17 @@ def multiplot(design: str, N: int, p: float, vals: list[tuple[str, int]], cmap):
         vals[5] = vals[-1]
 
     for ax, (data_path, k) in zip(axss.flat, vals):
+        assert isinstance(ax, Axes)
+
         ax.axis("off")
         ax.set_aspect("equal", "box")
-        data, _, w, h = get_design_data(data_path)
+        data, _, w, h = get_design_data(solver, data_path)
         pcolormesh = create_design_figure(ax, data, w, h, N, cmap)
         ax.set_title(f"${k=}$")
     fig.colorbar(pcolormesh, ax=axss[:, -1], shrink=0.8, label=r"$\rho(x, y)$ []")
-    output_file = os.path.join("output", "FEM", design, "figures", f"{N=}_{p=}_multi.png")
+    output_file = os.path.join(
+        "output", solver, design, "figures", f"{N=}_{p=}_multi.png"
+    )
     plt.savefig(output_file, dpi=200, bbox_inches="tight")
 
 
@@ -130,30 +143,15 @@ def reduce_length(long_list: list, desired_length: int):
     return new_list
 
 
-def main():
-    # colormap with the colors of the trans flag, from red to white to blue
-    traa_blue = [91 / 255, 206 / 255, 250 / 255]
-    traa_red = [245 / 255, 169 / 255, 184 / 255]
-    traa_cmap = create_cmap(traa_red, (1, 1, 1), traa_blue, "traa")
-
-    # colormap with between-values highlighted, from white to red to black
-    highlight_cmap = create_cmap((1, 1, 1), (1, 0, 0), (0, 0, 0), "highlight")
-
-    # colormap from white to black
-    boring_cmap = create_cmap((1, 1, 1), (0.5, 0.5, 0.5), (0, 0, 0), "boring")
-
-    selected_designs = None
-    if len(sys.argv) > 1:
-        selected_designs = sys.argv[1:]
-
+def get_designs(solver: str, selected_designs: list[str] | None):
     # designs = {design: {N: {p: [(data_path, k)]}}}
     designs: dict[str, dict[int, dict[float, list[tuple[str, int]]]]] = {}
 
-    for design in os.listdir(os.path.join("output", "FEM")):
+    for design in os.listdir(os.path.join("output", solver)):
         if selected_designs is not None and design not in selected_designs:
             continue
 
-        data_folder = os.path.join("output", "FEM", design, "data")
+        data_folder = os.path.join("output", solver, design, "data")
         if not os.path.isdir(data_folder):
             continue
 
@@ -176,6 +174,15 @@ def main():
             designs[design][N][p] = designs[design][N].get(p, [])
             designs[design][N][p].append((data_path, k))
 
+    return designs
+
+
+def plot_designs(
+    solver: str,
+    designs: dict[str, dict[int, dict[float, list[tuple[str, int]]]]],
+    fluid_cmap: colors.LinearSegmentedColormap,
+    elasticity_cmap: colors.LinearSegmentedColormap,
+):
     plot_count = 0
     for design_dict in designs.values():
         for ps in design_dict.values():
@@ -187,23 +194,44 @@ def main():
 
     # we have no designs :(
     if plot_count == 0:
-        sys.exit()
+        return
 
     with tqdm(total=plot_count) as pbar:
         for design, design_dict in designs.items():
             parameters, *_ = parse_design(os.path.join("designs", design) + ".json")
             if parameters.problem == ProblemType.FLUID:
-                cmap = traa_cmap
+                cmap = fluid_cmap
             else:
-                cmap = highlight_cmap
+                cmap = elasticity_cmap
 
             for N, ps in design_dict.items():
                 for p, ks in ps.items():
                     for data_path, k in ks:
-                        plot_design(design, data_path, N, p, k, cmap)
+                        plot_design(solver, design, data_path, N, p, k, cmap)
                         pbar.update(1)
-                    multiplot(design, N, p, ks, cmap)
+                    multiplot(solver, design, N, p, ks, cmap)
                     pbar.update(1)
+
+
+def main():
+    # colormap with the colors of the trans flag, from red to white to blue
+    traa_blue = [91 / 255, 206 / 255, 250 / 255]
+    traa_red = [245 / 255, 169 / 255, 184 / 255]
+    traa_cmap = create_cmap(traa_red, (1, 1, 1), traa_blue, "traa")
+
+    # colormap with between-values highlighted, from white to red to black
+    highlight_cmap = create_cmap((1, 1, 1), (1, 0, 0), (0, 0, 0), "highlight")
+
+    # colormap from white to black
+    boring_cmap = create_cmap((1, 1, 1), (0.5, 0.5, 0.5), (0, 0, 0), "boring")
+
+    selected_designs = None
+    if len(sys.argv) > 1:
+        selected_designs = sys.argv[1:]
+
+    for solver in ["FEM", "DEM"]:
+        designs = get_designs(solver, selected_designs)
+        plot_designs(solver, designs, traa_cmap, highlight_cmap)
 
 
 if __name__ == "__main__":
