@@ -7,6 +7,7 @@ from scipy.sparse import csr_matrix
 
 from designs.definitions import ElasticityDesign
 from src.penalizers import ElasticPenalizer
+from DEM_src.problem import DEMProblem
 from DEM_src.data_structs import Domain
 from DEM_src.ObjectiveCalculator import ObjectiveCalculator
 from DEM_src.external_energy import calculate_external_energy
@@ -22,13 +23,10 @@ class StrainEnergy(ObjectiveCalculator):
         Poisson_ratio: float,
         traction_points_list: list[TractionPoints],
     ):
-        super().__init__(dxdy)
+        super().__init__(dxdy, ElasticPenalizer())
+        self.traction_points_list = traction_points_list
         self.lamé_mu = Young_modulus / (2 * (1 + Poisson_ratio))
         self.lamé_lda = self.lamé_mu * Poisson_ratio / (0.5 - Poisson_ratio)
-        self.traction_points_list = traction_points_list
-
-        self.penalizer = ElasticPenalizer()
-        self.penalizer.set_penalization(3)
 
     def calculate_strain_energy(self, _, grad: torch.Tensor):
         """
@@ -77,7 +75,7 @@ class StrainEnergy(ObjectiveCalculator):
         return objective, gradient
 
 
-class ElasticityProblem:
+class ElasticityProblem(DEMProblem):
     """Elastic compliance topology optimization problem."""
 
     def __init__(
@@ -88,48 +86,9 @@ class ElasticityProblem:
         input_filter: csr_matrix,
         elasticity_design: ElasticityDesign,
     ):
-        self.design = elasticity_design
         self.filter = input_filter
-        self.domain = domain
-
-        traction_points_list: list[TractionPoints] = []
-        if self.design.parameters.tractions:
-            for traction in self.design.parameters.tractions:
-                traction_points_list.append(TractionPoints(self.domain, traction))
-
-        dirichlet_enforcer = ElasticityEnforcer(
-            self.design.parameters, self.domain, device
-        )
-
-        strain_energy = StrainEnergy(
-            self.domain.dxdy,
-            self.design.parameters.young_modulus,
-            self.design.parameters.poisson_ratio,
-            traction_points_list,
-        )
-
-        nn_parameters = NNParameters(
-            layer_count=5,
-            neuron_count=68,
-            learning_rate=1.73553,
-            CNN_deviation=0.062264,
-            rff_deviation=0.119297,
-            iteration_count=100,
-            activation_function="rrelu",
-            convergence_tolerance=5e-5,
-        )
-
-        # Note: Making this code work with 3D requires a
-        # lot more work than just changing the value below
-        dimension = 2
-        self.dem = DeepEnergyMethod(
-            device,
-            verbose,
-            dimension,
-            nn_parameters,
-            dirichlet_enforcer,
-            strain_energy,
-        )
+        self.design = elasticity_design
+        super().__init__(domain, device, verbose)
 
         self.objective_gradient: npt.NDArray[np.float64] | None = None
 
@@ -157,3 +116,51 @@ class ElasticityProblem:
         ).reshape(rho_shape)
 
         return float(objective)
+
+    def forward(self, rho: npt.NDArray[np.float64]):
+        ...
+
+    def create_dem_parameters(self):
+        traction_points_list: list[TractionPoints] = []
+        if self.design.parameters.tractions:
+            for traction in self.design.parameters.tractions:
+                traction_points_list.append(TractionPoints(self.domain, traction))
+
+        dirichlet_enforcer = ElasticityEnforcer(
+            self.design.parameters, self.domain, self.device
+        )
+
+        strain_energy = StrainEnergy(
+            self.domain.dxdy,
+            self.design.parameters.young_modulus,
+            self.design.parameters.poisson_ratio,
+            traction_points_list,
+        )
+
+        return dirichlet_enforcer, strain_energy
+
+    def create_dem(
+        self,
+        dirichlet_enforcer: ElasticityEnforcer,
+        objective_calculator: StrainEnergy,
+    ):
+        nn_parameters = NNParameters(
+            layer_count=5,
+            neuron_count=68,
+            learning_rate=1.73553,
+            CNN_deviation=0.062264,
+            rff_deviation=0.119297,
+            iteration_count=100,
+            activation_function="rrelu",
+            convergence_tolerance=5e-5,
+        )
+
+        dimension = 2
+        return DeepEnergyMethod(
+            self.device,
+            self.verbose,
+            dimension,
+            nn_parameters,
+            dirichlet_enforcer,
+            objective_calculator,
+        )

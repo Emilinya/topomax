@@ -4,7 +4,7 @@ import numpy as np
 import dolfin as df
 
 from FEM_src.filter import Filter
-from FEM_src.problem import Problem
+from FEM_src.problem import FEMProblem
 from FEM_src.domains import SidesDomain
 from src.penalizers import ElasticPenalizer
 from designs.definitions import (
@@ -72,19 +72,20 @@ class TractionExpression(df.UserExpression):
         return (2,)
 
 
-class ElasticityProblem(Problem):
+class ElasticityProblem(FEMProblem):
     """Elastic compliance topology optimization problem."""
 
     def __init__(
         self,
-        input_filter: Filter,
         mesh: df.Mesh,
-        parameters: DomainParameters,
         design: ElasticityDesign,
+        parameters: DomainParameters,
+        input_filter: Filter,
     ):
         self.design = design
-        super().__init__(input_filter, mesh, parameters)
+        super().__init__(mesh, parameters)
 
+        self.filter = input_filter
         self.Young_modulus = design.parameters.young_modulus
         self.Poisson_ratio = design.parameters.poisson_ratio
         self.penalizer: ElasticPenalizer = ElasticPenalizer()

@@ -21,6 +21,7 @@ def compare_output(design):
     density = torch.from_numpy(solver.rho).float()
     density = torch.reshape(density, solver.domain.intervals)
 
+    solver.problem.set_penalization(solver.parameters.penalties[-1])
     objective_calculator = solver.problem.dem.objective_calculator
     objective, gradient = objective_calculator.calculate_objective_and_gradient(
         x, solver.domain.shape, density

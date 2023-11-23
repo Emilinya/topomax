@@ -2,8 +2,7 @@ from __future__ import annotations
 
 import dolfin as df
 
-from FEM_src.filter import Filter
-from FEM_src.problem import Problem
+from FEM_src.problem import FEMProblem
 from FEM_src.domains import SidesDomain, RegionDomain
 from designs.definitions import DomainParameters, FluidDesign, Side, Flow
 from src.penalizers import FluidPenalizer
@@ -45,18 +44,14 @@ class BoundaryFlows(df.UserExpression):
         return (2,)
 
 
-class FluidProblem(Problem):
+class FluidProblem(FEMProblem):
     """Elastic compliance topology optimization problem."""
 
     def __init__(
-        self,
-        input_filter: Filter,
-        mesh: df.Mesh,
-        parameters: DomainParameters,
-        design: FluidDesign,
+        self, mesh: df.Mesh, design: FluidDesign, parameters: DomainParameters
     ):
         self.design = design
-        super().__init__(input_filter, mesh, parameters)
+        super().__init__(mesh, parameters)
 
         self.viscosity = design.parameters.viscosity
         self.penalizer: FluidPenalizer = FluidPenalizer()

@@ -75,12 +75,10 @@ class Solver:
         control_filter = HelmholtzFilter(epsilon=0.02)
 
         if isinstance(design, FluidDesign):
-            self.problem = FluidProblem(
-                control_filter, self.mesh, self.parameters, design
-            )
+            self.problem = FluidProblem(self.mesh, design, self.parameters)
         elif isinstance(design, ElasticityDesign):
             self.problem = ElasticityProblem(
-                control_filter, self.mesh, self.parameters, design
+                self.mesh, design, self.parameters, control_filter
             )
         else:
             raise ValueError(

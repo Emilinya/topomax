@@ -6,6 +6,7 @@ import numpy.typing as npt
 
 from designs.definitions import FluidDesign
 from src.penalizers import FluidPenalizer
+from DEM_src.problem import DEMProblem
 from DEM_src.data_structs import Domain
 from DEM_src.bc_helpers import FluidEnforcer
 from DEM_src.ObjectiveCalculator import ObjectiveCalculator
@@ -14,12 +15,9 @@ from DEM_src.DeepEnergyMethod import NNParameters, DeepEnergyMethod
 
 class FluidEnergy(ObjectiveCalculator):
     def __init__(self, dxdy: tuple[float, float], viscocity: float, gamma: float):
-        super().__init__(dxdy)
+        super().__init__(dxdy, FluidPenalizer())
         self.viscocity = viscocity
-
         self.gamma = gamma
-        self.penalizer = FluidPenalizer()
-        self.penalizer.set_penalization(0.1)
 
     def set_gamma(self, gamma: float):
         self.gamma = gamma
@@ -65,7 +63,7 @@ class FluidEnergy(ObjectiveCalculator):
         return objective, gradient
 
 
-class FluidProblem:
+class FluidProblem(DEMProblem):
     """Elastic compliance topology optimization problem."""
 
     def __init__(
@@ -76,34 +74,7 @@ class FluidProblem:
         fluid_design: FluidDesign,
     ):
         self.design = fluid_design
-        self.verbose = verbose
-        self.domain = domain
-
-        dirichlet_enforcer = FluidEnforcer(self.design.parameters, self.domain, device)
-        fluid_energy = FluidEnergy(
-            self.domain.dxdy, self.design.parameters.viscosity, 1
-        )
-
-        nn_parameters = NNParameters(
-            layer_count=5,
-            neuron_count=66,
-            learning_rate=1.3330789490587558,
-            CNN_deviation=0.36941508201470885,
-            rff_deviation=0.7239620095758805,
-            iteration_count=100,
-            activation_function="sigmoid",
-            convergence_tolerance=5e-5,
-        )
-
-        dimension = 2
-        self.dem = DeepEnergyMethod(
-            device,
-            verbose,
-            dimension,
-            nn_parameters,
-            dirichlet_enforcer,
-            fluid_energy,
-        )
+        super().__init__(domain, device, verbose)
 
         self.objective_gradient: npt.NDArray[np.float64] | None = None
 
@@ -126,3 +97,42 @@ class FluidProblem:
         self.objective_gradient = objective_gradient.cpu().detach().numpy()
 
         return float(objective)
+
+    def forward(self, rho: npt.NDArray[np.float64]):
+        ...
+
+    def create_dem_parameters(self):
+        dirichlet_enforcer = FluidEnforcer(
+            self.design.parameters, self.domain, self.device
+        )
+        fluid_energy = FluidEnergy(
+            self.domain.dxdy, self.design.parameters.viscosity, 1
+        )
+
+        return dirichlet_enforcer, fluid_energy
+
+    def create_dem(
+        self,
+        dirichlet_enforcer: FluidEnforcer,
+        objective_calculator: FluidEnergy,
+    ):
+        nn_parameters = NNParameters(
+            layer_count=5,
+            neuron_count=66,
+            learning_rate=1.3330789490587558,
+            CNN_deviation=0.36941508201470885,
+            rff_deviation=0.7239620095758805,
+            iteration_count=100,
+            activation_function="sigmoid",
+            convergence_tolerance=5e-5,
+        )
+
+        dimension = 2
+        return DeepEnergyMethod(
+            self.device,
+            self.verbose,
+            dimension,
+            nn_parameters,
+            dirichlet_enforcer,
+            objective_calculator,
+        )

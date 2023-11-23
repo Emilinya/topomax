@@ -5,7 +5,7 @@ from DEM_src.ObjectiveCalculator import ObjectiveCalculator
 from DEM_src.data_structs import Domain
 from DEM_src.utils import flatten
 from tests.utils import get_convergance
-
+from src.penalizers import ElasticPenalizer
 
 class DummyObjective(ObjectiveCalculator):
     def value(self, u, grad_u):
@@ -67,12 +67,12 @@ def compare(f, f_analytic, domain: Domain, objective: ObjectiveCalculator):
 def test_evaluate():
     def linear_errfunc(N: int):
         domain = Domain(2 * N, 3 * N, 5, 2)
-        objective = DummyObjective(domain.dxdy)
+        objective = DummyObjective(domain.dxdy, ElasticPenalizer())
         return compare(linear, linear_analytic, domain, objective)
 
     def trig_errfunc(N: int):
         domain = Domain(2 * N, 3 * N, 5, 2)
-        objective = DummyObjective(domain.dxdy)
+        objective = DummyObjective(domain.dxdy, ElasticPenalizer())
         return compare(trig, trig_analytic, domain, objective)
 
     Ns = list(range(5, 100, 5))

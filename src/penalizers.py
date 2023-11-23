@@ -1,5 +1,6 @@
 from __future__ import annotations
 from abc import ABC, abstractmethod
+from typing import Any
 
 
 class Penalizer(ABC):
@@ -18,11 +19,11 @@ class Penalizer(ABC):
         return self.penalization
 
     @abstractmethod
-    def __call__(self, rho):
+    def __call__(self, rho: Any) -> Any:
         ...
 
     @abstractmethod
-    def derivative(self, rho):
+    def derivative(self, rho: Any) -> Any:
         ...
 
 

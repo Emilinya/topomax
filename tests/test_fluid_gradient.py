@@ -10,7 +10,7 @@ def test_fluid_gradient():
 
     objective = solver.problem.calculate_objective(solver.rho)
     direction = df.project(
-        solver.volume / solver.problem.volume_fraction, solver.rho.function_space()
+        solver.volume / solver.parameters.volume_fraction, solver.rho.function_space()
     )
     gradient = df.assemble(
         0.5 * penalizer.derivative(solver.rho) * direction * solver.problem.u**2 * df.dx

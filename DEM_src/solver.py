@@ -181,6 +181,8 @@ class Solver:
         previous_psi = None
 
         for penalty in self.parameters.penalties:
+            self.problem.set_penalization(penalty)
+
             difference = float("Infinity")
             objective = self.problem.calculate_objective(self.rho)
             objective_difference = None

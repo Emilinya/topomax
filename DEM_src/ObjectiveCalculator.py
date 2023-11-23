@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import sys
 from typing import Callable
 from abc import ABC, abstractmethod
 
@@ -8,16 +7,22 @@ import torch
 import numpy as np
 import numpy.typing as npt
 
+from src.penalizers import Penalizer
+
 
 class ObjectiveCalculator(ABC):
     """
     A class that contains the logic to calculate integrals and derivatives numerically.
     """
 
-    def __init__(self, dxdy: tuple[float, float]):
+    def __init__(self, dxdy: tuple[float, float], penalizer: Penalizer):
         self.dxdy = dxdy
+        self.penalizer = penalizer
         self.Jinv, self.detJ = self.calculate_jacobian(dxdy)
         self.shape_derivatives = self.get_shape_derivatives()
+
+    def set_penalization(self, penalization: float):
+        self.penalizer.set_penalization(penalization)
 
     def calculate_jacobian(self, dxdy: tuple[float, float]):
         dx, dy = dxdy
