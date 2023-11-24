@@ -1,8 +1,6 @@
 from __future__ import annotations
 import time
 
-import numpy as np
-
 
 class Timer:
     """
@@ -85,24 +83,28 @@ def print_values(values: list[int | float], spacings: list[int]):
 
 def constrain(value: str | int | float, space: int):
     """
-    Constrain a value so it fits within a given value of characters.
+    Constrain a value so it fits within a given number of characters.
 
     Examples
     --------
+    >>> constrain(np.pi, 5)
+    '3.142'
+    >>> constrain(-1 / 173, 8)
+    '-5.8e-03'
+    >>> constrain(5, 4)
+    ' 5  '
+    >>> constrain('hi', 6)
+    '  hi  '
     >>> constrain(np.pi, 1)
     '3'
     >>> constrain(np.pi, 2)
-    ' 3'
+    '3 '
     >>> constrain(np.pi, 3)
     '3.1'
-    >>> constrain(-1 / 173, 6)
-    '-6e-03'
     >>> constrain(-1 / 173, 5)
     '-0.00'
     >>> constrain(5.0, 4)
     '5.00'
-    >>> constrain(5, 4)
-    ' 5  '
     >>> constrain(5555555555, 6)
     ' 6e+09'
     >>> constrain(5555555555, 4)
@@ -133,17 +135,17 @@ def constrain(value: str | int | float, space: int):
         if space - wasted_space < -1:
             # we can't have a negative amount of decimals
 
-            if abs(value) > 1:
-                # It's too big
-                if space > 3:
-                    return "Big" + "g" * (space - 3)
-                return "Big"[:space]
+            if abs(value) < 1e-2:
+                # It's too small
+                str_val = str(value)
+                if len(str_val) > space:
+                    return str_val[:space]
+                return str_val + "0" * (len(str_val) - space)
 
-            # It's too small
-            str_val = str(value)
-            if len(str_val) > space:
-                return str_val[:space]
-            return str_val + "0" * (len(str_val) - space)
+            # It's too big
+            if space > 3:
+                return "Big" + "g" * (space - 3)
+            return "Big"[:space]
 
     padding = ""
     if space - wasted_space == 0:
@@ -156,4 +158,4 @@ def constrain(value: str | int | float, space: int):
     if use_exp:
         return padding + f"{value:.{space - wasted_space}e}"
 
-    return padding + f"{value:.{space - wasted_space}f}"
+    return f"{value:.{space - wasted_space}f}" + padding

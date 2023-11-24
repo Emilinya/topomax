@@ -1,11 +1,11 @@
 import torch
 import numpy as np
 
-from DEM_src.ObjectiveCalculator import ObjectiveCalculator
-from DEM_src.data_structs import Domain
 from DEM_src.utils import flatten
-from tests.utils import get_convergance
+from DEM_src.data_structs import Domain
+from DEM_src.ObjectiveCalculator import ObjectiveCalculator
 from src.penalizers import ElasticPenalizer
+from tests.utils import get_convergance
 
 class DummyObjective(ObjectiveCalculator):
     def value(self, u, grad_u):

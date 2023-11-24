@@ -16,7 +16,7 @@ from DEM_src.elasisity_problem import ElasticityProblem
 from designs.definitions import FluidDesign, ElasticityDesign
 
 
-def create_density_filter(radius: float, domain: Domain) -> csr_matrix:
+def create_density_filter(radius: float, domain: Domain):
     # we can't use domain.x_grid as it has shape (Nx+1, Ny+1)
     x_ray = np.linspace(0, domain.length, domain.Nx)
     y_ray = np.linspace(0, domain.height, domain.Ny)
@@ -39,7 +39,8 @@ def create_density_filter(radius: float, domain: Domain) -> csr_matrix:
 
     W = normalize(
         coo_matrix((wv, (wi, wj)), shape=(total, total)), norm="l1", axis=1
-    ).tocsr()  # Normalize row-wise
+    )  # Normalize row-wise
+    assert isinstance(W, csr_matrix)
 
     return W
 

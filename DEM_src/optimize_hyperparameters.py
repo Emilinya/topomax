@@ -6,14 +6,13 @@ import numpy.typing as npt
 from hyperopt import fmin, tpe, hp, Trials
 
 from DEM_src.solver import DEMSolver
-from DEM_src.fluid_problem import FluidProblem
+from DEM_src.problem import DEMProblem
 from DEM_src.DeepEnergyMethod import NNParameters
-from DEM_src.elasisity_problem import ElasticityProblem
 
 
 def hyperopt_main_generator(
     rho: npt.NDArray,
-    problem: FluidProblem | ElasticityProblem,
+    problem: DEMProblem,
     datafile: io.TextIOWrapper,
     iteration_data: dict[str, int | float],
 ):
@@ -59,11 +58,11 @@ def hyperopt_main_generator(
 
 def optimize_hyperparameters(
     rho,
-    problem: FluidProblem | ElasticityProblem,
+    problem: DEMProblem,
     datafile_path: str,
 ):
     os.makedirs(os.path.dirname(datafile_path), exist_ok=True)
-    with open(datafile_path, "w") as datafile:
+    with open(datafile_path, "w", encoding="utf-8") as datafile:
         iteration_data = {
             "iteration": 0,
             "iteration_count": 100,
@@ -103,7 +102,7 @@ def optimize_hyperparameters(
 
 
 def run(design_path: str, output_path: str = "output"):
-    solver = DEMSolver(design_path, verbose=True)
+    solver = DEMSolver(40, design_path, verbose=True)
 
     design = os.path.splitext(os.path.basename(design_path))[0]
     datafile_path = f"{output_path}/hyperopt/{design}_hyperopt.txt"

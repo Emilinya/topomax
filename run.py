@@ -1,8 +1,5 @@
 import argparse
 
-from FEM_src.solver import FEMSolver
-from DEM_src.solver import DEMSolver
-from DEM_src.optimize_hyperparameters import run
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -60,12 +57,18 @@ if __name__ == "__main__":
     args.design_file.close()
 
     if args.optimize_hyperparameters:
+        from DEM_src.optimize_hyperparameters import run
+
         run(design_filename, args.data_path)
     else:
         if args.use_neural_network_solver:
+            from DEM_src.solver import DEMSolver
+
             solver = DEMSolver(args.N, design_filename, args.data_path, args.verbose)
             solver.solve()
         else:
+            from FEM_src.solver import FEMSolver
+
             solver = FEMSolver(
                 args.N,
                 design_filename,

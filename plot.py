@@ -1,11 +1,15 @@
 import os
 import sys
 import pickle
-import numpy as np
+from typing import Literal, Sequence
+
 from tqdm import tqdm
+import numpy as np
+import numpy.typing as npt
 from matplotlib import colors
 import matplotlib.pyplot as plt
 from matplotlib.axes import Axes
+from matplotlib.collections import QuadMesh
 
 from designs.definitions import ProblemType
 from designs.design_parser import parse_design
@@ -13,27 +17,31 @@ from FEM_src.utils import load_function, sample_function
 
 
 def create_cmap(start, middle, end, name):
-    cdict = {
+    cdict: dict[
+        Literal["red", "green", "blue", "alpha"], Sequence[tuple[float, ...]]
+    ] = {
         "red": [
-            [0.0] + [start[0]] * 2,
-            [0.5] + [middle[0]] * 2,
-            [1.0] + [end[0]] * 2,
+            tuple([0.0] + [start[0]] * 2),
+            tuple([0.5] + [middle[0]] * 2),
+            tuple([1.0] + [end[0]] * 2),
         ],
         "green": [
-            [0.0] + [start[1]] * 2,
-            [0.5] + [middle[1]] * 2,
-            [1.0] + [end[1]] * 2,
+            tuple([0.0] + [start[1]] * 2),
+            tuple([0.5] + [middle[1]] * 2),
+            tuple([1.0] + [end[1]] * 2),
         ],
         "blue": [
-            [0.0] + [start[2]] * 2,
-            [0.5] + [middle[2]] * 2,
-            [1.0] + [end[2]] * 2,
+            tuple([0.0] + [start[2]] * 2),
+            tuple([0.5] + [middle[2]] * 2),
+            tuple([1.0] + [end[2]] * 2),
         ],
     }
     return colors.LinearSegmentedColormap(name, segmentdata=cdict)
 
 
-def get_design_data(solver: str, data_path: str):
+def get_design_data(
+    solver: str, data_path: str
+) -> tuple[npt.NDArray[np.float64], float, float, float]:
     with open(data_path, "rb") as datafile:
         data_obj = pickle.load(datafile)
     objective = data_obj["objective"]
@@ -53,7 +61,9 @@ def get_design_data(solver: str, data_path: str):
     return data, objective, w, h
 
 
-def create_design_figure(ax, data: np.ndarray, w: float, h: float, N: int, cmap):
+def create_design_figure(
+    ax: Axes, data: np.ndarray, w: float, h: float, N: int, cmap: colors.Colormap
+):
     multiple = int(np.sqrt(data.size / (w * h * N**2)))
     Nx, Ny = int(N * w * multiple), int(N * h * multiple)
 
@@ -61,13 +71,21 @@ def create_design_figure(ax, data: np.ndarray, w: float, h: float, N: int, cmap)
     return ax.pcolormesh(X, Y, data, cmap=cmap, vmin=0, vmax=1)
 
 
-def plot_design(solver: str, design, data_path: str, N: int, p: float, k: int, cmap):
+def plot_design(
+    solver: str,
+    design: str,
+    data_path: str,
+    N: int,
+    p: float,
+    k: int,
+    cmap: colors.Colormap,
+):
     data, objective, w, h = get_design_data(solver, data_path)
 
     plt.figure(figsize=(6.4 * w / h, 4.8))
     plt.rcParams.update({"font.size": 10 * np.sqrt(w / h)})
 
-    mappable = create_design_figure(plt, data, w, h, N, cmap)
+    mappable = create_design_figure(plt.gca(), data, w, h, N, cmap)
     plt.colorbar(mappable, label=r"$\rho(x, y)$ []")
     plt.xlim(0, w)
     plt.ylim(0, h)
@@ -86,7 +104,12 @@ def plot_design(solver: str, design, data_path: str, N: int, p: float, k: int, c
 
 
 def multiplot(
-    solver: str, design: str, N: int, p: float, vals: list[tuple[str, int]], cmap
+    solver: str,
+    design: str,
+    N: int,
+    p: float,
+    vals: list[tuple[str, int]],
+    cmap: colors.Colormap,
 ):
     *_, w, h = get_design_data(solver, vals[0][0])
     fig, axss = plt.subplots(
@@ -104,6 +127,7 @@ def multiplot(
     if len(vals) > 6:
         vals[5] = vals[-1]
 
+    pcolormesh: QuadMesh | None = None
     for ax, (data_path, k) in zip(axss.flat, vals):
         assert isinstance(ax, Axes)
 
@@ -112,6 +136,8 @@ def multiplot(
         data, _, w, h = get_design_data(solver, data_path)
         pcolormesh = create_design_figure(ax, data, w, h, N, cmap)
         ax.set_title(f"${k=}$")
+    assert pcolormesh is not None
+
     fig.colorbar(pcolormesh, ax=axss[:, -1], shrink=0.8, label=r"$\rho(x, y)$ []")
     output_file = os.path.join(
         "output", solver, design, "figures", f"{N=}_{p=}_multi.png"
@@ -180,8 +206,8 @@ def get_designs(solver: str, selected_designs: list[str] | None):
 def plot_designs(
     solver: str,
     designs: dict[str, dict[int, dict[float, list[tuple[str, int]]]]],
-    fluid_cmap: colors.LinearSegmentedColormap,
-    elasticity_cmap: colors.LinearSegmentedColormap,
+    fluid_cmap: colors.Colormap,
+    elasticity_cmap: colors.Colormap,
 ):
     plot_count = 0
     for design_dict in designs.values():
@@ -233,7 +259,7 @@ def main():
     solvers = []
     if selected_designs is not None:
         for solver in all_solvers:
-            if solver in selected_designs:
+            if solver in selected_designs and solver not in solvers:
                 solvers.append(solver)
     if len(solvers) == 0:
         solvers = all_solvers
