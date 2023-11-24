@@ -4,7 +4,7 @@ import pickle
 import pytest
 import dolfin as df
 
-from FEM_src.solver import Solver
+from FEM_src.solver import FEMSolver
 from FEM_src.utils import load_function
 
 
@@ -28,7 +28,7 @@ def cleanup(output_folder):
 
 
 def test_fluid_solver(data_path, output_folder, cleanup):
-    solver = Solver(20, "designs/diffuser.json", data_path=data_path, skip_multiple=999)
+    solver = FEMSolver(20, "designs/diffuser.json", data_path=data_path, skip_multiple=999)
     solver.solve()
 
     solver_data = os.path.join(output_folder, "N=20_p=0.1_k=18.dat")

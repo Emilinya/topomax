@@ -1,25 +1,28 @@
 import dolfin as df
 import numpy as np
 
-from FEM_src.solver import Solver
+from FEM_src.solver import FEMSolver
+
 
 def test_fluid_gradient():
-    solver = Solver(10, "designs/twin_pipe.json")
+    solver = FEMSolver(10, "designs/twin_pipe.json")
+
     solver.problem.set_penalization(0.1)
-    penalizer = solver.problem.penalizer
+    pen = solver.problem.penalizer
+    assert pen is not None
 
     objective = solver.problem.calculate_objective(solver.rho)
     direction = df.project(
         solver.volume / solver.parameters.volume_fraction, solver.rho.function_space()
     )
     gradient = df.assemble(
-        0.5 * penalizer.derivative(solver.rho) * direction * solver.problem.u**2 * df.dx
+        0.5 * pen.derivative(solver.rho) * direction * solver.problem.u**2 * df.dx
     )
 
     # we can't make t arbitrarily small as a small t results in numerical errors. Instead,
     # we use multiple t values and test if the error is converging to 0
     ts = [1e-3, 1e-7]
-    errors= []
+    errors = []
     for t in ts:
         moved_rho = df.project(solver.rho + t * direction, solver.rho.function_space())
 

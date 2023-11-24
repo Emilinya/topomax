@@ -1,41 +1,16 @@
-import os
-import pickle
-
-import numpy as np
 import dolfin as df
+import numpy.typing as npt
 
-from src.utils import constrain
-from FEM_src.filter import HelmholtzFilter
+from src.solver import Solver
+from FEM_src.problem import FEMProblem
 from FEM_src.utils import save_function
+from FEM_src.filter import HelmholtzFilter
 from FEM_src.fluid_problem import FluidProblem
 from FEM_src.elasisity_problem import ElasticityProblem
-from designs.definitions import FluidDesign, ElasticityDesign, ProblemType
-from designs.design_parser import parse_design
-
-df.set_log_level(df.LogLevel.WARNING)
-# turn off redundant output in parallel
-df.parameters["std_out_all_processes"] = False
+from designs.definitions import FluidDesign, ElasticityDesign
 
 
-def expit(x):
-    """Sigmoid function."""
-    return 1.0 / (1.0 + np.exp(-x))
-
-
-def expit_diff(x):
-    """Derivative of the sigmoid function."""
-    expit_val = expit(x)
-    return expit_val * (1 - expit_val)
-
-
-def logit(x):
-    """Inverse sigmoid function."""
-    return np.log(x / (1.0 - x))
-
-
-class Solver:
-    """Class that solves a given topology optimization problem using a magical algorithm."""
-
+class FEMSolver(Solver):
     def __init__(
         self,
         N: int,
@@ -43,20 +18,21 @@ class Solver:
         data_path: str = "output",
         skip_multiple: int = 1,
     ):
-        self.N = N
-        self.data_path = data_path
-        self.design_file = design_file
+        df.set_log_level(df.LogLevel.WARNING)
+        # turn off redundant output in parallel
+        df.parameters["std_out_all_processes"] = False
+
         self.skip_multiple = skip_multiple
 
-        self.parameters, design = parse_design(design_file)
+        super().__init__(N, design_file, data_path)
 
-        # define domain
-        self.width = self.parameters.width
-        self.height = self.parameters.height
+        # convince type checker that problem is indeed a FEM problem
+        self.problem: FEMProblem = self.problem
 
-        volume_fraction = self.parameters.volume_fraction
-        self.volume = self.width * self.height * volume_fraction
+    def get_name(self):
+        return "FEM"
 
+    def prepare_domain(self):
         self.mesh = df.Mesh(
             df.RectangleMesh(
                 df.MPI.comm_world,
@@ -69,154 +45,35 @@ class Solver:
 
         self.control_space = df.FunctionSpace(self.mesh, "CG", 1)
 
-        self.rho = df.Function(self.control_space)
-        self.rho.vector()[:] = volume_fraction
+    def create_rho(self, volume_fraction: float):
+        rho = df.Function(self.control_space)
+        rho.vector()[:] = volume_fraction
 
-        control_filter = HelmholtzFilter(epsilon=0.02)
+        return rho
 
+    def create_problem(self, design: FluidDesign | ElasticityDesign):
         if isinstance(design, FluidDesign):
-            self.problem = FluidProblem(self.mesh, design, self.parameters)
-        elif isinstance(design, ElasticityDesign):
-            self.problem = ElasticityProblem(
-                self.mesh, design, self.parameters, control_filter
-            )
-        else:
-            raise ValueError(
-                f"Got unknown problem '{self.parameters.problem}' "
-                + "with design of type '{type(design)}'"
-            )
+            return FluidProblem(self.mesh, design, self.parameters)
+        if isinstance(design, ElasticityDesign):
+            control_filter = HelmholtzFilter(epsilon=0.02)
+            return ElasticityProblem(self.mesh, design, self.parameters, control_filter)
 
-    def project(self, half_step, volume: float):
-        """
-        Project half_step so the volume constraint is fulfilled by
-        solving '∫expit(half_step + c)dx = volume' for c using Newton's method,
-        and then adding c to half_step.
-        """
+        raise ValueError(
+            f"Got unknown problem '{self.parameters.problem}' "
+            + f"with design of type '{type(design)}'"
+        )
 
-        expit_integral_func = df.Function(self.control_space)
-        expit_diff_integral_func = df.Function(self.control_space)
+    def to_array(self, rho: df.Function) -> npt.NDArray:
+        return rho.vector()[:]
 
-        c = 0
-        max_iterations = 10
-        for _ in range(max_iterations):
-            expit_integral_func.vector()[:] = expit(half_step + c)
-            expit_diff_integral_func.vector()[:] = expit_diff(half_step + c)
+    def set_from_array(self, rho: df.Function, values: npt.NDArray):
+        rho.vector()[:] = values
 
-            error = float(df.assemble(expit_integral_func * df.dx) - volume)
-            derivative = float(df.assemble(expit_diff_integral_func * df.dx))
-            if derivative == 0.0:
-                raise ValueError("Got derivative equal to zero while projecting psi")
+    def integrate(self, values: npt.NDArray):
+        integral_func = df.Function(self.control_space)
+        integral_func.vector()[:] = values
+        return float(df.assemble(integral_func * df.dx))
 
-            newton_step = error / derivative
-            c = c - newton_step
-            if abs(newton_step) < 1e-12:
-                break
-        else:
-            raise ValueError("Projection reached maximum iteration without converging.")
-
-        return half_step + c
-
-    def step(self, previous_psi, step_size):
-        """Take a entropic mirror descent step with a given step size."""
-        # Latent space gradient descent
-        objective_gradient = self.problem.calculate_objective_gradient().vector()[:]
-
-        half_step = previous_psi - step_size * objective_gradient
-        return self.project(half_step, self.volume)
-
-    def step_size(self, k: int) -> float:
-        step = self.parameters.step_size * (k + 1)
-        if self.parameters.problem == ProblemType.FLUID:
-            # TODO: delete this?
-            step = min(step, 0.015)
-        return step
-
-    def tolerance(self, k: int) -> float:
-        itol = 1e-2
-        ntol = 1e-5
-        return min(25 * (k + 1) * ntol, itol)
-
-    def solve(self):
-        """Solve the given topology optimization problem."""
-
-        psi = logit(self.rho.vector()[:])
-        previous_psi = None
-
-        for penalty in self.parameters.penalties:
-            self.problem.set_penalization(penalty)
-
-            difference = float("Infinity")
-            objective = float(self.problem.calculate_objective(self.rho))
-            objective_difference = None
-
-            print(f"{f'Penalty: {constrain(penalty, 6)}':^59}")
-            print("Iteration │ Objective │ ΔObjective │     Δρ    │ Tolerance ")
-            print("──────────┼───────────┼────────────┼───────────┼───────────")
-
-            def print_values(k, objective, objective_difference, difference):
-                print(
-                    f"{k:^9} │ {constrain(objective, 9)} │ "
-                    + f"{constrain(objective_difference, 10)} │ "
-                    + f"{constrain(difference, 9)} │ "
-                    + f"{constrain(self.tolerance(k), 9)}",
-                    flush=True,
-                )
-
-            k = 0
-            for k in range(100):
-                print_values(k, objective, objective_difference, difference)
-                if k % self.skip_multiple == 0:
-                    self.save_rho(self.rho, objective, k, penalty)
-
-                previous_psi = psi.copy()
-                try:
-                    psi = self.step(previous_psi, self.step_size(k))
-                except ValueError as e:
-                    print_values(k + 1, objective, objective_difference, difference)
-                    print(f"EXIT: {e}")
-                    break
-
-                self.rho.vector()[:] = expit(psi)
-                previous_objective = objective
-                objective = float(self.problem.calculate_objective(self.rho))
-                objective_difference = previous_objective - objective
-
-                if np.isnan(objective):
-                    print_values(k + 1, objective, objective_difference, difference)
-                    print("EXIT: Objective is NaN!")
-                    break
-
-                # create dfa functions from previous_psi to calculate difference
-                previous_rho = df.Function(self.control_space)
-                previous_rho.vector()[:] = expit(previous_psi)
-
-                difference = np.sqrt(
-                    df.assemble((self.rho - previous_rho) ** 2 * df.dx)
-                )
-
-                if difference < self.tolerance(k):
-                    print_values(k + 1, objective, objective_difference, difference)
-                    print("EXIT: Optimal solution found")
-                    break
-            else:
-                print_values(k + 1, objective, objective_difference, difference)
-                print("EXIT: Iteration did not converge")
-
-            self.save_rho(self.rho, objective, k + 1, penalty)
-
-    def save_rho(self, rho, objective: float, k: int, penalty: float):
-        design = os.path.splitext(os.path.basename(self.design_file))[0]
-        file_root = f"{self.data_path}/FEM/{design}/data/N={self.N}_p={penalty}_{k=}"
-        os.makedirs(os.path.dirname(file_root), exist_ok=True)
-
+    def save_rho(self, rho: df.Function, file_root: str):
         rho_file = file_root + "_rho.dat"
         save_function(rho, rho_file, "design")
-
-        data = {
-            "objective": objective,
-            "iteration": k,
-            "penalty": penalty,
-            "domain_size": self.problem.domain_size,
-        }
-        with open(file_root + ".dat", "wb") as datafile:
-            pickle.dump(data, datafile)

@@ -4,7 +4,7 @@ import pickle
 import torch
 import numpy as np
 
-from DEM_src.solver import Solver
+from DEM_src.solver import DEMSolver
 
 
 def data_path(design):
@@ -12,7 +12,7 @@ def data_path(design):
 
 
 def compare_output(design):
-    solver = Solver(os.path.join("designs", f"{design}.json"))
+    solver = DEMSolver(40, os.path.join("designs", f"{design}.json"))
 
     x = torch.from_numpy(
         np.array([solver.domain.x_grid.T.flat, solver.domain.y_grid.T.flat]).T

@@ -1,7 +1,7 @@
 import argparse
 
-from FEM_src.solver import Solver as FEMSolver
-from DEM_src.solver import Solver as DEMSolver
+from FEM_src.solver import FEMSolver
+from DEM_src.solver import DEMSolver
 from DEM_src.optimize_hyperparameters import run
 
 if __name__ == "__main__":

@@ -5,7 +5,7 @@ import numpy as np
 import numpy.typing as npt
 from hyperopt import fmin, tpe, hp, Trials
 
-from DEM_src.solver import Solver
+from DEM_src.solver import DEMSolver
 from DEM_src.fluid_problem import FluidProblem
 from DEM_src.DeepEnergyMethod import NNParameters
 from DEM_src.elasisity_problem import ElasticityProblem
@@ -103,7 +103,7 @@ def optimize_hyperparameters(
 
 
 def run(design_path: str, output_path: str = "output"):
-    solver = Solver(design_path, verbose=True)
+    solver = DEMSolver(design_path, verbose=True)
 
     design = os.path.splitext(os.path.basename(design_path))[0]
     datafile_path = f"{output_path}/hyperopt/{design}_hyperopt.txt"
