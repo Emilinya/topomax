@@ -61,21 +61,99 @@ class Timer:
         )
 
 
-def constrain(number: int | float, space: int):
-    """
-    Constrain a number so it fits within a given number of characters. \n
-    Ex: constrain(np.pi, 5) = 3.142, constrain(-1/173, 6) = -5.8e-3.
-    """
-    try:
-        if number == 0:
-            return f"{number:.{space - 2}f}"
+def get_print_spacings(strings: list[str]):
+    lengths = [len(s) for s in strings]
+    max_length = max(lengths)
 
-        is_negative = number < 0
-        obj_digits = int(np.log10(abs(number))) + 1
-        if obj_digits <= 0:
-            return f"{number:.{space - 6 - is_negative}e}"
+    # make max_length even
+    max_length += max_length % 2
 
-        return f"{number:.{space - obj_digits - is_negative - 1}f}"
-    except Exception:
-        # something has gone wrong, but we don't want to raise an excepton
-        return "?" * space
+    return [max_length - (l % 2) for l in lengths]
+
+
+def print_title(titles: list[str], spacings: list[int]):
+    print(" │ ".join([f"{t:^{s}}" for t, s in zip(titles, spacings)]))
+    print("─┼─".join(["─" * s for s in spacings]))
+
+
+def print_values(values: list[int | float], spacings: list[int]):
+    print(
+        " │ ".join([constrain(v, s) for v, s in zip(values, spacings)]),
+        flush=True,
+    )
+
+
+def constrain(value: str | int | float, space: int):
+    """
+    Constrain a value so it fits within a given value of characters.
+
+    Examples
+    --------
+    >>> constrain(np.pi, 1)
+    '3'
+    >>> constrain(np.pi, 2)
+    ' 3'
+    >>> constrain(np.pi, 3)
+    '3.1'
+    >>> constrain(-1 / 173, 6)
+    '-6e-03'
+    >>> constrain(-1 / 173, 5)
+    '-0.00'
+    >>> constrain(5.0, 4)
+    '5.00'
+    >>> constrain(5, 4)
+    ' 5  '
+    >>> constrain(5555555555, 6)
+    ' 6e+09'
+    >>> constrain(5555555555, 4)
+    'Biggg'
+    >>> constrain('hi', 6)
+    '  hi  '
+    >>> constrain('funny', 2)
+    'fu'
+    """
+
+    if isinstance(value, str):
+        if len(value) > space:
+            return value[:space]
+        return f"{value:^{space}}"
+
+    if isinstance(value, int):
+        if len(str(value)) <= space:
+            return f"{value:^{space}}"
+        value = float(value)
+
+    wasted_space = str(value).find(".") + 1
+
+    use_exp = False
+    if space - wasted_space < -1 or abs(value) < 1e-2:
+        use_exp = True
+        wasted_space = 6 + (value < 0)
+
+        if space - wasted_space < -1:
+            # we can't have a negative amount of decimals
+
+            if abs(value) > 1:
+                # It's too big
+                if space > 3:
+                    return "Big" + "g" * (space - 3)
+                return "Big"[:space]
+
+            # It's too small
+            str_val = str(value)
+            if len(str_val) > space:
+                return str_val[:space]
+            return str_val + "0" * (len(str_val) - space)
+
+    padding = ""
+    if space - wasted_space == 0:
+        padding = " "
+
+    if space - wasted_space == -1:
+        # we don't want decimals -> no point
+        wasted_space -= 1
+
+    if use_exp:
+        return padding + f"{value:.{space - wasted_space}e}"
+
+    return padding + f"{value:.{space - wasted_space}f}"

@@ -6,10 +6,10 @@ from abc import ABC, abstractmethod
 import numpy as np
 import numpy.typing as npt
 
-from src.utils import constrain
 from src.problem import Problem
 from designs.design_parser import parse_design
 from designs.definitions import FluidDesign, ElasticityDesign
+from src.utils import constrain, print_title, print_values, get_print_spacings
 
 
 def expit(x: npt.NDArray):
@@ -149,37 +149,42 @@ class Solver(ABC):
     def solve(self):
         """Solve the given topology optimization problem."""
 
+        print_titles = ["Iteration", "Objective", "ΔObjective", "Δρ", "Tolerance"]
+        print_spacings = get_print_spacings(print_titles)
+        total_space = sum(print_spacings) + 3 * (len(print_spacings) - 1)
+
+        def get_values(k: int, objectives: list[float], difference: float):
+            objective = objectives[-1]
+            if len(objectives) > 1:
+                objective_difference = objectives[-2] - objective
+            else:
+                objective_difference = ""
+
+            d_val: str | float = difference
+            if difference == float("Infinity"):
+                d_val = ""
+
+            return [k, objective, objective_difference, d_val, self.tolerance(k)]
+
         psi = logit(self.to_array(self.rho))
         previous_psi = None
-
-        def print_values(k, objective, objective_difference, difference):
-            print(
-                f"{k:^9} │ {constrain(objective, 9)} │ "
-                + f"{constrain(objective_difference, 10)} │ "
-                + f"{constrain(difference, 9)} │ "
-                + f"{constrain(self.tolerance(k), 9)}",
-                flush=True,
-            )
-
-        def abort(reason: str, k: int):
-            print_values(k + 1, objective, objective_difference, difference)
-            print(f"EXIT: {reason}")
 
         for penalty in self.parameters.penalties:
             self.problem.set_penalization(penalty)
 
-            print(f"{f'Penalty: {constrain(penalty, 6)}':^59}")
-            print("Iteration │ Objective │ ΔObjective │     Δρ    │ Tolerance ")
-            print("──────────┼───────────┼────────────┼───────────┼───────────")
+            print(f"{f'Penalty: {constrain(penalty, 6)}':^{total_space - 6}}")
+            print_title(print_titles, print_spacings)
 
-            objective = self.problem.calculate_objective(self.rho)
+            objectives = [self.problem.calculate_objective(self.rho)]
             difference = float("Infinity")
-            objective_difference = float("Infinity")
 
             k = 0
             for k in range(100):
-                print_values(k, objective, objective_difference, difference)
-                self.save_data(self.rho, objective, k, penalty)
+                print_values(
+                    get_values(k + 1, objectives, difference),
+                    print_spacings,
+                )
+                self.save_data(self.rho, objectives[-1], k, penalty)
 
                 previous_psi = psi.copy()
                 try:
@@ -190,12 +195,14 @@ class Solver(ABC):
 
                 self.set_from_array(self.rho, expit(psi))
 
-                previous_objective = objective
-                objective = self.problem.calculate_objective(self.rho)
-                objective_difference = previous_objective - objective
+                objectives.append(self.problem.calculate_objective(self.rho))
 
-                if np.isnan(objective):
-                    abort("Objective is NaN!", k + 1)
+                if np.isnan(objectives[-1]):
+                    print_values(
+                        get_values(k + 1, objectives, difference),
+                        print_spacings,
+                    )
+                    print("EXIT: Objective is NaN!")
                     break
 
                 difference = np.sqrt(
@@ -203,12 +210,20 @@ class Solver(ABC):
                 )
 
                 if difference < self.tolerance(k):
-                    abort("Optimal solution found", k + 1)
+                    print_values(
+                        get_values(k + 1, objectives, difference),
+                        print_spacings,
+                    )
+                    print("EXIT: Optimal solution found")
                     break
             else:
-                abort("Iteration did not converge", k + 1)
+                print_values(
+                    get_values(k, objectives, difference),
+                    print_spacings,
+                )
+                print("EXIT: Iteration did not converge")
 
-            self.save_data(self.rho, objective, k + 1, penalty)
+            self.save_data(self.rho, objectives[-1], k + 1, penalty)
 
     def save_data(self, rho, objective: float, k: int, penalty: float):
         file_root = f"{self.output_folder}/N={self.N}_p={penalty}_{k=}"
