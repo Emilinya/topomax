@@ -229,7 +229,16 @@ def main():
     if len(sys.argv) > 1:
         selected_designs = sys.argv[1:]
 
-    for solver in ["FEM", "DEM"]:
+    all_solvers = ["FEM", "DEM"]
+    solvers = []
+    if selected_designs is not None:
+        for solver in all_solvers:
+            if solver in selected_designs:
+                solvers.append(solver)
+    if len(solvers) == 0:
+        solvers = all_solvers
+
+    for solver in solvers:
         designs = get_designs(solver, selected_designs)
         plot_designs(solver, designs, traa_cmap, highlight_cmap)
 

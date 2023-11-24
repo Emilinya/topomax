@@ -136,8 +136,11 @@ def sample_function(
     # we want to sample a multiple of N points, choose multiplier
     # so we always sample >= 'points' points
     multiplier = int(np.ceil(points / N))
-
     domain_samples = [int(s * N * multiplier) for s in domain_size]
+
+    if sample_type == "edges":
+        domain_samples = [Ns + 1 for Ns in domain_samples]
+
     domain_rays = [np.linspace(0, s, Ns) for s, Ns in zip(domain_size, domain_samples)]
     output_grid = np.zeros(domain_samples[::-1] + [output_size])
 
@@ -147,8 +150,8 @@ def sample_function(
                 x = (0.5 + xi) / (multiplier * N)
                 y = (0.5 + yi) / (multiplier * N)
             elif sample_type == "edges":
-                x = xi / (multiplier * N - 1 / domain_size[0])
-                y = yi / (multiplier * N - 1 / domain_size[1])
+                x = xi / (multiplier * N)
+                y = yi / (multiplier * N)
             else:
                 raise ValueError(
                     f"Unknown sample_type: {sample_type}. "

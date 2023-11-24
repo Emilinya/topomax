@@ -1,5 +1,6 @@
 from __future__ import annotations
 from abc import ABC, abstractmethod
+from typing import Any
 
 
 class Problem(ABC):
@@ -13,13 +14,13 @@ class Problem(ABC):
         ...
 
     @abstractmethod
-    def calculate_objective_gradient(self):
+    def calculate_objective_gradient(self) -> Any:
         ...
 
     @abstractmethod
-    def calculate_objective(self, rho) -> float:
+    def calculate_objective(self, rho: Any) -> float:
         ...
 
     @abstractmethod
-    def forward(self, rho):
+    def forward(self, rho: Any) -> Any:
         ...
