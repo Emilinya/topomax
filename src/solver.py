@@ -7,9 +7,10 @@ import numpy as np
 import numpy.typing as npt
 
 from src.problem import Problem
+from src.utils import constrain, Timer
+from src.printer import Printer, ColumnType
 from designs.design_parser import parse_design
 from designs.definitions import FluidDesign, ElasticityDesign
-from src.utils import constrain, print_title, print_values, get_print_spacings
 
 
 def expit(x: npt.NDArray):
@@ -150,22 +151,16 @@ class Solver(ABC):
     def solve(self):
         """Solve the given topology optimization problem."""
 
-        print_titles = ["Iteration", "Objective", "ΔObjective", "Δρ", "Tolerance"]
-        print_spacings = get_print_spacings(print_titles)
-        total_space = sum(print_spacings) + 3 * (len(print_spacings) - 1)
-
-        def get_values(k: int, objectives: list[float], difference: float):
-            objective = objectives[-1]
-            if len(objectives) > 1:
-                objective_difference = objectives[-2] - objective
-            else:
-                objective_difference = ""
-
-            d_val: str | float = difference
-            if difference == float("Infinity"):
-                d_val = ""
-
-            return [k, objective, objective_difference, d_val, self.tolerance(k)]
+        print_columns = [
+            ColumnType.ITERATION,
+            ColumnType.OBJECTIVE,
+            ColumnType.DELTA_OBJECTIVE,
+            ColumnType.DELRA_RHO,
+            ColumnType.TOLERANCE,
+            ColumnType.TIME,
+            ColumnType.TOTAL_TIME,
+        ]
+        timer = Timer()
 
         psi = logit(self.to_array(self.rho))
         previous_psi = None
@@ -173,21 +168,26 @@ class Solver(ABC):
         for penalty in self.parameters.penalties:
             self.problem.set_penalization(penalty)
 
-            print(f"{f'Penalty: {constrain(penalty, 6)}':^{total_space - 6}}")
-            print_title(print_titles, print_spacings)
+            printer = Printer(print_columns)
+            title_length = printer.title_length()
+            print(f"{f'Penalty: {constrain(penalty, 6)}':^{title_length - 6}}")
+            printer.print_title()
 
+            timer.restart()
             objectives = [self.problem.calculate_objective(self.rho)]
-            difference = float("Infinity")
+            printer.set_time(timer.get_time_seconds())
+            printer.set_objective(objectives[0])
 
             k = 0
             for k in range(100):
-                print_values(
-                    get_values(k + 1, objectives, difference),
-                    print_spacings,
-                )
+                printer.set_tolerance(self.tolerance(k))
+                printer.set_iteration(k)
+                printer.print_values()
+
                 if k % self.skip_multiple == 0:
                     self.save_data(self.rho, objectives[-1], k, penalty)
 
+                timer.restart()
                 previous_psi = psi.copy()
                 try:
                     psi = self.step(previous_psi, self.step_size(k))
@@ -198,31 +198,27 @@ class Solver(ABC):
                 self.set_from_array(self.rho, expit(psi))
 
                 objectives.append(self.problem.calculate_objective(self.rho))
+                printer.set_time(timer.get_time_seconds())
+                printer.set_objective(objectives[-1])
 
                 if np.isnan(objectives[-1]):
-                    print_values(
-                        get_values(k + 1, objectives, difference),
-                        print_spacings,
-                    )
+                    printer.set_iteration(k + 1)
+                    printer.print_values()
                     print("EXIT: Objective is NaN!")
                     break
 
                 difference = np.sqrt(
                     self.integrate((self.to_array(self.rho) - expit(previous_psi)) ** 2)
                 )
+                printer.set_delta_rho(difference)
 
                 if difference < self.tolerance(k):
-                    print_values(
-                        get_values(k + 1, objectives, difference),
-                        print_spacings,
-                    )
+                    printer.set_iteration(k + 1)
+                    printer.print_values()
                     print("EXIT: Optimal solution found")
                     break
             else:
-                print_values(
-                    get_values(k, objectives, difference),
-                    print_spacings,
-                )
+                printer.print_values()
                 print("EXIT: Iteration did not converge")
 
             self.save_data(self.rho, objectives[-1], k + 1, penalty)

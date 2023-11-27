@@ -59,28 +59,6 @@ class Timer:
         )
 
 
-def get_print_spacings(strings: list[str]):
-    lengths = [len(s) for s in strings]
-    max_length = max(lengths)
-
-    # make max_length even
-    max_length += max_length % 2
-
-    return [max_length - (l % 2) for l in lengths]
-
-
-def print_title(titles: list[str], spacings: list[int]):
-    print(" │ ".join([f"{t:^{s}}" for t, s in zip(titles, spacings)]))
-    print("─┼─".join(["─" * s for s in spacings]))
-
-
-def print_values(values: list[int | float], spacings: list[int]):
-    print(
-        " │ ".join([constrain(v, s) for v, s in zip(values, spacings)]),
-        flush=True,
-    )
-
-
 def constrain(value: str | int | float, space: int):
     """
     Constrain a value so it fits within a given number of characters.
