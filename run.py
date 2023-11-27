@@ -64,7 +64,13 @@ if __name__ == "__main__":
         if args.use_neural_network_solver:
             from DEM_src.solver import DEMSolver
 
-            solver = DEMSolver(args.N, design_filename, args.data_path, args.verbose)
+            solver = DEMSolver(
+                args.N,
+                design_filename,
+                args.data_path,
+                args.skip_multiple,
+                args.verbose,
+            )
             solver.solve()
         else:
             from FEM_src.solver import FEMSolver

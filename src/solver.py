@@ -39,11 +39,12 @@ class Solver(ABC):
     this class, you must inherit from it and define all the abstract functions.
     """
 
-    def __init__(self, N: int, design_file: str, data_path="output"):
+    def __init__(self, N: int, design_file: str, data_path="output", skip_multiple=1):
         self.N = N
         self.design_file = design_file
         self.design_str = os.path.splitext(os.path.basename(design_file))[0]
         self.output_folder = f"{data_path}/{self.get_name()}/{self.design_str}/data"
+        self.skip_multiple = skip_multiple
 
         self.parameters, design = parse_design(design_file)
 
@@ -184,7 +185,8 @@ class Solver(ABC):
                     get_values(k + 1, objectives, difference),
                     print_spacings,
                 )
-                self.save_data(self.rho, objectives[-1], k, penalty)
+                if k % self.skip_multiple == 0:
+                    self.save_data(self.rho, objectives[-1], k, penalty)
 
                 previous_psi = psi.copy()
                 try:

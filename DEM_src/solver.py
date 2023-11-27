@@ -48,7 +48,14 @@ def create_density_filter(radius: float, domain: Domain):
 class DEMSolver(Solver):
     """Class that solves a given topology optimization problem using a magical algorithm."""
 
-    def __init__(self, N: int, design_file: str, data_path="output", verbose=False):
+    def __init__(
+        self,
+        N: int,
+        design_file: str,
+        data_path="output",
+        skip_multiple: int = 1,
+        verbose=False,
+    ):
         warnings.filterwarnings("ignore")
         npr.seed(2022)
         torch.manual_seed(2022)
@@ -63,7 +70,7 @@ class DEMSolver(Solver):
             print("CUDA not available, running on CPU")
 
         self.verbose = verbose
-        super().__init__(N, design_file, data_path)
+        super().__init__(N, design_file, data_path, skip_multiple)
 
         # why is this neccesary? idk
         self.step_size_multiplier = 0.2

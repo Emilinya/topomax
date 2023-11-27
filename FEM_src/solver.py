@@ -22,9 +22,7 @@ class FEMSolver(Solver):
         # turn off redundant output in parallel
         df.parameters["std_out_all_processes"] = False
 
-        self.skip_multiple = skip_multiple
-
-        super().__init__(N, design_file, data_path)
+        super().__init__(N, design_file, data_path, skip_multiple)
 
         # convince type checker that problem is indeed a FEM problem
         self.problem: FEMProblem = self.problem
