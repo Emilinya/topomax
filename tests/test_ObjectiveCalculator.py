@@ -1,8 +1,7 @@
 import torch
 import numpy as np
 
-from DEM_src.utils import flatten
-from DEM_src.data_structs import Domain
+from DEM_src.utils import Mesh, flatten
 from DEM_src.ObjectiveCalculator import ObjectiveCalculator
 from src.penalizers import ElasticPenalizer
 from tests.utils import get_convergance
@@ -31,7 +30,7 @@ def linear(x_grid, y_grid):
     return [ux, uy]
 
 
-def linear_analytic(domain: Domain):
+def linear_analytic(domain: Mesh):
     w, h = domain.length, domain.height
 
     return 2 * w * h * (2 + (w**2 + h**2) / 3)
@@ -44,7 +43,7 @@ def trig(x_grid, y_grid):
     return [ux, uy]
 
 
-def trig_analytic(domain: Domain):
+def trig_analytic(domain: Mesh):
     w, h = domain.length, domain.height
 
     t1 = 24 * w * h - 4 * h * np.sin(2 * w) + h * np.sin(4 * w) + 4 * w * np.sin(2 * h)
@@ -53,7 +52,7 @@ def trig_analytic(domain: Domain):
     return (t1 + t2) / 8
 
 
-def compare(f, f_analytic, domain: Domain, objective: ObjectiveCalculator):
+def compare(f, f_analytic, domain: Mesh, objective: ObjectiveCalculator):
     u = torch.from_numpy(flatten(f(domain.x_grid, domain.y_grid))).float()
 
     numeric = float(
@@ -66,12 +65,12 @@ def compare(f, f_analytic, domain: Domain, objective: ObjectiveCalculator):
 
 def test_evaluate():
     def linear_errfunc(N: int):
-        domain = Domain(2 * N, 3 * N, 5, 2)
+        domain = Mesh(2 * N, 3 * N, 5, 2)
         objective = DummyObjective(domain.dxdy, ElasticPenalizer())
         return compare(linear, linear_analytic, domain, objective)
 
     def trig_errfunc(N: int):
-        domain = Domain(2 * N, 3 * N, 5, 2)
+        domain = Mesh(2 * N, 3 * N, 5, 2)
         objective = DummyObjective(domain.dxdy, ElasticPenalizer())
         return compare(trig, trig_analytic, domain, objective)
 

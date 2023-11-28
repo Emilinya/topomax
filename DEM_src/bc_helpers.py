@@ -6,8 +6,7 @@ import torch
 import numpy as np
 import numpy.typing as npt
 
-from DEM_src.utils import flatten
-from DEM_src.data_structs import Domain
+from DEM_src.utils import Mesh, flatten
 from designs.definitions import (
     Side,
     Flow,
@@ -21,7 +20,7 @@ class DirichletEnforcer(ABC):
     def create_zero_enforcer(
         self,
         sides: list[Side],
-        domain: Domain,
+        domain: Mesh,
         device: torch.device,
         output_dimension: int,
     ):
@@ -54,7 +53,7 @@ class DirichletEnforcer(ABC):
 
 class ElasticityEnforcer(DirichletEnforcer):
     def __init__(
-        self, parameters: ElasticityParameters, domain: Domain, device: torch.device
+        self, parameters: ElasticityParameters, domain: Mesh, device: torch.device
     ):
         self.zero_enforcer = self.create_zero_enforcer(
             parameters.fixed_sides, domain, device, 2
@@ -66,7 +65,7 @@ class ElasticityEnforcer(DirichletEnforcer):
 
 class FluidEnforcer(DirichletEnforcer):
     def __init__(
-        self, fluid_parameters: FluidParameters, domain: Domain, device: torch.device
+        self, fluid_parameters: FluidParameters, domain: Mesh, device: torch.device
     ):
         flow_sides = [flow.side for flow in fluid_parameters.flows]
         if fluid_parameters.no_slip is None:
@@ -103,7 +102,7 @@ class FluidEnforcer(DirichletEnforcer):
         return output
 
     def create_flow_enforcer(
-        self, flows: list[Flow], domain: Domain, device: torch.device
+        self, flows: list[Flow], domain: Mesh, device: torch.device
     ):
         flow_enforcer_ux = np.zeros_like(domain.x_grid)
         flow_enforcer_uy = np.zeros_like(domain.y_grid)
@@ -141,7 +140,7 @@ class FluidEnforcer(DirichletEnforcer):
 
 
 class TractionPoints:
-    def __init__(self, domain: Domain, traction: Traction):
+    def __init__(self, domain: Mesh, traction: Traction):
         side, center, length, value = traction.to_tuple()
         left = center - length / 2
         right = center + length / 2

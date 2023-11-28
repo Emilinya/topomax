@@ -3,7 +3,7 @@ import sys
 import torch
 import numpy as np
 
-from DEM_src.data_structs import Domain
+from DEM_src.utils import Mesh
 from DEM_src.bc_helpers import TractionPoints
 from DEM_src.external_energy import calculate_external_energy
 from tests.utils import get_average, get_convergance
@@ -29,7 +29,7 @@ def F_trig(H: float, c: float, l: float):
 def calculate_error(
     f,
     F,
-    domain: Domain,
+    domain: Mesh,
     traction: Traction,
     traction_points_list: list[TractionPoints],
 ):
@@ -51,10 +51,10 @@ def calculate_error(
 def test_calculate_external_energy():
     Ns = list(range(2, 100))
 
-    bridge_domain = Domain(4, 1, 12, 2)
+    bridge_domain = Mesh(4, 1, 12, 2)
     bridge_traction = Traction(Side.TOP, bridge_domain.length / 2, 0.5, (0.0, 1.0))
 
-    cantilever_domain = Domain(10, 5, 2, 1)
+    cantilever_domain = Mesh(10, 5, 2, 1)
     cantilever_traction = Traction(
         Side.RIGHT, cantilever_domain.height / 2, 0.5, (0.0, 1.0)
     )
@@ -63,7 +63,7 @@ def test_calculate_external_energy():
     def get_get_error_function(domain, traction):
         def get_error_function(f, F):
             def error_function(N):
-                N_domain = Domain(
+                N_domain = Mesh(
                     domain.Nx * N, domain.Ny * N, domain.length, domain.height
                 )
                 traction_points_list = [TractionPoints(N_domain, traction)]

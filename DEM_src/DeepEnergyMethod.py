@@ -8,8 +8,7 @@ import rff.layers
 import numpy as np
 import numpy.typing as npt
 
-from DEM_src.utils import flatten
-from DEM_src.data_structs import Domain
+from DEM_src.utils import Mesh, flatten
 from DEM_src.bc_helpers import DirichletEnforcer
 from DEM_src.ObjectiveCalculator import ObjectiveCalculator
 
@@ -55,7 +54,7 @@ class DeepEnergyMethod:
         self.model = self.model.to(self.device)
         self.nn_parameters = nn_parameters
 
-    def train_model(self, rho: npt.NDArray[np.float64], domain: Domain):
+    def train_model(self, rho: npt.NDArray[np.float64], domain: Mesh):
         x = torch.from_numpy(flatten([domain.x_grid, domain.y_grid])).float()
         x = x.to(self.device)
         x.requires_grad_(True)
@@ -111,7 +110,7 @@ class DeepEnergyMethod:
             self.get_u(x), domain.shape, density
         )
 
-    def get_loss(self, rho: npt.NDArray[np.float64], domain: Domain):
+    def get_loss(self, rho: npt.NDArray[np.float64], domain: Mesh):
         density = torch.from_numpy(rho).float()
         density = torch.reshape(density, domain.intervals).to(self.device)
 
@@ -122,7 +121,7 @@ class DeepEnergyMethod:
 
         return float(loss)
 
-    def get_u(self, x: torch.Tensor | None = None, domain: Domain | None = None):
+    def get_u(self, x: torch.Tensor | None = None, domain: Mesh | None = None):
         if x is None:
             if domain is None:
                 raise ValueError(

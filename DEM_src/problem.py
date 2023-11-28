@@ -4,7 +4,7 @@ from abc import abstractmethod
 import torch
 
 from src.problem import Problem
-from DEM_src.data_structs import Domain
+from DEM_src.utils import Mesh
 from DEM_src.bc_helpers import DirichletEnforcer
 from DEM_src.DeepEnergyMethod import DeepEnergyMethod
 from DEM_src.ObjectiveCalculator import ObjectiveCalculator
@@ -13,7 +13,7 @@ from DEM_src.ObjectiveCalculator import ObjectiveCalculator
 class DEMProblem(Problem):
     def __init__(
         self,
-        domain: Domain,
+        domain: Mesh,
         device: torch.device,
         verbose: bool,
     ):

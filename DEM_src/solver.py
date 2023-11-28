@@ -8,15 +8,15 @@ from sklearn.preprocessing import normalize
 from scipy.sparse import coo_matrix, csr_matrix
 
 from src.solver import Solver
+from DEM_src.utils import Mesh
 from DEM_src.problem import DEMProblem
-from DEM_src.data_structs import Domain
 from DEM_src.integrator import integrate
 from DEM_src.fluid_problem import FluidProblem
 from DEM_src.elasisity_problem import ElasticityProblem
 from designs.definitions import FluidDesign, ElasticityDesign
 
 
-def create_density_filter(radius: float, domain: Domain):
+def create_density_filter(radius: float, domain: Mesh):
     # we can't use domain.x_grid as it has shape (Nx+1, Ny+1)
     x_ray = np.linspace(0, domain.length, domain.Nx)
     y_ray = np.linspace(0, domain.height, domain.Ny)
@@ -92,7 +92,7 @@ class DEMSolver(Solver):
             Nx = int(self.width * self.N)
             Ny = int(self.height * self.N)
 
-        self.domain = Domain(Nx, Ny, self.width, self.height)
+        self.domain = Mesh(Nx, Ny, self.width, self.height)
 
     def create_rho(self, volume_fraction: float):
         return np.ones(self.domain.intervals) * volume_fraction

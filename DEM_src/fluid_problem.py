@@ -4,13 +4,13 @@ import torch
 import numpy as np
 import numpy.typing as npt
 
-from designs.definitions import FluidDesign
-from src.penalizers import FluidPenalizer
+from DEM_src.utils import Mesh
 from DEM_src.problem import DEMProblem
-from DEM_src.data_structs import Domain
 from DEM_src.bc_helpers import FluidEnforcer
 from DEM_src.ObjectiveCalculator import ObjectiveCalculator
 from DEM_src.DeepEnergyMethod import NNParameters, DeepEnergyMethod
+from designs.definitions import FluidDesign
+from src.penalizers import FluidPenalizer
 
 
 class FluidEnergy(ObjectiveCalculator):
@@ -68,7 +68,7 @@ class FluidProblem(DEMProblem):
 
     def __init__(
         self,
-        domain: Domain,
+        domain: Mesh,
         device: torch.device,
         verbose: bool,
         fluid_design: FluidDesign,

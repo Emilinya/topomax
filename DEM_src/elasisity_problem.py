@@ -5,14 +5,14 @@ import numpy as np
 import numpy.typing as npt
 from scipy.sparse import csr_matrix
 
-from designs.definitions import ElasticityDesign
-from src.penalizers import ElasticPenalizer
+from DEM_src.utils import Mesh
 from DEM_src.problem import DEMProblem
-from DEM_src.data_structs import Domain
 from DEM_src.ObjectiveCalculator import ObjectiveCalculator
 from DEM_src.external_energy import calculate_external_energy
 from DEM_src.bc_helpers import ElasticityEnforcer, TractionPoints
 from DEM_src.DeepEnergyMethod import NNParameters, DeepEnergyMethod
+from designs.definitions import ElasticityDesign
+from src.penalizers import ElasticPenalizer
 
 
 class StrainEnergy(ObjectiveCalculator):
@@ -80,7 +80,7 @@ class ElasticityProblem(DEMProblem):
 
     def __init__(
         self,
-        domain: Domain,
+        domain: Mesh,
         device: torch.device,
         verbose: bool,
         input_filter: csr_matrix,

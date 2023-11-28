@@ -1,10 +1,10 @@
 import numpy as np
 import numpy.typing as npt
 
-from DEM_src.data_structs import Domain
+from DEM_src.utils import Mesh
 
 
-def integrate(data: npt.NDArray[np.float64], domain: Domain) -> float:
+def integrate(data: npt.NDArray[np.float64], domain: Mesh) -> float:
     dx, dy = domain.dxdy
 
     if data.shape == domain.shape:
