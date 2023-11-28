@@ -7,8 +7,8 @@ from scipy.sparse import csr_matrix
 
 from DEM_src.utils import Mesh
 from DEM_src.problem import DEMProblem
-from DEM_src.domains import SideDomain
 from DEM_src.integrator import boundary_integral
+from DEM_src.domains import SideDomain, CircleDomain
 from DEM_src.dirichlet_enforcer import ElasticityEnforcer
 from DEM_src.ObjectiveCalculator import ObjectiveCalculator
 from DEM_src.DeepEnergyMethod import NNParameters, DeepEnergyMethod
@@ -146,6 +146,13 @@ class ElasticityProblem(DEMProblem):
         ...
 
     def create_dem_parameters(self):
+        if self.design.parameters.body_force:
+            circle_domain = CircleDomain(
+                self.domain, self.design.parameters.body_force.region
+            )
+            print(circle_domain.area_error * 100)
+            exit()
+
         traction_points_list: list[TractionPoints] = []
         if self.design.parameters.tractions:
             for traction in self.design.parameters.tractions:

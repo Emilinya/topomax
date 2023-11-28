@@ -28,6 +28,18 @@ class Mesh:
         self.dxdy = (self.length / self.Nx, self.height / self.Ny)
 
 
+def distance(values: npt.NDArray[np.float64], point: npt.NDArray[np.float64]):
+    ps = point.shape
+    vs = values.shape
+
+    if len(vs) == 1 and ps == vs:
+        return np.sqrt(np.sum((values - point) ** 2))
+    if len(vs) == 2 and ps[0] == vs[1]:
+        return np.sqrt(np.sum((values - point) ** 2, axis=1))
+
+    raise ValueError(f"Incompatible shapes: {vs} and {ps}")
+
+
 def flatten(grids: Iterable[npt.NDArray[Any]]):
     """
     Turns a list of n grids [g_i] of shape (Ny, Nx) into one
