@@ -5,8 +5,8 @@ import torch
 
 from src.problem import Problem
 from DEM_src.utils import Mesh
-from DEM_src.bc_helpers import DirichletEnforcer
 from DEM_src.DeepEnergyMethod import DeepEnergyMethod
+from DEM_src.dirichlet_enforcer import DirichletEnforcer
 from DEM_src.ObjectiveCalculator import ObjectiveCalculator
 
 

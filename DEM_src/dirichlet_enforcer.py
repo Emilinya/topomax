@@ -7,13 +7,7 @@ import numpy as np
 import numpy.typing as npt
 
 from DEM_src.utils import Mesh, flatten
-from designs.definitions import (
-    Side,
-    Flow,
-    Traction,
-    FluidParameters,
-    ElasticityParameters,
-)
+from designs.definitions import Side, Flow, FluidParameters, ElasticityParameters
 
 
 class DirichletEnforcer(ABC):
@@ -137,49 +131,3 @@ class FluidEnforcer(DirichletEnforcer):
 
     def __call__(self, u: torch.Tensor):
         return u * self.zero_enforcer + self.flow_enforcer
-
-
-class TractionPoints:
-    def __init__(self, domain: Mesh, traction: Traction):
-        side, center, length, value = traction.to_tuple()
-        left = center - length / 2
-        right = center + length / 2
-
-        flat_x = domain.x_grid.T.flatten()
-        flat_y = domain.y_grid.T.flatten()
-
-        if side == Side.LEFT:
-            side_condition = flat_x == 0
-            side_points = flat_y
-        elif side == Side.RIGHT:
-            side_condition = flat_x == domain.length
-            side_points = flat_y
-        elif side == Side.TOP:
-            side_condition = flat_y == domain.height
-            side_points = flat_x
-        elif side == Side.BOTTOM:
-            side_condition = flat_y == 0
-            side_points = flat_x
-        else:
-            raise ValueError(f"Unknown side: '{side}'")
-
-        if side in (Side.LEFT, Side.RIGHT):
-            self.side_index = 1
-            self.stride = 1
-            self.width = domain.Ny + 1
-        elif side in (Side.TOP, Side.BOTTOM):
-            self.side_index = 0
-            self.stride = domain.Ny + 1
-            self.width = domain.Nx + 1
-
-        left_condition = side_points >= left
-        right_condition = side_points <= right
-        (load_indices,) = np.where(side_condition & left_condition & right_condition)
-
-        load_points = np.array([flat_x[load_indices], flat_y[load_indices]]).T
-
-        self.value = value
-        self.points = load_points
-        self.indices = load_indices
-        self.left_error = load_points[0, self.side_index] - left
-        self.right_error = right - load_points[-1, self.side_index]

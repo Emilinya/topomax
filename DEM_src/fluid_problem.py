@@ -6,7 +6,7 @@ import numpy.typing as npt
 
 from DEM_src.utils import Mesh
 from DEM_src.problem import DEMProblem
-from DEM_src.bc_helpers import FluidEnforcer
+from DEM_src.dirichlet_enforcer import FluidEnforcer
 from DEM_src.ObjectiveCalculator import ObjectiveCalculator
 from DEM_src.DeepEnergyMethod import NNParameters, DeepEnergyMethod
 from designs.definitions import FluidDesign

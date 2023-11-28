@@ -7,12 +7,37 @@ from scipy.sparse import csr_matrix
 
 from DEM_src.utils import Mesh
 from DEM_src.problem import DEMProblem
+from DEM_src.domains import SideDomain
+from DEM_src.integrator import boundary_integral
+from DEM_src.dirichlet_enforcer import ElasticityEnforcer
 from DEM_src.ObjectiveCalculator import ObjectiveCalculator
-from DEM_src.external_energy import calculate_external_energy
-from DEM_src.bc_helpers import ElasticityEnforcer, TractionPoints
 from DEM_src.DeepEnergyMethod import NNParameters, DeepEnergyMethod
-from designs.definitions import ElasticityDesign
+from designs.definitions import Traction, ElasticityDesign
 from src.penalizers import ElasticPenalizer
+
+
+class TractionPoints:
+    def __init__(self, mesh: Mesh, traction: Traction):
+        side, center, length, self.value = traction.to_tuple()
+        self.domain = SideDomain(mesh, side, center, length)
+
+
+def calculate_traction_integral(
+    u: torch.Tensor,
+    dxdy: tuple[float, float],
+    traction_points_list: list[TractionPoints],
+):
+    external_energy = torch.tensor(0.0)
+
+    for tps in traction_points_list:
+        tx, ty = tps.value
+
+        if abs(tx) > 1e-14:
+            external_energy += boundary_integral(u[:, 0], dxdy, tps.domain) * tx
+        if abs(ty) > 1e-14:
+            external_energy += boundary_integral(u[:, 1], dxdy, tps.domain) * ty
+
+    return external_energy
 
 
 class StrainEnergy(ObjectiveCalculator):
@@ -55,7 +80,7 @@ class StrainEnergy(ObjectiveCalculator):
             self.penalizer(density) * strain_energies * self.detJ
         )
 
-        external_energy = calculate_external_energy(
+        external_energy = calculate_traction_integral(
             u, self.dxdy, self.traction_points_list
         )
 

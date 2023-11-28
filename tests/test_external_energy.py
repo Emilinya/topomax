@@ -4,8 +4,7 @@ import torch
 import numpy as np
 
 from DEM_src.utils import Mesh
-from DEM_src.bc_helpers import TractionPoints
-from DEM_src.external_energy import calculate_external_energy
+from DEM_src.elasisity_problem import TractionPoints, calculate_traction_integral
 from tests.utils import get_average, get_convergance
 from designs.definitions import Traction, Side
 
@@ -36,7 +35,7 @@ def calculate_error(
     values = f(domain.x_grid, domain.y_grid)
     u = torch.from_numpy(np.array([values.T.flat, values.T.flat]).T).float()
 
-    numeric = float(calculate_external_energy(u, domain.dxdy, traction_points_list))
+    numeric = float(calculate_traction_integral(u, domain.dxdy, traction_points_list))
 
     if traction.side in (Side.LEFT, Side.RIGHT):
         analytic = F(domain.length, traction.center, traction.length)
@@ -48,7 +47,7 @@ def calculate_error(
     return abs((numeric - analytic) / analytic) * 100
 
 
-def test_calculate_external_energy():
+def test_calculate_traction_integral():
     Ns = list(range(2, 100))
 
     bridge_domain = Mesh(4, 1, 12, 2)
