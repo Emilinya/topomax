@@ -1,5 +1,6 @@
 from typing import Any, Iterable
 
+import torch
 import numpy as np
 import numpy.typing as npt
 
@@ -54,7 +55,7 @@ def flatten(grids: Iterable[npt.NDArray[Any]]):
     return np.array([grid.T.flat for grid in grids]).T
 
 
-def unflatten(flat_values: npt.NDArray, shape: tuple[int, int]):
+def unflatten(flat_values: npt.NDArray | torch.Tensor, shape: tuple[int, int]):
     """
     Turns an array with shape (Nx*Ny, n), together with an input shape (Ny, Nx),
     into an array of shape (n, Ny, Nx)

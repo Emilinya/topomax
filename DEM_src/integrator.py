@@ -3,7 +3,7 @@ import numpy as np
 import numpy.typing as npt
 
 from DEM_src.utils import Mesh
-from DEM_src.domains import SideDomain
+from DEM_src.domains import SideDomain, CircleDomain
 
 
 def integrate(data: npt.NDArray[np.float64], mesh: Mesh) -> float:
@@ -41,12 +41,42 @@ def lerp(a, b, t: float):
     return a * t + b * (1 - t)
 
 
+def circular_integral(
+    data: torch.Tensor,
+    mesh: Mesh,
+    domain: CircleDomain,
+):
+    if data.shape != mesh.shape:
+        raise ValueError(
+            f"Got data with shape {data.shape}, "
+            + f"but it must have shape {mesh.shape}"
+        )
+
+    if domain.torch_areas is None:
+        raise ValueError(
+            "Tried to integrate over CircleDomain with torch_areas=None. "
+            + "You must give CircleDomain a device!"
+        )
+
+    center_data = (data[1:, 1:] + data[1:, :-1] + data[:-1, 1:] + data[:-1, :-1]) / 4
+
+    values = center_data[tuple(domain.indices.T)]
+
+    return torch.sum(values * domain.torch_areas)
+
+
 def boundary_integral(
     data: torch.Tensor,
-    dxdy: tuple[float, float],
+    mesh: Mesh,
     domain: SideDomain,
 ):
-    ds = dxdy[domain.side_index]
+    if data.shape != (np.prod(mesh.shape)):
+        raise ValueError(
+            f"Got data with shape {data.shape}, "
+            + f"but it must have shape {(np.prod(mesh.shape))}"
+        )
+
+    ds = mesh.dxdy[domain.side_index]
     boundary_data = data[domain.indices]
 
     left_correction, right_correction = 0.0, 0.0

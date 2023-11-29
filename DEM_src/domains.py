@@ -1,5 +1,6 @@
 import warnings
 
+import torch
 import numpy as np
 import numpy.typing as npt
 
@@ -52,17 +53,23 @@ class SideDomain:
 
 
 class CircleDomain:
-    def __init__(self, mesh: Mesh, circle: CircularRegion):
+    def __init__(
+        self, mesh: Mesh, circle: CircularRegion, device: torch.device | None = None
+    ):
         intersections = self.find_intersections(mesh, circle)
         self.indices, self.areas = self.find_areas(mesh, circle, intersections)
 
         analytial_area = self.get_analytical_area(circle)
         self.area_error = abs(np.sum(self.areas) - analytial_area) / analytial_area
-        if abs(np.sum(self.areas) - analytial_area) / analytial_area > 0.1:
+        if self.area_error > 0.1:
             warnings.warn(
                 f"CircleDomain has an error of {self.area_error*100:.2g} %, "
                 + "you should probably use a finer mesh"
             )
+
+        self.torch_areas: torch.Tensor | None = None
+        if device:
+            self.torch_areas = torch.from_numpy(self.areas).float().to(device)
 
     def get_analytical_area(self, circle: CircularRegion):
         return np.pi * circle.radius**2

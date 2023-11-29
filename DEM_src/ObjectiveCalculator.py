@@ -7,6 +7,7 @@ import torch
 import numpy as np
 import numpy.typing as npt
 
+from DEM_src.utils import Mesh
 from src.penalizers import Penalizer
 
 
@@ -15,10 +16,10 @@ class ObjectiveCalculator(ABC):
     A class that contains the logic to calculate integrals and derivatives numerically.
     """
 
-    def __init__(self, dxdy: tuple[float, float], penalizer: Penalizer):
-        self.dxdy = dxdy
+    def __init__(self, mesh: Mesh, penalizer: Penalizer):
+        self.mesh = mesh
         self.penalizer = penalizer
-        self.Jinv, self.detJ = self.calculate_jacobian(dxdy)
+        self.Jinv, self.detJ = self.calculate_jacobian(mesh.dxdy)
         self.shape_derivatives = self.get_shape_derivatives()
 
     def set_penalization(self, penalization: float):

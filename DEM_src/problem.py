@@ -13,13 +13,13 @@ from DEM_src.ObjectiveCalculator import ObjectiveCalculator
 class DEMProblem(Problem):
     def __init__(
         self,
-        domain: Mesh,
+        mesh: Mesh,
         device: torch.device,
         verbose: bool,
     ):
         super().__init__()
         self.verbose = verbose
-        self.domain = domain
+        self.mesh = mesh
         self.device = device
 
         dirichlet_enforcer, objective_calculator = self.create_dem_parameters()

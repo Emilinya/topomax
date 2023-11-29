@@ -14,8 +14,8 @@ from src.penalizers import FluidPenalizer
 
 
 class FluidEnergy(ObjectiveCalculator):
-    def __init__(self, dxdy: tuple[float, float], viscocity: float, gamma: float):
-        super().__init__(dxdy, FluidPenalizer())
+    def __init__(self, mesh: Mesh, viscocity: float, gamma: float):
+        super().__init__(mesh, FluidPenalizer())
         self.viscocity = viscocity
         self.gamma = gamma
 
@@ -68,13 +68,13 @@ class FluidProblem(DEMProblem):
 
     def __init__(
         self,
-        domain: Mesh,
+        mesh: Mesh,
         device: torch.device,
         verbose: bool,
         fluid_design: FluidDesign,
     ):
         self.design = fluid_design
-        super().__init__(domain, device, verbose)
+        super().__init__(mesh, device, verbose)
 
         self.objective_gradient: npt.NDArray[np.float64] | None = None
 
@@ -91,7 +91,7 @@ class FluidProblem(DEMProblem):
         assert isinstance(self.dem.objective_calculator, FluidEnergy)
 
         self.dem.objective_calculator.set_gamma(500)
-        objective, objective_gradient = self.dem.train_model(rho, self.domain)
+        objective, objective_gradient = self.dem.train_model(rho, self.mesh)
 
         objective = objective.cpu().detach().numpy()
         self.objective_gradient = objective_gradient.cpu().detach().numpy()
@@ -103,11 +103,9 @@ class FluidProblem(DEMProblem):
 
     def create_dem_parameters(self):
         dirichlet_enforcer = FluidEnforcer(
-            self.design.parameters, self.domain, self.device
+            self.design.parameters, self.mesh, self.device
         )
-        fluid_energy = FluidEnergy(
-            self.domain.dxdy, self.design.parameters.viscosity, 1
-        )
+        fluid_energy = FluidEnergy(self.mesh, self.design.parameters.viscosity, 1)
 
         return dirichlet_enforcer, fluid_energy
 

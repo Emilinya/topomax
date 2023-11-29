@@ -5,14 +5,14 @@ import numpy as np
 import numpy.typing as npt
 from scipy.sparse import csr_matrix
 
-from DEM_src.utils import Mesh
 from DEM_src.problem import DEMProblem
-from DEM_src.integrator import boundary_integral
+from DEM_src.utils import Mesh, unflatten
 from DEM_src.domains import SideDomain, CircleDomain
 from DEM_src.dirichlet_enforcer import ElasticityEnforcer
 from DEM_src.ObjectiveCalculator import ObjectiveCalculator
+from DEM_src.integrator import boundary_integral, circular_integral
 from DEM_src.DeepEnergyMethod import NNParameters, DeepEnergyMethod
-from designs.definitions import Traction, ElasticityDesign
+from designs.definitions import Force, Traction, ElasticityDesign
 from src.penalizers import ElasticPenalizer
 
 
@@ -22,20 +22,41 @@ class TractionPoints:
         self.domain = SideDomain(mesh, side, center, length)
 
 
+class BodyForce:
+    def __init__(self, mesh: Mesh, force: Force, device: torch.device):
+        self.value = force.value
+        self.domain = CircleDomain(mesh, force.region, device)
+
+
 def calculate_traction_integral(
     u: torch.Tensor,
-    dxdy: tuple[float, float],
+    mesh: Mesh,
     traction_points_list: list[TractionPoints],
 ):
     external_energy = torch.tensor(0.0)
 
-    for tps in traction_points_list:
-        tx, ty = tps.value
+    for traction_points in traction_points_list:
+        domain = traction_points.domain
+        tx, ty = traction_points.value
 
         if abs(tx) > 1e-14:
-            external_energy += boundary_integral(u[:, 0], dxdy, tps.domain) * tx
+            external_energy += boundary_integral(u[:, 0], mesh, domain) * tx
         if abs(ty) > 1e-14:
-            external_energy += boundary_integral(u[:, 1], dxdy, tps.domain) * ty
+            external_energy += boundary_integral(u[:, 1], mesh, domain) * ty
+
+    return external_energy
+
+
+def calculate_body_force_integral(u: torch.Tensor, mesh: Mesh, body_force: BodyForce):
+    external_energy = torch.tensor(0.0)
+
+    fx, fy = body_force.value
+    ux, uy = unflatten(u, mesh.shape)
+
+    if abs(fx) > 1e-14:
+        external_energy += circular_integral(ux, mesh, body_force.domain) * fx
+    if abs(fy) > 1e-14:
+        external_energy += circular_integral(uy, mesh, body_force.domain) * fy
 
     return external_energy
 
@@ -43,12 +64,14 @@ def calculate_traction_integral(
 class StrainEnergy(ObjectiveCalculator):
     def __init__(
         self,
-        dxdy: tuple[float, float],
+        mesh: Mesh,
+        body_force: BodyForce | None,
         Young_modulus: float,
         Poisson_ratio: float,
-        traction_points_list: list[TractionPoints],
+        traction_points_list: list[TractionPoints] | None,
     ):
-        super().__init__(dxdy, ElasticPenalizer())
+        super().__init__(mesh, ElasticPenalizer())
+        self.body_force = body_force
         self.traction_points_list = traction_points_list
         self.lamé_mu = Young_modulus / (2 * (1 + Poisson_ratio))
         self.lamé_lda = self.lamé_mu * Poisson_ratio / (0.5 - Poisson_ratio)
@@ -80,9 +103,15 @@ class StrainEnergy(ObjectiveCalculator):
             self.penalizer(density) * strain_energies * self.detJ
         )
 
-        external_energy = calculate_traction_integral(
-            u, self.dxdy, self.traction_points_list
-        )
+        external_energy = torch.zeros_like(internal_energy)
+        if self.traction_points_list is not None:
+            external_energy += calculate_traction_integral(
+                u, self.mesh, self.traction_points_list
+            )
+        if self.body_force is not None:
+            external_energy += calculate_body_force_integral(
+                u, self.mesh, self.body_force
+            )
 
         return internal_energy - external_energy
 
@@ -105,7 +134,7 @@ class ElasticityProblem(DEMProblem):
 
     def __init__(
         self,
-        domain: Mesh,
+        mesh: Mesh,
         device: torch.device,
         verbose: bool,
         input_filter: csr_matrix,
@@ -113,7 +142,7 @@ class ElasticityProblem(DEMProblem):
     ):
         self.filter = input_filter
         self.design = elasticity_design
-        super().__init__(domain, device, verbose)
+        super().__init__(mesh, device, verbose)
 
         self.objective_gradient: npt.NDArray[np.float64] | None = None
 
@@ -130,7 +159,7 @@ class ElasticityProblem(DEMProblem):
         rho_shape = rho.shape
         filtered_rho = self.filter @ rho.flatten()
 
-        objective, objective_gradient = self.dem.train_model(filtered_rho, self.domain)
+        objective, objective_gradient = self.dem.train_model(filtered_rho, self.mesh)
 
         objective = objective.cpu().detach().numpy()
         objective_gradient = objective_gradient.cpu().detach().numpy()
@@ -146,24 +175,25 @@ class ElasticityProblem(DEMProblem):
         ...
 
     def create_dem_parameters(self):
+        body_force = None
         if self.design.parameters.body_force:
-            circle_domain = CircleDomain(
-                self.domain, self.design.parameters.body_force.region
+            body_force = BodyForce(
+                self.mesh, self.design.parameters.body_force, self.device
             )
-            print(circle_domain.area_error * 100)
-            exit()
 
-        traction_points_list: list[TractionPoints] = []
+        traction_points_list: list[TractionPoints] | None = None
         if self.design.parameters.tractions:
+            traction_points_list = []
             for traction in self.design.parameters.tractions:
-                traction_points_list.append(TractionPoints(self.domain, traction))
+                traction_points_list.append(TractionPoints(self.mesh, traction))
 
         dirichlet_enforcer = ElasticityEnforcer(
-            self.design.parameters, self.domain, self.device
+            self.design.parameters, self.mesh, self.device
         )
 
         strain_energy = StrainEnergy(
-            self.domain.dxdy,
+            self.mesh,
+            body_force,
             self.design.parameters.young_modulus,
             self.design.parameters.poisson_ratio,
             traction_points_list,

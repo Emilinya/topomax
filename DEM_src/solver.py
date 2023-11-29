@@ -16,15 +16,15 @@ from DEM_src.elasisity_problem import ElasticityProblem
 from designs.definitions import FluidDesign, ElasticityDesign
 
 
-def create_density_filter(radius: float, domain: Mesh):
-    # we can't use domain.x_grid as it has shape (Nx+1, Ny+1)
-    x_ray = np.linspace(0, domain.length, domain.Nx)
-    y_ray = np.linspace(0, domain.height, domain.Ny)
+def create_density_filter(radius: float, mesh: Mesh):
+    # we can't use mesh.x_grid as it has shape (Nx+1, Ny+1)
+    x_ray = np.linspace(0, mesh.length, mesh.Nx)
+    y_ray = np.linspace(0, mesh.height, mesh.Ny)
     x_grid, y_grid = np.meshgrid(x_ray, y_ray)
     X = x_grid.flatten()
     Y = y_grid.flatten()
 
-    total = domain.Nx * domain.Ny
+    total = mesh.Nx * mesh.Ny
 
     wi, wj, wv = [], [], []
     for eid in range(total):
@@ -92,23 +92,23 @@ class DEMSolver(Solver):
             Nx = int(self.width * self.N)
             Ny = int(self.height * self.N)
 
-        self.domain = Mesh(Nx, Ny, self.width, self.height)
+        self.mesh = Mesh(Nx, Ny, self.width, self.height)
 
     def create_rho(self, volume_fraction: float):
-        return np.ones(self.domain.intervals) * volume_fraction
+        return np.ones(self.mesh.intervals) * volume_fraction
 
     def create_problem(self, design: FluidDesign | ElasticityDesign):
         if isinstance(design, FluidDesign):
             return FluidProblem(
-                self.domain,
+                self.mesh,
                 self.device,
                 self.verbose,
                 design,
             )
         if isinstance(design, ElasticityDesign):
-            control_filter = create_density_filter(0.25, self.domain)
+            control_filter = create_density_filter(0.25, self.mesh)
             return ElasticityProblem(
-                self.domain,
+                self.mesh,
                 self.device,
                 self.verbose,
                 control_filter,
@@ -127,10 +127,10 @@ class DEMSolver(Solver):
         rho[:, :] = values
 
     def integrate(self, values: npt.NDArray):
-        return integrate(values, self.domain)
+        return integrate(values, self.mesh)
 
     def save_rho(self, rho: npt.NDArray, file_root: str):
         np.save(
             f"{file_root}_rho.npy",
-            rho.reshape(self.domain.intervals),
+            rho.reshape(self.mesh.intervals),
         )

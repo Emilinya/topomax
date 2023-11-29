@@ -14,7 +14,7 @@ class DirichletEnforcer(ABC):
     def create_zero_enforcer(
         self,
         sides: list[Side],
-        domain: Mesh,
+        mesh: Mesh,
         device: torch.device,
         output_dimension: int,
     ):
@@ -22,8 +22,8 @@ class DirichletEnforcer(ABC):
         sides = sorted(list(set(sides)), key=lambda v: v.value)
 
         # normalize x- and y-values
-        flat_norm_x = domain.x_grid.T.flatten().reshape((-1, 1)) / domain.length
-        flat_norm_y = domain.y_grid.T.flatten().reshape((-1, 1)) / domain.height
+        flat_norm_x = mesh.x_grid.T.flatten().reshape((-1, 1)) / mesh.length
+        flat_norm_y = mesh.y_grid.T.flatten().reshape((-1, 1)) / mesh.height
 
         zero_enforcer = np.ones((flat_norm_x.size, output_dimension))
         for side in sides:
@@ -47,10 +47,10 @@ class DirichletEnforcer(ABC):
 
 class ElasticityEnforcer(DirichletEnforcer):
     def __init__(
-        self, parameters: ElasticityParameters, domain: Mesh, device: torch.device
+        self, parameters: ElasticityParameters, mesh: Mesh, device: torch.device
     ):
         self.zero_enforcer = self.create_zero_enforcer(
-            parameters.fixed_sides, domain, device, 2
+            parameters.fixed_sides, mesh, device, 2
         )
 
     def __call__(self, u: torch.Tensor):
@@ -59,7 +59,7 @@ class ElasticityEnforcer(DirichletEnforcer):
 
 class FluidEnforcer(DirichletEnforcer):
     def __init__(
-        self, fluid_parameters: FluidParameters, domain: Mesh, device: torch.device
+        self, fluid_parameters: FluidParameters, mesh: Mesh, device: torch.device
     ):
         flow_sides = [flow.side for flow in fluid_parameters.flows]
         if fluid_parameters.no_slip is None:
@@ -69,11 +69,11 @@ class FluidEnforcer(DirichletEnforcer):
             no_slips = fluid_parameters.no_slip
 
         self.zero_enforcer = self.create_zero_enforcer(
-            flow_sides + no_slips, domain, device, 2
+            flow_sides + no_slips, mesh, device, 2
         )
 
         self.flow_enforcer = self.create_flow_enforcer(
-            fluid_parameters.flows, domain, device
+            fluid_parameters.flows, mesh, device
         )
 
         if fluid_parameters.zero_pressure is not None:
@@ -96,29 +96,29 @@ class FluidEnforcer(DirichletEnforcer):
         return output
 
     def create_flow_enforcer(
-        self, flows: list[Flow], domain: Mesh, device: torch.device
+        self, flows: list[Flow], mesh: Mesh, device: torch.device
     ):
-        flow_enforcer_ux = np.zeros_like(domain.x_grid)
-        flow_enforcer_uy = np.zeros_like(domain.y_grid)
+        flow_enforcer_ux = np.zeros_like(mesh.x_grid)
+        flow_enforcer_uy = np.zeros_like(mesh.y_grid)
 
         for flow in flows:
             side, center, length, rate = flow.to_tuple()
 
             if side == Side.LEFT:
                 flow_enforcer_ux[:, 0] += self.get_flow(
-                    domain.y_grid[:, 0], center, length, rate
+                    mesh.y_grid[:, 0], center, length, rate
                 )
             elif side == Side.RIGHT:
                 flow_enforcer_ux[:, -1] -= self.get_flow(
-                    domain.y_grid[:, -1], center, length, rate
+                    mesh.y_grid[:, -1], center, length, rate
                 )
             elif side == Side.TOP:
                 flow_enforcer_uy[-1, :] -= self.get_flow(
-                    domain.x_grid[-1, :], center, length, rate
+                    mesh.x_grid[-1, :], center, length, rate
                 )
             elif side == Side.BOTTOM:
                 flow_enforcer_uy[0, :] = self.get_flow(
-                    domain.x_grid[0, :], center, length, rate
+                    mesh.x_grid[0, :], center, length, rate
                 )
             else:
                 raise ValueError(f"Unknown side: '{side}'")

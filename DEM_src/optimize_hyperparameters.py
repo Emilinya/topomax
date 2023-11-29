@@ -44,8 +44,8 @@ def hyperopt_main_generator(
         print(f"{'─'*left_width} {text} {'─'*right_width}")
 
         problem.dem.set_nn_parameters(nn_parameters)
-        problem.dem.train_model(rho, problem.domain)
-        loss = problem.dem.get_loss(rho, problem.domain)
+        problem.dem.train_model(rho, problem.mesh)
+        loss = problem.dem.get_loss(rho, problem.mesh)
 
         datafile.write(f"{x_var} - loss: {loss:.6g}\n")
         iteration_data["iteration"] += 1

@@ -54,13 +54,13 @@ class DeepEnergyMethod:
         self.model = self.model.to(self.device)
         self.nn_parameters = nn_parameters
 
-    def train_model(self, rho: npt.NDArray[np.float64], domain: Mesh):
-        x = torch.from_numpy(flatten([domain.x_grid, domain.y_grid])).float()
+    def train_model(self, rho: npt.NDArray[np.float64], mesh: Mesh):
+        x = torch.from_numpy(flatten([mesh.x_grid, mesh.y_grid])).float()
         x = x.to(self.device)
         x.requires_grad_(True)
 
         density = torch.from_numpy(rho).float()
-        density = torch.reshape(density, domain.intervals).to(self.device)
+        density = torch.reshape(density, mesh.intervals).to(self.device)
 
         optimizer_LBFGS = torch.optim.LBFGS(
             self.model.parameters(),
@@ -76,7 +76,7 @@ class DeepEnergyMethod:
 
                 # ---- Calculate internal and external energies------
                 loss = self.objective_calculator.calculate_potential_power(
-                    u_pred, domain.shape, density
+                    u_pred, mesh.shape, density
                 )
                 optimizer_LBFGS.zero_grad()
                 loss.backward()
@@ -107,28 +107,28 @@ class DeepEnergyMethod:
             print()
 
         return self.objective_calculator.calculate_objective_and_gradient(
-            self.get_u(x), domain.shape, density
+            self.get_u(x), mesh.shape, density
         )
 
-    def get_loss(self, rho: npt.NDArray[np.float64], domain: Mesh):
+    def get_loss(self, rho: npt.NDArray[np.float64], mesh: Mesh):
         density = torch.from_numpy(rho).float()
-        density = torch.reshape(density, domain.intervals).to(self.device)
+        density = torch.reshape(density, mesh.intervals).to(self.device)
 
-        u_pred = self.get_u(domain=domain)
+        u_pred = self.get_u(mesh=mesh)
         loss = self.objective_calculator.calculate_potential_power(
-            u_pred, domain.shape, density
+            u_pred, mesh.shape, density
         )
 
         return float(loss)
 
-    def get_u(self, x: torch.Tensor | None = None, domain: Mesh | None = None):
+    def get_u(self, x: torch.Tensor | None = None, mesh: Mesh | None = None):
         if x is None:
-            if domain is None:
+            if mesh is None:
                 raise ValueError(
-                    "get_u must get either x or domain, they can't both be None"
+                    "get_u must get either x or mesh, they can't both be None"
                 )
 
-            x = torch.from_numpy(flatten([domain.x_grid, domain.y_grid])).float()
+            x = torch.from_numpy(flatten([mesh.x_grid, mesh.y_grid])).float()
             x = x.to(self.device)
 
         return self.dirichlet_enforcer(self.model(x))
