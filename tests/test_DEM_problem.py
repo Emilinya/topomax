@@ -15,16 +15,16 @@ def compare_output(design):
     solver = DEMSolver(40, os.path.join("designs", f"{design}.json"))
 
     x = torch.from_numpy(
-        np.array([solver.domain.x_grid.T.flat, solver.domain.y_grid.T.flat]).T
+        np.array([solver.mesh.x_grid.T.flat, solver.mesh.y_grid.T.flat]).T
     ).float()
 
     density = torch.from_numpy(solver.rho).float()
-    density = torch.reshape(density, solver.domain.intervals)
+    density = torch.reshape(density, solver.mesh.intervals)
 
     solver.problem.set_penalization(solver.parameters.penalties[-1])
     objective_calculator = solver.problem.dem.objective_calculator
     objective, gradient = objective_calculator.calculate_objective_and_gradient(
-        x, solver.domain.shape, density
+        x, solver.mesh.shape, density
     )
 
     objective = float(objective)

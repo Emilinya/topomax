@@ -30,8 +30,8 @@ def linear(x_grid, y_grid):
     return [ux, uy]
 
 
-def linear_analytic(domain: Mesh):
-    w, h = domain.length, domain.height
+def linear_analytic(mesh: Mesh):
+    w, h = mesh.length, mesh.height
 
     return 2 * w * h * (2 + (w**2 + h**2) / 3)
 
@@ -43,8 +43,8 @@ def trig(x_grid, y_grid):
     return [ux, uy]
 
 
-def trig_analytic(domain: Mesh):
-    w, h = domain.length, domain.height
+def trig_analytic(mesh: Mesh):
+    w, h = mesh.length, mesh.height
 
     t1 = 24 * w * h - 4 * h * np.sin(2 * w) + h * np.sin(4 * w) + 4 * w * np.sin(2 * h)
     t2 = (np.sin(2 * w) - w) * np.sin(4 * h) + np.sin(4 * w) * np.sin(2 * h)
@@ -52,27 +52,27 @@ def trig_analytic(domain: Mesh):
     return (t1 + t2) / 8
 
 
-def compare(f, f_analytic, domain: Mesh, objective: ObjectiveCalculator):
-    u = torch.from_numpy(flatten(f(domain.x_grid, domain.y_grid))).float()
+def compare(f, f_analytic, mesh: Mesh, objective: ObjectiveCalculator):
+    u = torch.from_numpy(flatten(f(mesh.x_grid, mesh.y_grid))).float()
 
     numeric = float(
-        objective.calculate_potential_power(u, domain.shape, torch.ones_like(u))
+        objective.calculate_potential_power(u, mesh.shape, torch.ones_like(u))
     )
-    analytic = f_analytic(domain)
+    analytic = f_analytic(mesh)
 
     return abs(analytic - numeric)
 
 
 def test_evaluate():
     def linear_errfunc(N: int):
-        domain = Mesh(2 * N, 3 * N, 5, 2)
-        objective = DummyObjective(domain.dxdy, ElasticPenalizer())
-        return compare(linear, linear_analytic, domain, objective)
+        mesh = Mesh(2 * N, 3 * N, 5, 2)
+        objective = DummyObjective(mesh, ElasticPenalizer())
+        return compare(linear, linear_analytic, mesh, objective)
 
     def trig_errfunc(N: int):
-        domain = Mesh(2 * N, 3 * N, 5, 2)
-        objective = DummyObjective(domain.dxdy, ElasticPenalizer())
-        return compare(trig, trig_analytic, domain, objective)
+        mesh = Mesh(2 * N, 3 * N, 5, 2)
+        objective = DummyObjective(mesh, ElasticPenalizer())
+        return compare(trig, trig_analytic, mesh, objective)
 
     Ns = list(range(5, 100, 5))
     assert get_convergance(Ns, linear_errfunc) < -2
