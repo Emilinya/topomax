@@ -30,6 +30,9 @@ class FEMSolver(Solver):
     def get_name(self):
         return "FEM"
 
+    def get_step_size(self):
+        return self.parameters.fem_step_size
+
     def prepare_domain(self):
         self.mesh = df.Mesh(
             df.RectangleMesh(

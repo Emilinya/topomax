@@ -4,7 +4,8 @@
     "domain_parameters": {
       "width": 1.5,
       "height": 1.0,
-      "step_size": 0.0015,
+      "fem_step_size": 0.0015,
+      "dem_step_size": 0.00075,
       "penalties": [
         0.01,
         0.1

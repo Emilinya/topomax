@@ -55,17 +55,23 @@ class Solver(ABC):
         volume_fraction = self.parameters.volume_fraction
         self.volume = self.width * self.height * volume_fraction
 
+        self.step_size = self.get_step_size()
+
         self.prepare_domain()
         self.rho = self.create_rho(volume_fraction)
         self.problem = self.create_problem(design)
-
-        self.step_size_multiplier = 1
 
     @abstractmethod
     def get_name(self) -> str:
         """
         Returns the name of the solver, which defines
         the folder the output data is saved in.
+        """
+
+    @abstractmethod
+    def get_step_size(self) -> float:
+        """
+        Return self.parameters.fem_step_size or self.parameters.dem_step_size
         """
 
     @abstractmethod
@@ -145,8 +151,8 @@ class Solver(ABC):
         ntol = 1e-5
         return min(25 * (k + 1) * ntol, itol)
 
-    def step_size(self, k: int):
-        return self.parameters.step_size * (k + 1) * self.step_size_multiplier
+    def step_size_at_iter(self, k: int):
+        return self.step_size * (k + 1)
 
     def solve(self):
         """Solve the given topology optimization problem."""
@@ -190,7 +196,7 @@ class Solver(ABC):
                 timer.restart()
                 previous_psi = psi.copy()
                 try:
-                    psi = self.step(previous_psi, self.step_size(k))
+                    psi = self.step(previous_psi, self.step_size_at_iter(k))
                 except ValueError as e:
                     print(f"EXIT: {e}")
                     break

@@ -6,7 +6,8 @@ pub fn diffuser() -> Design {
         domain_parameters: DomainParameters {
             width: 1.0,
             height: 1.0,
-            step_size: 0.0015,
+            fem_step_size: 0.0015,
+            dem_step_size: 0.00075,
             penalties: vec![0.1],
             volume_fraction: 0.5,
         },

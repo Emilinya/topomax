@@ -6,7 +6,8 @@ pub fn twin_pipe() -> Design {
         domain_parameters: DomainParameters {
             width: 1.5,
             height: 1.0,
-            step_size: 0.0015,
+            fem_step_size: 0.0015,
+            dem_step_size: 0.00075,
             penalties: vec![0.01, 0.1],
             volume_fraction: 1.0 / 3.0,
         },

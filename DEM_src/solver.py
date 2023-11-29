@@ -72,14 +72,14 @@ class DEMSolver(Solver):
         self.verbose = verbose
         super().__init__(N, design_file, data_path, skip_multiple)
 
-        # why is this neccesary? idk
-        self.step_size_multiplier = 0.2
-
         # convince type checker that problem is indeed a DEM problem
         self.problem: DEMProblem = self.problem
 
     def get_name(self):
         return "DEM"
+
+    def get_step_size(self):
+        return self.parameters.dem_step_size
 
     def prepare_domain(self):
         if self.design_str == "bridge":
