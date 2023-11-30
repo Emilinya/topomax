@@ -7,7 +7,7 @@ pub fn cantilever() -> Design {
             width: 3.0,
             height: 1.0,
             fem_step_size: 25.0,
-            dem_step_size: 90_000.0,
+            dem_step_size: 75_000.0,
             penalties: vec![3.0],
             volume_fraction: 0.5,
         },

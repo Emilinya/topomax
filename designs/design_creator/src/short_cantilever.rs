@@ -4,10 +4,10 @@ pub fn short_cantilever() -> Design {
     return Design::Elasticity(ProblemDesign {
         objective: ElasticityObjective::MinimizeCompliance,
         domain_parameters: DomainParameters {
-            width: 10.0,
-            height: 5.0,
+            width: 2.0,
+            height: 1.0,
             fem_step_size: 5.0,
-            dem_step_size: 5.0,
+            dem_step_size: 2000.0,
             penalties: vec![3.0],
             volume_fraction: 0.4,
         },
@@ -16,11 +16,11 @@ pub fn short_cantilever() -> Design {
             body_force: None,
             tractions: Some(vec![Traction {
                 side: Side::Right,
-                center: 2.5,
-                length: 1.0 / 9.0,
-                value: (0.0, -2000.0),
+                center: 0.5,
+                length: 1.0 / 45.0,
+                value: (0.0, -1.0),
             }]),
-            young_modulus: 2e5,
+            young_modulus: 1.0,
             poisson_ratio: 0.3,
         },
     });

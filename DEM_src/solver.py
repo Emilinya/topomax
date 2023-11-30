@@ -82,15 +82,8 @@ class DEMSolver(Solver):
         return self.parameters.dem_step_size
 
     def prepare_domain(self):
-        if self.design_str == "bridge":
-            Nx = 120
-            Ny = 30
-        elif self.design_str == "short_cantilever":
-            Nx = 90
-            Ny = 45
-        else:
-            Nx = int(self.width * self.N)
-            Ny = int(self.height * self.N)
+        Nx = int(self.width * self.N)
+        Ny = int(self.height * self.N)
 
         self.mesh = Mesh(Nx, Ny, self.width, self.height)
 
