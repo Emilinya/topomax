@@ -28,7 +28,7 @@ def cleanup(output_folder):
 
 
 def test_fluid_solver(data_path, output_folder, cleanup):
-    solver = FEMSolver(20, "designs/diffuser.json", data_path=data_path, skip_multiple=999)
+    solver = FEMSolver(20, "designs/diffuser.json", data_path=data_path)
     solver.solve()
 
     solver_data = os.path.join(output_folder, "N=20_p=0.1_k=18.dat")

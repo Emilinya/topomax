@@ -28,9 +28,7 @@ def cleanup(output_folder):
 
 
 def test_elasticity_solver(data_path, output_folder, cleanup):
-    solver = FEMSolver(
-        10, "designs/triangle.json", data_path=data_path, skip_multiple=999
-    )
+    solver = FEMSolver(10, "designs/triangle.json", data_path=data_path)
     solver.solve()
 
     solver_data = os.path.join(output_folder, "N=10_p=3.0_k=22.dat")
