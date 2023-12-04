@@ -6,10 +6,10 @@ output/
 target/
 Cargo.lock
 
-elastic_deformation.py
-elastic_deformation.png
-
-fluid_flow.py
-fluid_flow.png
+external_energy_bug/
+misc/cint.py
+misc/elastic_deformation.py
+misc/fluid_flow.py
+misc/MMS.py
 
 
