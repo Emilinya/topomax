@@ -2,31 +2,33 @@
   "Elasticity": {
     "objective": "MinimizeCompliance",
     "domain_parameters": {
-      "width": 10.0,
+      "width": 15.0,
       "height": 5.0,
-      "fem_step_size": 5.0,
+      "fem_step_size": 0.001,
       "dem_step_size": 2.5,
       "penalties": [
         3.0
       ],
-      "volume_fraction": 0.4
+      "volume_fraction": 0.5
     },
     "problem_parameters": {
       "fixed_sides": [
         "Left"
       ],
-      "body_force": null,
-      "tractions": [
-        {
-          "side": "Right",
-          "center": 2.5,
-          "length": 0.1111111111111111,
-          "value": [
-            0.0,
-            -2000.0
-          ]
-        }
-      ],
+      "body_force": {
+        "region": {
+          "center": [
+            14.5,
+            2.5
+          ],
+          "radius": 0.25
+        },
+        "value": [
+          0.0,
+          -2000.0
+        ]
+      },
+      "tractions": null,
       "young_modulus": 200000.0,
       "poisson_ratio": 0.3
     }

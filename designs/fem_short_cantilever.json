@@ -2,10 +2,10 @@
   "Elasticity": {
     "objective": "MinimizeCompliance",
     "domain_parameters": {
-      "width": 10.0,
-      "height": 5.0,
+      "width": 2.0,
+      "height": 1.0,
       "fem_step_size": 5.0,
-      "dem_step_size": 2.5,
+      "dem_step_size": 2000.0,
       "penalties": [
         3.0
       ],
@@ -19,15 +19,15 @@
       "tractions": [
         {
           "side": "Right",
-          "center": 2.5,
-          "length": 0.1111111111111111,
+          "center": 0.5,
+          "length": 0.022222222222222223,
           "value": [
             0.0,
-            -2000.0
+            -1.0
           ]
         }
       ],
-      "young_modulus": 200000.0,
+      "young_modulus": 1.0,
       "poisson_ratio": 0.3
     }
   }
