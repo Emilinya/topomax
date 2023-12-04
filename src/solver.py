@@ -287,7 +287,7 @@ class Solver(ABC):
         if min_idx != len(objectives) - 1:
             print(
                 "\nWARNING: Final objective is not optimal. "
-                + f"Lowest objective was achived at interation {min_idx}, "
+                + f"Lowest objective was achived at iteration {min_idx}, "
                 + f"with a value of {objectives[min_idx]:.6g}."
             )
 
