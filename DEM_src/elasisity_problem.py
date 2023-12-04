@@ -90,7 +90,7 @@ class StrainEnergy(ObjectiveCalculator):
         identity = torch.eye(2).reshape((2, 2, 1, 1))
         σ = self.lamé_lda * div_u * identity + 2 * self.lamé_mu * ε
 
-        return [torch.einsum("ijkl,ijkl->kl", σ, ε)]
+        return [torch.sum(σ * ε, [0, 1])]
 
     def calculate_potential_power(
         self, u: torch.Tensor, shape: tuple[int, int], density: torch.Tensor

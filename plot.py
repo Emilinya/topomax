@@ -76,7 +76,7 @@ def plot_design(
     design: str,
     data_path: str,
     N: int,
-    p: float,
+    p: str,
     k: int,
     cmap: colors.Colormap,
 ):
@@ -93,10 +93,10 @@ def plot_design(
 
     plt.xlabel("$x$ []")
     plt.ylabel("$y$ []")
-    plt.title(f"{N=}, p={p:.5g}, k={k:.5g}, objective={objective:.3g}")
+    plt.title(f"{N=}, p={float(p):.5g}, k={k:.5g}, objective={objective:.3g}")
 
     output_file = (
-        os.path.join("output", solver, design, "figures", f"{N=}_{p=}_{k=}") + ".png"
+        os.path.join("output", solver, design, "figures", f"{N=}_p={p}_{k=}") + ".png"
     )
     os.makedirs(os.path.dirname(output_file), exist_ok=True)
     plt.savefig(output_file, dpi=200, bbox_inches="tight")
@@ -107,7 +107,7 @@ def multiplot(
     solver: str,
     design: str,
     N: int,
-    p: float,
+    p: str,
     vals: list[tuple[str, int]],
     cmap: colors.Colormap,
 ):
@@ -140,7 +140,7 @@ def multiplot(
 
     fig.colorbar(pcolormesh, ax=axss[:, -1], shrink=0.8, label=r"$\rho(x, y)$ []")
     output_file = os.path.join(
-        "output", solver, design, "figures", f"{N=}_{p=}_multi.png"
+        "output", solver, design, "figures", f"{N=}_p={p}_multi.png"
     )
     plt.savefig(output_file, dpi=200, bbox_inches="tight")
 
@@ -171,7 +171,7 @@ def reduce_length(long_list: list, desired_length: int):
 
 def get_designs(solver: str, selected_designs: list[str] | None):
     # designs = {design: {N: {p: [(data_path, k)]}}}
-    designs: dict[str, dict[int, dict[float, list[tuple[str, int]]]]] = {}
+    designs: dict[str, dict[int, dict[str, list[tuple[str, int]]]]] = {}
 
     for design in os.listdir(os.path.join("output", solver)):
         if selected_designs is not None and design not in selected_designs:
@@ -188,12 +188,14 @@ def get_designs(solver: str, selected_designs: list[str] | None):
             if not os.path.isfile(data_path):
                 continue
 
-            N_str, p_str, k_str, *other = data[:-4].split("_")
-            if other != []:
+            N_str, p_str, *rest = data[:-4].split("_")
+            if len(rest) > 1 or rest[0] == "result":
                 continue
 
+            k_str = rest[0]
+
             N = int(N_str.split("=")[1])
-            p = float(p_str.split("=")[1])
+            p = p_str.split("=")[1]
             k = int(k_str.split("=")[1])
 
             designs[design][N] = designs[design].get(N, {})
@@ -205,7 +207,7 @@ def get_designs(solver: str, selected_designs: list[str] | None):
 
 def plot_designs(
     solver: str,
-    designs: dict[str, dict[int, dict[float, list[tuple[str, int]]]]],
+    designs: dict[str, dict[int, dict[str, list[tuple[str, int]]]]],
     fluid_cmap: colors.Colormap,
     elasticity_cmap: colors.Colormap,
 ):
@@ -265,6 +267,9 @@ def main():
         solvers = all_solvers
 
     for solver in solvers:
+        if not os.path.isdir(os.path.join("output", solver)):
+            continue
+
         designs = get_designs(solver, selected_designs)
         plot_designs(solver, designs, traa_cmap, highlight_cmap)
 

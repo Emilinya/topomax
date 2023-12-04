@@ -11,8 +11,8 @@ def data_path(design):
     return os.path.join("tests", "test_data", "DEM", design, "problem_data.dat")
 
 
-def compare_output(design):
-    solver = DEMSolver(40, os.path.join("designs", f"{design}.json"))
+def compare_output(design, N):
+    solver = DEMSolver(N, os.path.join("designs", f"{design}.json"))
 
     x = torch.from_numpy(
         np.array([solver.mesh.x_grid.T.flat, solver.mesh.y_grid.T.flat]).T
@@ -39,5 +39,5 @@ def compare_output(design):
 
 
 def test_elasticity_problem():
-    compare_output("short_cantilever")
-    compare_output("bridge")
+    compare_output("short_cantilever", 9)
+    compare_output("bridge", 15)

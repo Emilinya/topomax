@@ -61,6 +61,8 @@ class Solver(ABC):
         self.rho = self.create_rho(volume_fraction)
         self.problem = self.create_problem(design)
 
+        self.penalty_formatter = self.get_penalty_formatter(self.parameters.penalties)
+
     @abstractmethod
     def get_name(self) -> str:
         """
@@ -110,6 +112,19 @@ class Solver(ABC):
         is equal to {output_folder}/{N=}_{p=}_{k=}
         """
 
+    def get_penalty_formatter(self, penalties: list[float]):
+        padding_values = np.array(
+            [[len(v) for v in str(p).split(".")] for p in penalties]
+        )
+        left_pad = np.max(padding_values[:, 0])
+        right_pad = np.max(padding_values[:, 1])
+
+        def penalty_formatter(penalty: float):
+            left = len(str(penalty).split(".", maxsplit=1)[0])
+            return f"{'0'*(left_pad-left)}{penalty:.{right_pad}f}"
+
+        return penalty_formatter
+
     def project(self, half_step: npt.NDArray, volume: float):
         """
         Project half_step so the volume constraint is fulfilled
@@ -152,6 +167,10 @@ class Solver(ABC):
         return min(25 * (k + 1) * ntol, itol)
 
     def step_size_at_iter(self, k: int):
+        # this is a bit hacky, fix this?
+        if len(self.parameters.penalties) > 1:
+            return self.step_size * min((k + 1), 10)
+
         return self.step_size * (k + 1)
 
     def solve(self):
@@ -166,7 +185,8 @@ class Solver(ABC):
             ColumnType.TIME,
             ColumnType.TOTAL_TIME,
         ]
-        timer = Timer()
+        total_timer = Timer()
+        objective_timer = Timer()
 
         psi = logit(self.to_array(self.rho))
         previous_psi = None
@@ -179,10 +199,12 @@ class Solver(ABC):
             print(f"{f'Penalty: {constrain(penalty, 6)}':^{title_length - 6}}")
             printer.print_title()
 
-            timer.restart()
+            objective_timer.restart()
             objectives = [self.problem.calculate_objective(self.rho)]
-            printer.set_time(timer.get_time_seconds())
+            times = [objective_timer.get_time_seconds()]
+
             printer.set_objective(objectives[0])
+            printer.set_time(times[0])
 
             k = 0
             for k in range(100):
@@ -191,9 +213,9 @@ class Solver(ABC):
                 printer.print_values()
 
                 if k % self.skip_multiple == 0:
-                    self.save_data(self.rho, objectives[-1], k, penalty)
+                    self.save_iteration(self.rho, objectives[-1], k, penalty)
 
-                timer.restart()
+                objective_timer.restart()
                 previous_psi = psi.copy()
                 try:
                     psi = self.step(previous_psi, self.step_size_at_iter(k))
@@ -204,13 +226,21 @@ class Solver(ABC):
                 self.set_from_array(self.rho, expit(psi))
 
                 objectives.append(self.problem.calculate_objective(self.rho))
-                printer.set_time(timer.get_time_seconds())
+                times.append(objective_timer.get_time_seconds())
+
                 printer.set_objective(objectives[-1])
+                printer.set_time(times[-1])
 
                 if np.isnan(objectives[-1]):
                     printer.set_iteration(k + 1)
                     printer.print_values()
                     print("EXIT: Objective is NaN!")
+                    break
+
+                if objectives[-1] > 2 * min(objectives):
+                    printer.set_iteration(k + 1)
+                    printer.print_values()
+                    print("EXIT: Objective is increasing!")
                     break
 
                 difference = np.sqrt(
@@ -227,10 +257,15 @@ class Solver(ABC):
                 printer.print_values()
                 print("EXIT: Iteration did not converge")
 
-            self.save_data(self.rho, objectives[-1], k + 1, penalty)
+            self.save_iteration(self.rho, objectives[-1], k + 1, penalty)
+            self.save_result(objectives, times, penalty)
 
-    def save_data(self, rho, objective: float, k: int, penalty: float):
-        file_root = f"{self.output_folder}/N={self.N}_p={penalty}_{k=}"
+        print(f"\nTopology optimization took {total_timer.get_time_string()}")
+
+    def save_iteration(self, rho, objective: float, k: int, penalty: float):
+        penalty_str = self.penalty_formatter(penalty)
+
+        file_root = f"{self.output_folder}/N={self.N}_p={penalty_str}_{k=}"
         os.makedirs(os.path.dirname(file_root), exist_ok=True)
 
         self.save_rho(rho, file_root)
@@ -240,6 +275,27 @@ class Solver(ABC):
             "iteration": k,
             "penalty": penalty,
             "domain_size": (self.width, self.height),
+        }
+        with open(f"{file_root}.dat", "wb") as datafile:
+            pickle.dump(data, datafile)
+
+    def save_result(self, objectives: list[float], times: list[float], penalty: float):
+        penalty_str = self.penalty_formatter(penalty)
+        file_root = f"{self.output_folder}/N={self.N}_p={penalty_str}_result"
+
+        min_idx = np.argmin(objectives)
+        if min_idx != len(objectives) - 1:
+            print(
+                "\nWARNING: Final objective is not optimal. "
+                + f"Lowest objective was achived at interation {min_idx}, "
+                + f"with a value of {objectives[min_idx]:.6g}."
+            )
+
+        data = {
+            "min_objective": objectives[min_idx],
+            "objectives": objectives,
+            "min_idx": min_idx,
+            "times": times,
         }
         with open(f"{file_root}.dat", "wb") as datafile:
             pickle.dump(data, datafile)
