@@ -254,6 +254,7 @@ class Solver(ABC):
                     print("EXIT: Optimal solution found")
                     break
             else:
+                printer.set_iteration(k + 1)
                 printer.print_values()
                 print("EXIT: Iteration did not converge")
 
