@@ -6,7 +6,7 @@ pub fn bridge() -> Design {
         domain_parameters: DomainParameters {
             width: 12.0,
             height: 2.0,
-            fem_step_size: 0.4,
+            fem_step_size: 0.001,
             dem_step_size: 0.4,
             penalties: vec![3.0],
             volume_fraction: 0.4,
