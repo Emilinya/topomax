@@ -46,14 +46,13 @@ def get_design(N: int, design_file: str):
     design = os.path.splitext(os.path.basename(design_file))[0]
     data_folder = os.path.join("output", solver, design, "data")
 
-    design_path = ""
-    max_k = 0
+    data_dict: dict[float, tuple[int, str]] = {}
 
     if not os.path.isdir(data_folder):
         raise ValueError(f"{data_folder} is not a directory!")
 
     for data_file in os.listdir(data_folder):
-        N_str, _p_str, *rest = data_file[:-4].split("_")
+        N_str, p_str, *rest = data_file[:-4].split("_")
         if len(rest) > 1 or rest[0] == "result":
             continue
 
@@ -61,10 +60,15 @@ def get_design(N: int, design_file: str):
 
         data_N = int(N_str.split("=")[1])
         data_k = int(k_str.split("=")[1])
+        data_p = float(p_str.split("=")[1])
 
-        if data_N == N and data_k > max_k:
-            design_path = os.path.join(data_folder, data_file)
-            max_k = data_k
+        if data_N == N:
+            max_k, _ = data_dict.get(data_p, (0, ""))
+            if data_k > max_k:
+                design_path = os.path.join(data_folder, data_file)
+                data_dict[data_p] = (data_k, design_path)
+
+    _, design_path = data_dict[max(data_dict)]
 
     with open(design_path, "rb") as datafile:
         data_obj = pickle.load(datafile)
@@ -78,7 +82,11 @@ def get_design(N: int, design_file: str):
     return design, objective, DEMDesign((w, h), data, N)
 
 
-def plot_projection(design, rho, big_N, domain_size):
+def plot_projection(design, rho, big_N, domain_size, dem_objective, fem_objective):
+    w, h = domain_size
+    fig = plt.figure(figsize=(6.4 * w / h, 4.8))
+    plt.rcParams.update({"font.size": 10 * np.sqrt(w / h)})
+
     cmap = create_cmap((1, 1, 1), (1, 0, 0), (0, 0, 0), "highlight")
     (x_ray, y_ray), rho_grid = sample_function(rho, big_N, "center")
     plt.pcolormesh(x_ray, y_ray, rho_grid[:, :, 0], vmin=0, vmax=1, cmap=cmap)
@@ -88,10 +96,13 @@ def plot_projection(design, rho, big_N, domain_size):
     plt.ylim(0, domain_size[1])
     plt.gca().set_aspect("equal", "box")
 
+    plt.title(f"DEM: {dem_objective:.5g}, FEM: {fem_objective:.5g}")
+
     out_path = f"misc/output/projections/{design}.png"
     os.makedirs(os.path.dirname(out_path), exist_ok=True)
 
     plt.savefig(out_path, dpi=200, bbox_inches="tight")
+    plt.close(fig)
 
 
 def main(N: int, design_file: str):
@@ -101,13 +112,19 @@ def main(N: int, design_file: str):
 
     solver = FEMSolver(big_N, design_file)
 
-    solver.problem.set_penalization(solver.parameters.penalties[0])
+    solver.problem.set_penalization(max(solver.parameters.penalties))
     rho = df.project(dem_design, solver.control_space)
     fem_objective = solver.problem.calculate_objective(rho)
 
-    plot_projection(design, rho, big_N, (dem_design.width, dem_design.height))
+    plot_projection(
+        design,
+        rho,
+        big_N,
+        (dem_design.width, dem_design.height),
+        dem_objective,
+        fem_objective,
+    )
 
-    print(f"{design_file}, {N=}")
     print(
         f"DEM got an objective of {dem_objective:.6g}, but FEM gives {fem_objective:.6g}"
     )
