@@ -5,12 +5,12 @@ from src.utils import Timer, constrain
 
 
 class ColumnType(Enum):
-    TIME = "   Time   "
+    TIME = "     Time     "
     ITERATION = "Iteration"
     OBJECTIVE = "Objective"
     DELRA_RHO = "    Δρ    "
     TOLERANCE = "Tolerance"
-    TOTAL_TIME = "Total time"
+    TOTAL_TIME = "  Total time  "
     DELTA_OBJECTIVE = "ΔObjective"
 
 
@@ -49,8 +49,12 @@ class Printer:
 
     def set_time(self, seconds: float):
         self.total_time += seconds
-        self.value_map[ColumnType.TOTAL_TIME] = self.short_time(self.total_time, 10)
-        self.value_map[ColumnType.TIME] = self.short_time(seconds, 10)
+        self.value_map[ColumnType.TOTAL_TIME] = self.short_time(
+            self.total_time, len(ColumnType.TOTAL_TIME.value)
+        )
+        self.value_map[ColumnType.TIME] = self.short_time(
+            seconds, len(ColumnType.TIME.value)
+        )
 
     def short_time(self, seconds: float, limit: int):
         full_time = Timer.prettify_seconds(seconds)
