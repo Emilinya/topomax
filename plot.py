@@ -1,6 +1,7 @@
 import os
 import sys
 import pickle
+from dataclasses import dataclass
 from typing import Literal, Sequence
 
 from tqdm import tqdm
@@ -14,6 +15,48 @@ from matplotlib.collections import QuadMesh
 from designs.definitions import ProblemType
 from designs.design_parser import parse_design
 from FEM_src.utils import load_function, sample_function
+
+
+@dataclass
+class Result:
+    min_objective: float
+    objectives: list[float]
+    min_idx: int
+    times: list[float]
+
+    @classmethod
+    def from_dict(cls, parameter_dict: dict):
+        return cls(
+            parameter_dict["min_objective"],
+            parameter_dict["objectives"],
+            parameter_dict["min_idx"],
+            parameter_dict["times"],
+        )
+
+
+@dataclass
+class DataFile:
+    k: int
+    data_path: str
+
+
+@dataclass
+class PData:
+    p: str
+    files: list[DataFile]
+    result: Result
+
+
+@dataclass
+class NData:
+    N: int
+    p_datas: dict[str, PData]
+
+
+@dataclass
+class DesignData:
+    design: str
+    N_datas: dict[int, NData]
 
 
 def create_cmap(start, middle, end, name):
@@ -40,7 +83,7 @@ def create_cmap(start, middle, end, name):
 
 
 def get_design_data(
-    solver: str, data_path: str
+    solver: str, data_path: str, points: int
 ) -> tuple[npt.NDArray[np.float64], float, float, float]:
     with open(data_path, "rb") as datafile:
         data_obj = pickle.load(datafile)
@@ -52,7 +95,7 @@ def get_design_data(
     if solver == "FEM":
         rho_path = data_root + "_rho.dat"
         rho, *_ = load_function(rho_path)
-        _, data = sample_function(rho, 200 / min(w, h), "center")
+        _, data = sample_function(rho, points / min(w, h), "center")
         data = data[:, :, 0]
     else:
         rho_path = data_root + "_rho.npy"
@@ -64,6 +107,7 @@ def get_design_data(
 def create_design_figure(
     ax: Axes, data: np.ndarray, w: float, h: float, N: int, cmap: colors.Colormap
 ):
+    N = int(N / min(w, h))
     multiple = int(np.sqrt(data.size / (w * h * N**2)))
     Nx, Ny = int(N * w * multiple), int(N * h * multiple)
 
@@ -80,7 +124,7 @@ def plot_design(
     k: int,
     cmap: colors.Colormap,
 ):
-    data, objective, w, h = get_design_data(solver, data_path)
+    data, objective, w, h = get_design_data(solver, data_path, 200)
 
     plt.figure(figsize=(6.4 * w / h, 4.8))
     plt.rcParams.update({"font.size": 10 * np.sqrt(w / h)})
@@ -108,10 +152,10 @@ def multiplot(
     design: str,
     N: int,
     p: str,
-    vals: list[tuple[str, int]],
+    vals: list[DataFile],
     cmap: colors.Colormap,
 ):
-    *_, w, h = get_design_data(solver, vals[0][0])
+    *_, w, h = get_design_data(solver, vals[0].data_path, 1)
     fig, axss = plt.subplots(
         2,
         3,
@@ -128,14 +172,14 @@ def multiplot(
         vals[5] = vals[-1]
 
     pcolormesh: QuadMesh | None = None
-    for ax, (data_path, k) in zip(axss.flat, vals):
+    for ax, data_file in zip(axss.flat, vals):
         assert isinstance(ax, Axes)
 
         ax.axis("off")
         ax.set_aspect("equal", "box")
-        data, _, w, h = get_design_data(solver, data_path)
+        data, _, w, h = get_design_data(solver, data_file.data_path, 100)
         pcolormesh = create_design_figure(ax, data, w, h, N, cmap)
-        ax.set_title(f"${k=}$")
+        ax.set_title(f"$k={data_file.k}$")
     assert pcolormesh is not None
 
     fig.colorbar(pcolormesh, ax=axss[:, -1], shrink=0.8, label=r"$\rho(x, y)$ []")
@@ -170,8 +214,7 @@ def reduce_length(long_list: list, desired_length: int):
 
 
 def get_designs(solver: str, selected_designs: list[str] | None):
-    # designs = {design: {N: {p: [(data_path, k)]}}}
-    designs: dict[str, dict[int, dict[str, list[tuple[str, int]]]]] = {}
+    designs: list[DesignData] = []
 
     for design in os.listdir(os.path.join("output", solver)):
         if selected_designs is not None and design not in selected_designs:
@@ -181,7 +224,7 @@ def get_designs(solver: str, selected_designs: list[str] | None):
         if not os.path.isdir(data_folder):
             continue
 
-        designs[design] = designs.get(design, {})
+        designs.append(DesignData(design, {}))
 
         for data in os.listdir(data_folder):
             data_path = os.path.join(data_folder, data)
@@ -198,46 +241,63 @@ def get_designs(solver: str, selected_designs: list[str] | None):
             p = p_str.split("=")[1]
             k = int(k_str.split("=")[1])
 
-            designs[design][N] = designs[design].get(N, {})
-            designs[design][N][p] = designs[design][N].get(p, [])
-            designs[design][N][p].append((data_path, k))
+            design_data = designs[-1]
+            if not design_data.N_datas.get(N):
+                design_data.N_datas[N] = NData(N, {})
+
+            N_data = design_data.N_datas[N]
+            if not N_data.p_datas.get(p):
+                result_file = os.path.join(data_folder, f"{N=}_p={p}_result.dat")
+                with open(result_file, "rb") as datafile:
+                    results = pickle.load(datafile)
+                N_data.p_datas[p] = PData(p, [], Result.from_dict(results))
+
+            N_data.p_datas[p].files.append(DataFile(k, data_path))
 
     return designs
 
 
 def plot_designs(
     solver: str,
-    designs: dict[str, dict[int, dict[str, list[tuple[str, int]]]]],
+    designs: list[DesignData],
     fluid_cmap: colors.Colormap,
     elasticity_cmap: colors.Colormap,
 ):
     plot_count = 0
-    for design_dict in designs.values():
-        for ps in design_dict.values():
-            for ks in ps.values():
-                ks.sort(key=lambda v: v[1])
-                ks[:] = reduce_length(ks, 6)
+    for design_data in designs:
+        for N_data in design_data.N_datas.values():
+            for p_data in N_data.p_datas.values():
+                p_data.files.sort(key=lambda v: v.k)
 
-                plot_count += len(ks) + 1
+                min_idx = p_data.result.min_idx
+                if min_idx != (len(p_data.files) - 1):
+                    p_data.files = p_data.files[: min_idx + 1]
+
+                p_data.files = reduce_length(p_data.files, 6)
+
+                plot_count += len(p_data.files) + 1
 
     # we have no designs :(
     if plot_count == 0:
         return
 
     with tqdm(total=plot_count) as pbar:
-        for design, design_dict in designs.items():
+        for design_data in designs:
+            design = design_data.design
+
             parameters, *_ = parse_design(os.path.join("designs", design) + ".json")
             if parameters.problem == ProblemType.FLUID:
                 cmap = fluid_cmap
             else:
                 cmap = elasticity_cmap
 
-            for N, ps in design_dict.items():
-                for p, ks in ps.items():
-                    for data_path, k in ks:
+            for N, N_data in design_data.N_datas.items():
+                for p, p_data in N_data.p_datas.items():
+                    for data_file in p_data.files:
+                        data_path, k = data_file.data_path, data_file.k
                         plot_design(solver, design, data_path, N, p, k, cmap)
                         pbar.update(1)
-                    multiplot(solver, design, N, p, ks, cmap)
+                    multiplot(solver, design_data.design, N, p, p_data.files, cmap)
                     pbar.update(1)
 
 

@@ -41,7 +41,7 @@ class Solver(ABC):
     """
 
     def __init__(self, N: int, design_file: str, data_path="output", skip_multiple=1):
-        self.N = N
+        self.full_N = N
         self.design_file = design_file
         self.design_str = os.path.splitext(os.path.basename(design_file))[0]
         self.output_folder = f"{data_path}/{self.get_name()}/{self.design_str}/data"
@@ -51,6 +51,10 @@ class Solver(ABC):
 
         self.width = self.parameters.width
         self.height = self.parameters.height
+
+        # we want N to be the number of elements in a unit length
+        self.N = int(self.full_N / min(self.width, self.height))
+        self.full_N = int(self.N * min(self.width, self.height))
 
         volume_fraction = self.parameters.volume_fraction
         self.volume = self.width * self.height * volume_fraction
@@ -266,7 +270,7 @@ class Solver(ABC):
     def save_iteration(self, rho, objective: float, k: int, penalty: float):
         penalty_str = self.penalty_formatter(penalty)
 
-        file_root = f"{self.output_folder}/N={self.N}_p={penalty_str}_{k=}"
+        file_root = f"{self.output_folder}/N={self.full_N}_p={penalty_str}_{k=}"
         os.makedirs(os.path.dirname(file_root), exist_ok=True)
 
         self.save_rho(rho, file_root)
@@ -282,7 +286,7 @@ class Solver(ABC):
 
     def save_result(self, objectives: list[float], times: list[float], penalty: float):
         penalty_str = self.penalty_formatter(penalty)
-        file_root = f"{self.output_folder}/N={self.N}_p={penalty_str}_result"
+        file_root = f"{self.output_folder}/N={self.full_N}_p={penalty_str}_result"
 
         min_idx = np.argmin(objectives)
         if min_idx != len(objectives) - 1:
