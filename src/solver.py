@@ -207,13 +207,13 @@ class Solver(ABC):
             objectives = [self.problem.calculate_objective(self.rho)]
             times = [objective_timer.get_time_seconds()]
 
+            printer.set_tolerance(self.tolerance(0))
             printer.set_objective(objectives[0])
             printer.set_time(times[0])
+            printer.set_iteration(0)
 
             k = 0
             for k in range(100):
-                printer.set_tolerance(self.tolerance(k))
-                printer.set_iteration(k)
                 printer.print_values()
 
                 if k % self.skip_multiple == 0:
@@ -232,17 +232,17 @@ class Solver(ABC):
                 objectives.append(self.problem.calculate_objective(self.rho))
                 times.append(objective_timer.get_time_seconds())
 
+                printer.set_tolerance(self.tolerance(k + 1))
                 printer.set_objective(objectives[-1])
+                printer.set_iteration(k + 1)
                 printer.set_time(times[-1])
 
                 if np.isnan(objectives[-1]):
-                    printer.set_iteration(k + 1)
                     printer.print_values()
                     print("EXIT: Objective is NaN!")
                     break
 
                 if objectives[-1] > 2 * min(objectives):
-                    printer.set_iteration(k + 1)
                     printer.print_values()
                     print("EXIT: Objective is increasing!")
                     break
@@ -253,12 +253,10 @@ class Solver(ABC):
                 printer.set_delta_rho(difference)
 
                 if difference < self.tolerance(k):
-                    printer.set_iteration(k + 1)
                     printer.print_values()
-                    print("EXIT: Optimal solution found")
+                    print("EXIT: Convergence treshold reached")
                     break
             else:
-                printer.set_iteration(k + 1)
                 printer.print_values()
                 print("EXIT: Iteration did not converge")
 
