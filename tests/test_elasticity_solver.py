@@ -28,13 +28,15 @@ def cleanup(output_folder):
 
 
 def test_elasticity_solver(data_path, output_folder, cleanup):
-    solver = FEMSolver(10, "designs/triangle.json", data_path=data_path)
+    solver = FEMSolver(
+        10, "designs/triangle.json", data_path=data_path, skip_multiple=999
+    )
     solver.solve()
 
-    solver_data = os.path.join(output_folder, "N=10_p=3.0_k=22.dat")
+    solver_data = os.path.join(output_folder, "N=10_p=3.0_k=24.dat")
     assert os.path.isfile(solver_data)
 
-    solver_rho = os.path.join(output_folder, "N=10_p=3.0_k=22_rho.dat")
+    solver_rho = os.path.join(output_folder, "N=10_p=3.0_k=24_rho.dat")
     assert os.path.isfile(solver_rho)
 
     with open(solver_data, "rb") as datafile:

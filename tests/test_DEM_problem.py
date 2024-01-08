@@ -39,5 +39,5 @@ def compare_output(design, N):
 
 
 def test_elasticity_problem():
-    compare_output("short_cantilever", 9)
-    compare_output("bridge", 15)
+    compare_output("short_cantilever", 45)
+    compare_output("bridge", 30)
