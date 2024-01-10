@@ -3,10 +3,10 @@ from __future__ import annotations
 import torch
 import numpy as np
 import numpy.typing as npt
-from scipy.sparse import csr_matrix
 
 from DEM_src.problem import DEMProblem
 from DEM_src.utils import Mesh, unflatten
+from DEM_src.filter import create_density_filter
 from DEM_src.domains import SideDomain, CircleDomain
 from DEM_src.dirichlet_enforcer import ElasticityEnforcer
 from DEM_src.ObjectiveCalculator import ObjectiveCalculator
@@ -137,13 +137,12 @@ class ElasticityProblem(DEMProblem):
         mesh: Mesh,
         device: torch.device,
         verbose: bool,
-        input_filter: csr_matrix,
         elasticity_design: ElasticityDesign,
     ):
-        self.filter = input_filter
         self.design = elasticity_design
         super().__init__(mesh, device, verbose)
 
+        self.filter = create_density_filter(0.25, self.mesh)
         self.objective_gradient: npt.NDArray[np.float64] | None = None
 
     def calculate_objective_gradient(self):

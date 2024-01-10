@@ -1,18 +1,9 @@
 from __future__ import annotations
-from abc import ABC, abstractmethod
 
 import dolfin as df
 
 
-class Filter(ABC):
-    """A class that filters a given design function to remove high frequency elements."""
-
-    @abstractmethod
-    def apply(self, input_function, function_space=None) -> df.Function:
-        ...
-
-
-class HelmholtzFilter(Filter):
+class HelmholtzFilter:
     """
     A filter what uses the equation -ε²Δξ + ξ = ρ,
     where ρ is the input and ξ is the output, to filter a function

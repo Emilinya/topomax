@@ -3,9 +3,9 @@ from __future__ import annotations
 import numpy as np
 import dolfin as df
 
-from FEM_src.filter import Filter
 from FEM_src.problem import FEMProblem
 from FEM_src.domains import SidesDomain
+from FEM_src.filter import HelmholtzFilter
 from src.penalizers import ElasticPenalizer
 from designs.definitions import (
     DomainParameters,
@@ -80,12 +80,11 @@ class ElasticityProblem(FEMProblem):
         mesh: df.Mesh,
         design: ElasticityDesign,
         parameters: DomainParameters,
-        input_filter: Filter,
     ):
         self.design = design
         super().__init__(mesh, parameters)
 
-        self.filter = input_filter
+        self.filter = HelmholtzFilter(epsilon=0.02)
         self.Young_modulus = design.parameters.young_modulus
         self.Poisson_ratio = design.parameters.poisson_ratio
         self.penalizer: ElasticPenalizer = ElasticPenalizer()

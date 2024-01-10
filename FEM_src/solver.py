@@ -4,7 +4,6 @@ import numpy.typing as npt
 from src.solver import Solver
 from FEM_src.problem import FEMProblem
 from FEM_src.utils import save_function
-from FEM_src.filter import HelmholtzFilter
 from FEM_src.fluid_problem import FluidProblem
 from FEM_src.elasisity_problem import ElasticityProblem
 from designs.definitions import FluidDesign, ElasticityDesign
@@ -56,8 +55,7 @@ class FEMSolver(Solver):
         if isinstance(design, FluidDesign):
             return FluidProblem(self.mesh, design, self.parameters)
         if isinstance(design, ElasticityDesign):
-            control_filter = HelmholtzFilter(epsilon=0.02)
-            return ElasticityProblem(self.mesh, design, self.parameters, control_filter)
+            return ElasticityProblem(self.mesh, design, self.parameters)
 
         raise ValueError(
             f"Got unknown problem '{self.parameters.problem}' "
