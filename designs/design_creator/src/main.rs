@@ -18,7 +18,6 @@ macro_rules! save_designs {
     };
 }
 save_designs! {
-    fem_short_cantilever -> "../fem_short_cantilever.json",
     short_cantilever -> "../short_cantilever.json",
     dem_cantilever -> "../dem_cantilever.json",
     cantilever -> "../cantilever.json",
