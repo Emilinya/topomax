@@ -80,6 +80,7 @@ class ElasticityProblem(FEMProblem):
         mesh: df.Mesh,
         design: ElasticityDesign,
         parameters: DomainParameters,
+        control_space: df.FunctionSpace,
     ):
         self.design = design
         super().__init__(mesh, parameters)
@@ -89,7 +90,7 @@ class ElasticityProblem(FEMProblem):
         filter_radius = 0.00630 * np.sqrt(
             parameters.width**2 + parameters.height**2
         )
-        self.filter = HelmholtzFilter(epsilon=filter_radius)
+        self.filter = HelmholtzFilter(filter_radius, control_space)
         self.Young_modulus = design.parameters.young_modulus
         self.Poisson_ratio = design.parameters.poisson_ratio
         self.penalizer: ElasticPenalizer = ElasticPenalizer()
@@ -117,7 +118,7 @@ class ElasticityProblem(FEMProblem):
             self.lamé_lda * df.div(self.u) ** 2
             + 2 * self.lamé_mu * df.sym(df.grad(self.u)) ** 2
         )
-        return self.filter.apply(gradient, self.filtered_rho.function_space())
+        return self.filter.apply(gradient)
 
     def calculate_objective(self, rho):
         """

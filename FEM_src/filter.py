@@ -2,51 +2,40 @@ from __future__ import annotations
 
 import dolfin as df
 
+from FEM_src.pde_solver import SmartMumpsSolver
+
 
 class HelmholtzFilter:
     """
-    A filter what uses the equation -ε²Δξ + ξ = ρ,
-    where ρ is the input and ξ is the output, to filter a function
+    A filter that computes the Helmholtz filter equation `-ε²Δξ + ξ = ρ on Ω,
+    ∇ξ·n = 0 on ∂Ω`, where ρ is the input and ξ is the output. This PDE smooths
+    the input, removing small features.
     """
 
-    def __init__(self, epsilon: float | None = None, N: int | None = None):
+    def __init__(self, epsilon: float, function_space: df.FunctionSpace):
         """
-        Create a HelmholtzFilter with a given epsilon value. If epsilon is None,
-        epsilon is instead set to 4 / N. If N is also None, a ValueError is raised.
-        """
-
-        if epsilon is not None:
-            self.epsilon = epsilon
-        elif N is not None:
-            self.epsilon = 4 / N
-        else:
-            raise ValueError(
-                "Tried to create HelmholtzFilter with neither epsilon nor N!"
-            )
-
-    def apply(
-        self,
-        input_function: df.Function,
-        function_space: df.FunctionSpace | None = None,
-    ):
-        """
-        solve -ε²Δξ + ξ = ρ, ∇ξ·n = 0 on ∂Ω,
-        where ρ is the input and ξ is the output,
-        using the weak form (ϵ²∇ξ, ∇v) + (ξ, v) = (ρ, v) ∀v
+        This init precomputes values to save time when the filter is used
+        repeatedly. Updating epsilon or the function space therefore requires
+        creating a new filter.
         """
 
-        if function_space is None:
-            function_space = input_function.function_space()
-        trial = df.TrialFunction(function_space)
-        test = df.TestFunction(function_space)
+        """
+        The weak form of the filter PDE is (ϵ²∇ξ, ∇v) + (ξ, v) = (ρ, v),
+        so a = (ϵ²∇ξ, ∇v) + (ξ, v), L = (ρ, v)
+        """
 
-        lhs = (
-            self.epsilon**2 * df.inner(df.grad(trial), df.grad(test))
-            + df.inner(trial, test)
-        ) * df.dx
-        rhs = df.inner(input_function, test) * df.dx
+        def a_func(trial, test, _):
+            return (
+                epsilon**2 * df.inner(df.grad(trial), df.grad(test))
+                + df.inner(trial, test)
+            ) * df.dx
 
-        filtered_function = df.Function(function_space)
-        df.solve(lhs == rhs, filtered_function)
+        def L_func(test, input_function):
+            return df.inner(input_function, test) * df.dx
 
-        return filtered_function
+        self.solver = SmartMumpsSolver(
+            a_func, L_func, function_space=function_space, a_has_no_args=True
+        )
+
+    def apply(self, input_function: df.Function):
+        return self.solver.solve(L_arg=input_function)

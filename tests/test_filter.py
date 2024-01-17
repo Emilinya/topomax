@@ -26,7 +26,7 @@ def test_HelmholtzFilter():
     _, rho = initialize(10)
 
     # if epsilon is 0, filter should not do anything
-    design_filter = HelmholtzFilter(epsilon=0)
+    design_filter = HelmholtzFilter(0, rho.function_space())
 
     np.random.seed(198)
     rho.vector()[:] = np.random.random(len(rho.vector()[:]))
@@ -35,10 +35,10 @@ def test_HelmholtzFilter():
     assert df.errornorm(rho, filtered_rho, "L2", degree_rise=2) < 1e-14
 
     # if rho = (8ε²π² + 1)cos(2π x)cos(2π y), then filtered_rho = cos(2π y)cos(2π x)
-    design_filter.epsilon = np.e / np.pi
+    random_epsilon = np.e / np.pi
     rho_expression = df.Expression(
         "(8*eps*eps*pi*pi + 1)*cos(2*pi*x[0])*cos(2*pi*x[1])",
-        eps=design_filter.epsilon,
+        eps=random_epsilon,
         degree=2,
     )
     filtered_rho_expression = df.Expression("cos(2*pi*x[0])*cos(2*pi*x[1])", degree=2)
@@ -48,6 +48,7 @@ def test_HelmholtzFilter():
     def error_func(N):
         mesh, rho = initialize(N)
 
+        design_filter = HelmholtzFilter(random_epsilon, rho.function_space())
         rho.interpolate(rho_expression)
         filtered_rho = design_filter.apply(rho)
 

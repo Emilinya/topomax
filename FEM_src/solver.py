@@ -55,7 +55,9 @@ class FEMSolver(Solver):
         if isinstance(design, FluidDesign):
             return FluidProblem(self.mesh, design, self.parameters)
         if isinstance(design, ElasticityDesign):
-            return ElasticityProblem(self.mesh, design, self.parameters)
+            return ElasticityProblem(
+                self.mesh, design, self.parameters, self.control_space
+            )
 
         raise ValueError(
             f"Got unknown problem '{self.parameters.problem}' "

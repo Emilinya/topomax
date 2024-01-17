@@ -30,28 +30,28 @@ class PDESolver(ABC):
     def set_function_space(self, function_space: df.FunctionSpace):
         self.function_space = function_space
 
-    def _get_a_L(self, a_args: Any | None = None, L_args: Any | None = None):
+    def _get_a_L(self, a_arg: Any | None = None, L_arg: Any | None = None):
         trial = df.TrialFunction(self.function_space)
         test = df.TestFunction(self.function_space)
 
-        a = self.a_func(trial, test, a_args)
-        L = self.L_func(test, L_args)
+        a = self.a_func(trial, test, a_arg)
+        L = self.L_func(test, L_arg)
 
         return a, L
 
     @abstractmethod
     def solve(
-        self, *, a_args: Any | None = None, L_args: Any | None = None
+        self, *, a_arg: Any | None = None, L_arg: Any | None = None
     ) -> df.Function:
         ...
 
 
 class DefaultSolver(PDESolver):
-    def solve(self, *, a_args: Any | None = None, L_args: Any | None = None):
+    def solve(self, *, a_arg: Any | None = None, L_arg: Any | None = None):
         if self.function_space is None:
             raise ValueError("You must set function space before solving PDE!")
 
-        a, L = self._get_a_L(a_args, L_args)
+        a, L = self._get_a_L(a_arg, L_arg)
         solution = df.Function(self.function_space)
         df.solve(a == L, solution, bcs=self.boundary_conditions)
 
@@ -68,11 +68,11 @@ class SimpleMUMPSSolver(PDESolver):
     ):
         super().__init__(a_func, L_func, boundary_conditions, function_space)
 
-    def solve(self, *, a_args: Any | None = None, L_args: Any | None = None):
+    def solve(self, *, a_arg: Any | None = None, L_arg: Any | None = None):
         if self.function_space is None:
             raise ValueError("You must set function space before solving PDE!")
 
-        a, L = self._get_a_L(a_args, L_args)
+        a, L = self._get_a_L(a_arg, L_arg)
         solution = df.Function(self.function_space)
         df.solve(
             a == L,
@@ -117,7 +117,7 @@ class SmartMumpsSolver(PDESolver):
                     L = self.L_func(test, None)
                     self.b = df.assemble(L)
 
-    def solve(self, *, a_args: Any | None = None, L_args: Any | None = None):
+    def solve(self, *, a_arg: Any | None = None, L_arg: Any | None = None):
         if self.function_space is None:
             raise ValueError("You must set function space before solving PDE!")
 
@@ -126,13 +126,13 @@ class SmartMumpsSolver(PDESolver):
             test = df.TestFunction(self.function_space)
 
             if self.A is None:
-                a = self.a_func(trial, test, a_args)
+                a = self.a_func(trial, test, a_arg)
                 A = df.assemble(a)
             else:
                 A = self.A
 
             if self.b is None:
-                L = self.L_func(test, L_args)
+                L = self.L_func(test, L_arg)
                 b = df.assemble(L)
             else:
                 b = self.b
@@ -165,11 +165,11 @@ class IterativeReuseSolver(PDESolver):
         self.reuse_previous_solution = reuse_previous_solution
         self.previous_solution_vector = None
 
-    def solve(self, *, a_args: Any | None = None, L_args: Any | None = None):
+    def solve(self, *, a_arg: Any | None = None, L_arg: Any | None = None):
         if self.function_space is None:
             raise ValueError("You must set function space before solving PDE!")
 
-        a, L = self._get_a_L(a_args, L_args)
+        a, L = self._get_a_L(a_arg, L_arg)
 
         A = df.assemble(a)
         b = df.assemble(L)
