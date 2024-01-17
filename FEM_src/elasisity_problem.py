@@ -6,6 +6,7 @@ import dolfin as df
 from FEM_src.problem import FEMProblem
 from FEM_src.domains import SidesDomain
 from FEM_src.filter import HelmholtzFilter
+from FEM_src.pde_solver import SmartMumpsSolver
 from src.penalizers import ElasticPenalizer
 from designs.definitions import (
     DomainParameters,
@@ -91,6 +92,8 @@ class ElasticityProblem(FEMProblem):
             parameters.width**2 + parameters.height**2
         )
         self.filter = HelmholtzFilter(filter_radius, control_space)
+        self.solver = self.create_solver()
+
         self.Young_modulus = design.parameters.young_modulus
         self.Poisson_ratio = design.parameters.poisson_ratio
         self.penalizer: ElasticPenalizer = ElasticPenalizer()
@@ -101,6 +104,36 @@ class ElasticityProblem(FEMProblem):
 
         self.u = None
         self.filtered_rho = None
+
+    def create_solver(self):
+        """
+        The weak form of the state equation is `(λα(ξ)∇⋅u, ∇⋅v) + (2μα(ξ)ε(u),
+        ε(v)) = (f, v) + (t, v)∂`, where ξ is the filtered rho and ε(u) is the
+        symmetric gradient of u. This gives a = (λα(ξ)∇⋅u, ∇⋅v) + (2μα(ξ)ε(u), ε(v)),
+        L = (f, v) + (t, v)∂
+        """
+
+        def a_func(trial, test, rho):
+            d = trial.geometric_dimension()
+            sigma = self.lamé_lda * df.div(trial) * df.Identity(
+                d
+            ) + 2 * self.lamé_mu * df.sym(df.grad(trial))
+
+            return df.inner(self.penalizer(rho) * sigma, df.sym(df.grad(test))) * df.dx
+
+        def L_func(test, _):
+            return (
+                df.dot(self.body_force, test) * df.dx
+                + df.dot(self.traction_term, test) * df.ds
+            )
+
+        return SmartMumpsSolver(
+            a_func,
+            L_func,
+            self.boundary_conditions,
+            self.solution_space,
+            L_has_no_args=True,
+        )
 
     def calculate_objective_gradient(self):
         """
@@ -141,21 +174,7 @@ class ElasticityProblem(FEMProblem):
         where ξ is the filtered rho and ε(u) is the symmetric gradient of u
         """
 
-        w = df.Function(self.solution_space)
-        u = df.TrialFunction(self.solution_space)
-        v = df.TestFunction(self.solution_space)
-        d = u.geometric_dimension()
-
-        sigma = self.lamé_lda * df.div(u) * df.Identity(d) + 2 * self.lamé_mu * df.sym(
-            df.grad(u)
-        )
-
-        a = df.inner(self.penalizer(rho) * sigma, df.sym(df.grad(v))) * df.dx
-        L = df.dot(self.body_force, v) * df.dx + df.dot(self.traction_term, v) * df.ds
-
-        df.solve(a == L, w, bcs=self.boundary_conditions)
-
-        return w
+        return self.solver.solve(a_arg=rho)
 
     def create_boundary_conditions(self):
         self.body_force = df.Constant((0, 0))
