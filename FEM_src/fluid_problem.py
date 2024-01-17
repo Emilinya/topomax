@@ -3,6 +3,7 @@ from __future__ import annotations
 import dolfin as df
 
 from FEM_src.problem import FEMProblem
+from FEM_src.pde_solver import SmartMumpsSolver
 from FEM_src.domains import SidesDomain, RegionDomain
 from designs.definitions import DomainParameters, FluidDesign, Side, Flow
 from src.penalizers import FluidPenalizer
@@ -53,11 +54,38 @@ class FluidProblem(FEMProblem):
         self.design = design
         super().__init__(mesh, parameters)
 
+        self.solver = self.create_solver()
+
         self.viscosity = design.parameters.viscosity
         self.penalizer: FluidPenalizer = FluidPenalizer()
 
         self.u = None
         self.rho = None
+
+    def create_solver(self):
+        """What is the weak equation? Only time will tell"""
+
+        def a_func(trial, test, rho):
+            (u, p) = df.split(trial)
+            (v, q) = df.split(test)
+
+            return (
+                self.penalizer(rho) * df.inner(u, v)
+                + df.inner(df.grad(u), df.grad(v))
+                + df.inner(df.grad(p), v)
+                + df.inner(df.div(u), q)
+            ) * df.dx
+
+        def L_func(test, _):
+            return df.inner(test, df.Constant([0, 0, 0])) * df.dx
+
+        return SmartMumpsSolver(
+            a_func,
+            L_func,
+            self.boundary_conditions,
+            self.solution_space,
+            L_has_no_args=True,
+        )
 
     def calculate_objective_gradient(self):
         """get objective derivative ϕ'(ρ) = ½α'(ρ)|u|²."""
@@ -86,20 +114,7 @@ class FluidProblem(FEMProblem):
 
     def forward(self, rho):
         """Solve the forward problem for a given density distribution rho(x)."""
-        w = df.Function(self.solution_space)
-        (u, p) = df.TrialFunctions(self.solution_space)
-        (v, q) = df.TestFunctions(self.solution_space)
-
-        equation = (
-            self.penalizer(rho) * df.inner(u, v)
-            + df.inner(df.grad(u), df.grad(v))
-            + df.inner(df.grad(p), v)
-            + df.inner(df.div(u), q)
-        ) * df.dx
-
-        df.solve(df.lhs(equation) == df.rhs(equation), w, bcs=self.boundary_conditions)
-
-        return w
+        return self.solver.solve(a_arg=rho)
 
     def create_boundary_conditions(self):
         flow_sides = [flow.side for flow in self.design.parameters.flows]
