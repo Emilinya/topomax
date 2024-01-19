@@ -86,11 +86,7 @@ class ElasticityProblem(FEMProblem):
         self.design = design
         super().__init__(mesh, parameters)
 
-        # Origional filter radius was 0.02. This formula gives
-        # 0.02 for the cantilever and 0.07 for the short cantilever
-        filter_radius = 0.00630 * np.sqrt(
-            parameters.width**2 + parameters.height**2
-        )
+        filter_radius = design.parameters.fem_filter_radius
         self.filter = HelmholtzFilter(filter_radius, control_space)
         self.solver = self.create_solver()
 

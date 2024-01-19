@@ -28,6 +28,8 @@
           ]
         }
       ],
+      "fem_filter_radius": 0.074,
+      "dem_filter_radius": 0.25,
       "young_modulus": 200000.0,
       "poisson_ratio": 0.3
     }

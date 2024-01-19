@@ -21,6 +21,8 @@ pub fn triangle() -> Design {
                 value: (0.0, -10.0),
             }),
             tractions: None,
+            fem_filter_radius: 0.02,
+            dem_filter_radius: 0.09,
             young_modulus: 5.0 / 2.0,
             poisson_ratio: 1.0 / 4.0,
         },

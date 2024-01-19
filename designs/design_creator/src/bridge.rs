@@ -20,6 +20,8 @@ pub fn bridge() -> Design {
                 length: 0.5,
                 value: (0.0, -2000.0),
             }]),
+            fem_filter_radius: 0.074,
+            dem_filter_radius: 0.25,
             young_modulus: 2e5,
             poisson_ratio: 0.3,
         },

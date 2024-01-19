@@ -142,9 +142,7 @@ class ElasticityProblem(DEMProblem):
         self.design = elasticity_design
         super().__init__(mesh, device, verbose)
 
-        # Origional filter radius was 0.25. This formula gives 0.24 for the
-        # short cantilever, 0.26 for the bridge, and 0.07 for the cantilever
-        filter_radius = 0.0214 * np.sqrt(mesh.length**2 + mesh.height**2)
+        filter_radius = elasticity_design.parameters.dem_filter_radius
         self.filter = create_density_filter(filter_radius, self.mesh)
         self.objective_gradient: npt.NDArray[np.float64] | None = None
 

@@ -196,6 +196,8 @@ class ElasticityParameters:
     fixed_sides: list[Side]
     body_force: Force | None
     tractions: list[Traction] | None
+    fem_filter_radius: float
+    dem_filter_radius: float
     young_modulus: float
     poisson_ratio: float
 
@@ -218,6 +220,8 @@ class ElasticityParameters:
             fixed_sides,
             body_force,
             tractions,
+            parameter_dict["fem_filter_radius"],
+            parameter_dict["dem_filter_radius"],
             parameter_dict["young_modulus"],
             parameter_dict["poisson_ratio"],
         )
