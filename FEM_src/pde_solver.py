@@ -4,8 +4,6 @@ from abc import ABC, abstractmethod
 import dolfin as df
 from ufl.form import Form
 
-from src.utils import Timer
-
 
 class PDESolver(ABC):
     LeftCallable = Callable[[df.TrialFunction, df.TestFunction, Any | None], Form]
@@ -108,18 +106,19 @@ class SmartMumpsSolver(PDESolver):
             test = df.TestFunction(self.function_space)
 
             if a_has_no_args:
-                with Timer("Precomputing A"):
-                    a = self.a_func(trial, test, None)
-                    self.A = df.assemble(a)
+                a = self.a_func(trial, test, None)
+                self.A = df.assemble(a)
 
             if L_has_no_args:
-                with Timer("Precomputing b"):
-                    L = self.L_func(test, None)
-                    self.b = df.assemble(L)
+                L = self.L_func(test, None)
+                self.b = df.assemble(L)
 
     def solve(self, *, a_arg: Any | None = None, L_arg: Any | None = None):
         if self.function_space is None:
             raise ValueError("You must set function space before solving PDE!")
+
+        A = self.A
+        b = self.b
 
         if self.A is None or self.b is None:
             trial = df.TrialFunction(self.function_space)
@@ -128,17 +127,10 @@ class SmartMumpsSolver(PDESolver):
             if self.A is None:
                 a = self.a_func(trial, test, a_arg)
                 A = df.assemble(a)
-            else:
-                A = self.A
 
             if self.b is None:
                 L = self.L_func(test, L_arg)
                 b = df.assemble(L)
-            else:
-                b = self.b
-        else:
-            A = self.A
-            b = self.b
 
         _ = [bc.apply(A, b) for bc in self.boundary_conditions]
 

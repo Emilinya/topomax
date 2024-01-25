@@ -118,10 +118,10 @@ class StrainEnergy(ObjectiveCalculator):
     def calculate_objective_and_gradient(
         self, u: torch.Tensor, shape: tuple[int, int], density: torch.Tensor
     ):
-        """Calculate ∇ϕ(ρ; u) = -½r'(ρ)σ:ε and ϕ(ρ; u) = ½∫r(ρ)σ:ε dx"""
+        """Calculate ∇ϕ(ρ; u) = -r'(ρ)σ:ε and ϕ(ρ; u) = ∫r(ρ)σ:ε dx"""
 
         (strain_energies,) = self.evaluate(u, shape, self.calculate_strain_energy)
-        strain_energy_at_element = 0.5 * strain_energies * self.detJ
+        strain_energy_at_element = strain_energies * self.detJ
 
         objective = torch.sum(self.penalizer(density) * strain_energy_at_element)
         gradient = -self.penalizer.derivative(density) * strain_energy_at_element

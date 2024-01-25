@@ -1,7 +1,7 @@
 use crate::definitions::*;
 
 pub fn short_cantilever() -> Design {
-    return Design::Elasticity(ProblemDesign {
+    Design::Elasticity(ProblemDesign {
         objective: ElasticityObjective::MinimizeCompliance,
         domain_parameters: DomainParameters {
             width: 10.0,
@@ -25,5 +25,5 @@ pub fn short_cantilever() -> Design {
             young_modulus: 2e5,
             poisson_ratio: 0.3,
         },
-    });
+    })
 }
