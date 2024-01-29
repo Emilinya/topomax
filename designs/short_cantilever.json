@@ -5,7 +5,7 @@
       "width": 10.0,
       "height": 5.0,
       "fem_step_size": 0.03,
-      "dem_step_size": 3.0,
+      "dem_step_size": 1.5,
       "penalties": [
         3.0
       ],

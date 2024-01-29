@@ -7,7 +7,7 @@ pub fn bridge() -> Design {
             width: 12.0,
             height: 2.0,
             fem_step_size: 0.001,
-            dem_step_size: 0.4,
+            dem_step_size: 0.2,
             penalties: vec![3.0],
             volume_fraction: 0.4,
         },

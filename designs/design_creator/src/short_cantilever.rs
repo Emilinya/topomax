@@ -7,7 +7,7 @@ pub fn short_cantilever() -> Design {
             width: 10.0,
             height: 5.0,
             fem_step_size: 0.03,
-            dem_step_size: 3.0,
+            dem_step_size: 1.5,
             penalties: vec![3.0],
             volume_fraction: 0.4,
         },
