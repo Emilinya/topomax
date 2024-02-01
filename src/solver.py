@@ -9,7 +9,14 @@ from scipy import optimize
 
 from src.problem import Problem
 from src.printer import Printer, ColumnType
-from src.utils import Timer, constrain, smart_brentq, typeify_optimize
+from src.utils import (
+    Timer,
+    constrain,
+    smart_brentq,
+    SolverResult,
+    IterationData,
+    typeify_optimize,
+)
 from designs.definitions import FluidDesign, ElasticityDesign
 from designs.design_parser import parse_design
 
@@ -111,10 +118,10 @@ class Solver(ABC):
         """Integrate the given values over the domain."""
 
     @abstractmethod
-    def save_rho(self, rho: Any, file_root: str):
+    def save_rho(self, rho: Any, file_root: str) -> str:
         """
-        Save the design function to a file. File root
-        is equal to {output_folder}/{N=}_{p=}_{k=}
+        Save the design function to a file, and return the basename.
+        File root is equal to {output_folder}/{N=}_{p=}_{k=}
         """
 
     def get_penalty_formatter(self, penalties: list[float]):
@@ -288,14 +295,15 @@ class Solver(ABC):
         file_root = f"{self.output_folder}/N={self.full_N}_p={penalty_str}_{k=}"
         os.makedirs(os.path.dirname(file_root), exist_ok=True)
 
-        self.save_rho(rho, file_root)
+        rho_basename = self.save_rho(rho, file_root)
 
-        data = {
-            "objective": objective,
-            "iteration": k,
-            "penalty": penalty,
-            "domain_size": (self.width, self.height),
-        }
+        data = IterationData(
+            (self.width, self.height),
+            objective,
+            k,
+            rho_basename,
+            penalty,
+        )
         with open(f"{file_root}.dat", "wb") as datafile:
             pickle.dump(data, datafile)
 
@@ -309,21 +317,21 @@ class Solver(ABC):
         penalty_str = self.penalty_formatter(penalty)
         file_root = f"{self.output_folder}/N={self.full_N}_p={penalty_str}_result"
 
-        min_idx = np.argmin(objectives)
-        if min_idx != len(objectives) - 1:
+        min_index = int(np.argmin(objectives))
+        if min_index != len(objectives) - 1:
             print(
                 "\nWARNING: Final objective is not optimal. "
-                + f"Lowest objective was achived at iteration {min_idx}, "
-                + f"with a value of {objectives[min_idx]:.6g}."
+                + f"Lowest objective was achived at iteration {min_index}, "
+                + f"with a value of {objectives[min_index]:.6g}."
             )
 
-        data = {
-            "min_objective": objectives[min_idx],
-            "objectives": objectives,
-            "iterations": len(objectives),
-            "exit_condition": exit_condition,
-            "min_idx": min_idx,
-            "times": times,
-        }
+        data = SolverResult(
+            exit_condition,
+            objectives[min_index],
+            objectives,
+            len(objectives),
+            min_index,
+            times,
+        )
         with open(f"{file_root}.dat", "wb") as datafile:
             pickle.dump(data, datafile)

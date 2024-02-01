@@ -1,8 +1,31 @@
 from __future__ import annotations
-from typing import Callable
+
+import os
 import time
+import pickle
+from typing import Callable
+from dataclasses import dataclass
 
 from scipy import optimize
+
+
+@dataclass
+class IterationData:
+    domain_size: tuple[float, float]
+    objective: float
+    iteration: int
+    rho_file: str
+    penalty: float
+
+
+@dataclass
+class SolverResult:
+    exit_condition: str
+    min_objective: float
+    objectives: list[float]
+    iterations: int
+    min_index: int
+    times: list[float]
 
 
 class Timer:
@@ -60,6 +83,31 @@ class Timer:
         return (
             f"{whole_hours:d}h {whole_minutes:d}m {whole_seconds:d}s {milliseconds:d}ms"
         )
+
+
+def get_solver_data(solver: str, design: str, root_folder="output"):
+    data_folder = os.path.join(root_folder, solver, design, "data")
+
+    results: list[tuple[int, str, SolverResult]] = []
+    data_list: list[tuple[int, str, int, IterationData]] = []
+    for data_file in os.listdir(data_folder):
+        data_path = os.path.join(data_folder, data_file)
+        if "result" in data_file:
+            N_str, p_str = [v.split("=")[1] for v in data_file.split("_")[:2]]
+            N = int(N_str)
+
+            with open(data_path, "rb") as result_file_obj:
+                result = pickle.load(result_file_obj)
+            results.append((N, p_str, result))
+        elif "rho" not in data_file:
+            N_str, p_str, k_str = [v.split("=")[1] for v in data_file.split("_")[:3]]
+            N, k = int(N_str), int(k_str[:-4])
+
+            with open(data_path, "rb") as data_file_obj:
+                data = pickle.load(data_file_obj)
+            data_list.append((N, p_str, k, data))
+
+    return results, data_list
 
 
 def typeify_optimize(optimize_output):

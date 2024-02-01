@@ -1,3 +1,4 @@
+import os
 import warnings
 
 import torch
@@ -90,7 +91,6 @@ class DEMSolver(Solver):
         return integrate(values, self.mesh)
 
     def save_rho(self, rho: npt.NDArray, file_root: str):
-        np.save(
-            f"{file_root}_rho.npy",
-            rho.reshape(self.mesh.intervals),
-        )
+        rho_file = f"{file_root}_rho.npy"
+        np.save(rho_file, rho.reshape(self.mesh.intervals))
+        return os.path.basename(rho_file)

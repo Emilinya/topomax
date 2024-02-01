@@ -15,36 +15,14 @@ from matplotlib.collections import QuadMesh
 from designs.definitions import ProblemType
 from designs.design_parser import parse_design
 from FEM_src.utils import load_function, sample_function
-
-
-@dataclass
-class Result:
-    min_objective: float
-    objectives: list[float]
-    min_idx: int
-    times: list[float]
-
-    @classmethod
-    def from_dict(cls, parameter_dict: dict):
-        return cls(
-            parameter_dict["min_objective"],
-            parameter_dict["objectives"],
-            parameter_dict["min_idx"],
-            parameter_dict["times"],
-        )
-
-
-@dataclass
-class DataFile:
-    k: int
-    data_path: str
+from src.utils import SolverResult, IterationData, get_solver_data
 
 
 @dataclass
 class PData:
     p: str
-    files: list[DataFile]
-    result: Result
+    data_list: list[IterationData]
+    result: SolverResult
 
 
 @dataclass
@@ -83,25 +61,21 @@ def create_cmap(start, middle, end, name):
 
 
 def get_design_data(
-    solver: str, data_path: str, points: int
+    solver: str, data_folder, data: IterationData, points: int
 ) -> tuple[npt.NDArray[np.float64], float, float, float]:
-    with open(data_path, "rb") as datafile:
-        data_obj = pickle.load(datafile)
-    objective = data_obj["objective"]
-    w, h = data_obj["domain_size"]
+    objective = data.objective
+    w, h = data.domain_size
 
-    data_root, _ = os.path.splitext(data_path)
+    rho_path = os.path.join(data_folder, data.rho_file)
 
     if solver == "FEM":
-        rho_path = data_root + "_rho.dat"
         rho, *_ = load_function(rho_path)
-        _, data = sample_function(rho, points / min(w, h), "center")
-        data = data[:, :, 0]
+        _, design_data = sample_function(rho, int(points / min(w, h)), "center")
+        design_data = design_data[:, :, 0]
     else:
-        rho_path = data_root + "_rho.npy"
-        data = np.load(rho_path)
+        design_data = np.load(rho_path)
 
-    return data, objective, w, h
+    return design_data, objective, w, h
 
 
 def create_design_figure(
@@ -118,18 +92,19 @@ def create_design_figure(
 def plot_design(
     solver: str,
     design: str,
-    data_path: str,
+    data: IterationData,
     N: int,
     p: str,
     k: int,
     cmap: colors.Colormap,
 ):
-    data, objective, w, h = get_design_data(solver, data_path, 200)
+    data_folder = f"output/{solver}/{design}/data"
+    design_data, objective, w, h = get_design_data(solver, data_folder, data, 200)
 
-    plt.figure(figsize=(6.4 * w / h, 4.8))
+    fig = plt.figure(figsize=(6.4 * w / h, 4.8))
     plt.rcParams.update({"font.size": 10 * np.sqrt(w / h)})
 
-    mappable = create_design_figure(plt.gca(), data, w, h, N, cmap)
+    mappable = create_design_figure(plt.gca(), design_data, w, h, N, cmap)
     plt.colorbar(mappable, label=r"$\rho(x, y)$ []")
     plt.xlim(0, w)
     plt.ylim(0, h)
@@ -144,7 +119,7 @@ def plot_design(
     )
     os.makedirs(os.path.dirname(output_file), exist_ok=True)
     plt.savefig(output_file, dpi=200, bbox_inches="tight")
-    plt.close()
+    plt.close(fig)
 
 
 def multiplot(
@@ -152,10 +127,11 @@ def multiplot(
     design: str,
     N: int,
     p: str,
-    vals: list[DataFile],
+    vals: list[IterationData],
     cmap: colors.Colormap,
 ):
-    *_, w, h = get_design_data(solver, vals[0].data_path, 1)
+    data_folder = f"output/{solver}/{design}/data"
+    *_, w, h = get_design_data(solver, data_folder, vals[0], 1)
     fig, axss = plt.subplots(
         2,
         3,
@@ -172,14 +148,14 @@ def multiplot(
         vals[5] = vals[-1]
 
     pcolormesh: QuadMesh | None = None
-    for ax, data_file in zip(axss.flat, vals):
+    for ax, data in zip(axss.flat, vals):
         assert isinstance(ax, Axes)
 
         ax.axis("off")
         ax.set_aspect("equal", "box")
-        data, _, w, h = get_design_data(solver, data_file.data_path, 100)
-        pcolormesh = create_design_figure(ax, data, w, h, N, cmap)
-        ax.set_title(f"$k={data_file.k}$")
+        design_data, _, w, h = get_design_data(solver, data_folder, data, 100)
+        pcolormesh = create_design_figure(ax, design_data, w, h, N, cmap)
+        ax.set_title(f"$k={data.iteration}$")
     assert pcolormesh is not None
 
     fig.colorbar(pcolormesh, ax=axss[:, -1], shrink=0.8, label=r"$\rho(x, y)$ []")
@@ -187,6 +163,7 @@ def multiplot(
         "output", solver, design, "figures", f"{N=}_p={p}_multi.png"
     )
     plt.savefig(output_file, dpi=200, bbox_inches="tight")
+    plt.close(fig)
 
 
 def reduce_length(long_list: list, desired_length: int):
@@ -224,35 +201,23 @@ def get_designs(solver: str, selected_designs: list[str] | None):
         if not os.path.isdir(data_folder):
             continue
 
+        results, data_list = get_solver_data(solver, design)
+
         designs.append(DesignData(design, {}))
+        design_data = designs[-1]
 
-        for data in os.listdir(data_folder):
-            data_path = os.path.join(data_folder, data)
-            if not os.path.isfile(data_path):
-                continue
-
-            N_str, p_str, *rest = data[:-4].split("_")
-            if len(rest) > 1 or rest[0] == "result":
-                continue
-
-            k_str = rest[0]
-
-            N = int(N_str.split("=")[1])
-            p = p_str.split("=")[1]
-            k = int(k_str.split("=")[1])
-
-            design_data = designs[-1]
+        for N, p, _, data in data_list:
             if not design_data.N_datas.get(N):
                 design_data.N_datas[N] = NData(N, {})
 
             N_data = design_data.N_datas[N]
             if not N_data.p_datas.get(p):
-                result_file = os.path.join(data_folder, f"{N=}_p={p}_result.dat")
-                with open(result_file, "rb") as datafile:
-                    results = pickle.load(datafile)
-                N_data.p_datas[p] = PData(p, [], Result.from_dict(results))
+                for r_N, r_p, result in results:
+                    if r_N == N and r_p == p:
+                        N_data.p_datas[p] = PData(p, [], result)
+                        break
 
-            N_data.p_datas[p].files.append(DataFile(k, data_path))
+            N_data.p_datas[p].data_list.append(data)
 
     return designs
 
@@ -267,15 +232,15 @@ def plot_designs(
     for design_data in designs:
         for N_data in design_data.N_datas.values():
             for p_data in N_data.p_datas.values():
-                p_data.files.sort(key=lambda v: v.k)
+                p_data.data_list.sort(key=lambda v: v.iteration)
 
-                min_idx = p_data.result.min_idx
-                if min_idx != (len(p_data.files) - 1):
-                    p_data.files = p_data.files[: min_idx + 1]
+                min_index = p_data.result.min_index
+                if min_index != (len(p_data.data_list) - 1):
+                    p_data.data_list = p_data.data_list[: min_index + 1]
 
-                p_data.files = reduce_length(p_data.files, 6)
+                p_data.data_list = reduce_length(p_data.data_list, 6)
 
-                plot_count += len(p_data.files) + 1
+                plot_count += len(p_data.data_list) + 1
 
     # we have no designs :(
     if plot_count == 0:
@@ -293,11 +258,10 @@ def plot_designs(
 
             for N, N_data in design_data.N_datas.items():
                 for p, p_data in N_data.p_datas.items():
-                    for data_file in p_data.files:
-                        data_path, k = data_file.data_path, data_file.k
-                        plot_design(solver, design, data_path, N, p, k, cmap)
+                    for data in p_data.data_list:
+                        plot_design(solver, design, data, N, p, data.iteration, cmap)
                         pbar.update(1)
-                    multiplot(solver, design_data.design, N, p, p_data.files, cmap)
+                    multiplot(solver, design_data.design, N, p, p_data.data_list, cmap)
                     pbar.update(1)
 
 

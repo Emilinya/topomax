@@ -1,3 +1,5 @@
+import os
+
 import dolfin as df
 import numpy.typing as npt
 
@@ -78,3 +80,4 @@ class FEMSolver(Solver):
     def save_rho(self, rho: df.Function, file_root: str):
         rho_file = file_root + "_rho.dat"
         save_function(rho, rho_file, "design")
+        return os.path.basename(rho_file)
