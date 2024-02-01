@@ -56,6 +56,12 @@ class Printer:
             seconds, len(ColumnType.TIME.value)
         )
 
+    def set(self, tolerance: float, objective: float, iteration: int, seconds: float):
+        self.set_tolerance(tolerance)
+        self.set_objective(objective)
+        self.set_iteration(iteration)
+        self.set_time(seconds)
+
     def short_time(self, seconds: float, limit: int):
         full_time = Timer.prettify_seconds(seconds)
 
@@ -106,3 +112,7 @@ class Printer:
             " │ ".join([constrain(v, s) for v, s in zip(values, reduced_spacings)]),
             flush=True,
         )
+
+    def exit(self, exit_condition: str):
+        self.print_values()
+        print(f"EXIT: {exit_condition}!")

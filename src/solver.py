@@ -5,12 +5,13 @@ from abc import ABC, abstractmethod
 
 import numpy as np
 import numpy.typing as npt
+from scipy import optimize
 
 from src.problem import Problem
-from src.utils import constrain, Timer
 from src.printer import Printer, ColumnType
-from designs.design_parser import parse_design
+from src.utils import Timer, constrain, smart_brentq, typeify_optimize
 from designs.definitions import FluidDesign, ElasticityDesign
+from designs.design_parser import parse_design
 
 
 def expit(x: npt.NDArray):
@@ -136,24 +137,34 @@ class Solver(ABC):
         using Newton's method, and then adding c to half_step.
         """
 
-        c = 0
-        max_iterations = 10
-        for _ in range(max_iterations):
-            error = self.integrate(expit(half_step + c)) - volume
-            derivative = self.integrate(expit_diff(half_step + c))
+        def error(c: float):
+            return self.integrate(expit(half_step + c)) - volume
 
-            if derivative == 0.0:
-                raise ValueError(
-                    "Got derivative equal to zero while projecting psi."
-                    + "Your step size is probably too high."
+        def error_derivative(c: float):
+            return self.integrate(expit_diff(half_step + c))
+
+        try:
+            # First try with Newton's method
+            c, result = typeify_optimize(
+                optimize.newton(
+                    error,
+                    0,
+                    error_derivative,
+                    tol=1e-12,
+                    full_output=True,
                 )
+            )
+            if result.converged:
+                return half_step + c
 
-            newton_step = error / derivative
-            c = c - newton_step
-            if abs(newton_step) < 1e-12:
-                break
-        else:
-            raise ValueError("Projection reached maximum iteration without converging.")
+        except RuntimeError:
+            pass
+
+        # Newton either did not converge or raised an exception.
+        # Try with Brent's method instead
+        c, result = smart_brentq(error, 2, 200)
+        if not result.converged:
+            raise ValueError("Projection failed to converge")
 
         return half_step + c
 
@@ -179,6 +190,10 @@ class Solver(ABC):
 
     def solve(self):
         """Solve the given topology optimization problem."""
+
+        max_iterations = 100
+        objective_increasing_factor = 2
+        max_iterations_without_improvement = 40
 
         print_columns = [
             ColumnType.ITERATION,
@@ -206,14 +221,11 @@ class Solver(ABC):
             objective_timer.restart()
             objectives = [self.problem.calculate_objective(self.rho)]
             times = [objective_timer.get_time_seconds()]
-
-            printer.set_tolerance(self.tolerance(0))
-            printer.set_objective(objectives[0])
-            printer.set_time(times[0])
-            printer.set_iteration(0)
+            printer.set(self.tolerance(0), objectives[0], 0, times[0])
 
             k = 0
-            for k in range(100):
+            exit_condition = ""
+            for k in range(max_iterations):
                 printer.print_values()
 
                 if k % self.skip_multiple == 0:
@@ -224,27 +236,32 @@ class Solver(ABC):
                 try:
                     psi = self.step(previous_psi, self.step_size_at_iter(k))
                 except ValueError as e:
-                    print(f"EXIT: {e}")
+                    exit_condition = str(e)
+                    print(f"EXIT: {exit_condition}!")
                     break
 
                 self.set_from_array(self.rho, expit(psi))
 
                 objectives.append(self.problem.calculate_objective(self.rho))
                 times.append(objective_timer.get_time_seconds())
-
-                printer.set_tolerance(self.tolerance(k + 1))
-                printer.set_objective(objectives[-1])
-                printer.set_iteration(k + 1)
-                printer.set_time(times[-1])
+                printer.set(self.tolerance(k + 1), objectives[-1], k + 1, times[-1])
 
                 if np.isnan(objectives[-1]):
-                    printer.print_values()
-                    print("EXIT: Objective is NaN!")
+                    exit_condition = "Objective is NaN"
+                    printer.exit(exit_condition)
                     break
 
-                if objectives[-1] > 2 * min(objectives):
-                    printer.print_values()
-                    print("EXIT: Objective is increasing!")
+                min_index = int(np.argmin(objectives))
+                min_objective = objectives[min_index]
+
+                if objectives[-1] > objective_increasing_factor * min_objective:
+                    exit_condition = "Objective is increasing"
+                    printer.exit(exit_condition)
+                    break
+
+                if k >= min_index + max_iterations_without_improvement:
+                    exit_condition = "Objective is not decreasing"
+                    printer.exit(exit_condition)
                     break
 
                 difference = np.sqrt(
@@ -253,15 +270,15 @@ class Solver(ABC):
                 printer.set_delta_rho(difference)
 
                 if difference < self.tolerance(k):
-                    printer.print_values()
-                    print("EXIT: Convergence treshold reached")
+                    exit_condition = "Convergence treshold reached"
+                    printer.exit(exit_condition)
                     break
             else:
-                printer.print_values()
-                print("EXIT: Iteration did not converge")
+                exit_condition = "Iteration did not converge"
+                printer.exit(exit_condition)
 
             self.save_iteration(self.rho, objectives[-1], k + 1, penalty)
-            self.save_result(objectives, times, penalty)
+            self.save_result(objectives, times, penalty, exit_condition)
 
         print(f"\nTopology optimization took {total_timer.get_time_string()}")
 
@@ -282,7 +299,13 @@ class Solver(ABC):
         with open(f"{file_root}.dat", "wb") as datafile:
             pickle.dump(data, datafile)
 
-    def save_result(self, objectives: list[float], times: list[float], penalty: float):
+    def save_result(
+        self,
+        objectives: list[float],
+        times: list[float],
+        penalty: float,
+        exit_condition: str,
+    ):
         penalty_str = self.penalty_formatter(penalty)
         file_root = f"{self.output_folder}/N={self.full_N}_p={penalty_str}_result"
 
@@ -297,6 +320,8 @@ class Solver(ABC):
         data = {
             "min_objective": objectives[min_idx],
             "objectives": objectives,
+            "iterations": len(objectives),
+            "exit_condition": exit_condition,
             "min_idx": min_idx,
             "times": times,
         }

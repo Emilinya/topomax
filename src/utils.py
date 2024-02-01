@@ -1,5 +1,8 @@
 from __future__ import annotations
+from typing import Callable
 import time
+
+from scipy import optimize
 
 
 class Timer:
@@ -17,7 +20,7 @@ class Timer:
     def __enter__(self):
         return self
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
+    def __exit__(self, _exc_type, _exc_val, _exc_tb):
         if self.task is None:
             print(self.get_time_string())
         else:
@@ -57,6 +60,42 @@ class Timer:
         return (
             f"{whole_hours:d}h {whole_minutes:d}m {whole_seconds:d}s {milliseconds:d}ms"
         )
+
+
+def typeify_optimize(optimize_output):
+    """
+    The functions in scipy.optimize can return a lot of different values depending
+    on their inputs. This is annoying from a typing perspective, so this utility
+    function asserts that the output is a simple `tuple[float, RootResults]`
+    """
+
+    assert isinstance(optimize_output, tuple) and len(optimize_output) == 2
+    assert isinstance(optimize_output[1], optimize.RootResults)
+    assert isinstance(optimize_output[0], float)
+
+    return optimize_output[0], optimize_output[1]
+
+
+def smart_brentq(f: Callable[[float], float], initial_radius: float, max_radius: float):
+    """
+    Function that uses optimize.brentq to find a root of f. It will
+    try a range [-r, r], where r starts as initial_radius. If f does
+    not change sign in that range, r will be doubled. This repeats until
+    either f changes sign in the range, or r > max_radius. In the latter case,
+    a ValueError will be thrown.
+    """
+
+    r = initial_radius
+    while True:
+        if r > max_radius:
+            raise ValueError(
+                "f(-max_radius) and f(max_radius) must have different signs!"
+            )
+
+        try:
+            return typeify_optimize(optimize.brentq(f, -r, r, full_output=True))
+        except ValueError:
+            r *= 2
 
 
 def constrain(value: str | int | float, space: int):
