@@ -169,7 +169,7 @@ class Solver(ABC):
 
         # Newton either did not converge or raised an exception.
         # Try with Brent's method instead
-        c, result = smart_brentq(error, 2, 200)
+        c, result = smart_brentq(error, 2, 2000)
         if not result.converged:
             raise ValueError("Projection failed to converge")
 
@@ -198,9 +198,9 @@ class Solver(ABC):
     def solve(self):
         """Solve the given topology optimization problem."""
 
-        max_iterations = 100
+        max_iterations = 500
         objective_increasing_factor = 2
-        max_iterations_without_improvement = 40
+        max_iterations_without_improvement = 50
 
         print_columns = [
             ColumnType.ITERATION,

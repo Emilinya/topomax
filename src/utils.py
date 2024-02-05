@@ -190,7 +190,7 @@ def constrain(value: str | int | float, space: int):
             return f"{value:^{space}}"
         value = float(value)
 
-    wasted_space = str(value).find(".") + 1
+    wasted_space = f"{value:.1f}".find(".") + 1
 
     use_exp = False
     if space - wasted_space < -1 or abs(value) < 1e-2:
