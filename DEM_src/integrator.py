@@ -12,9 +12,9 @@ def integrate(data: npt.NDArray[np.float64], mesh: Mesh) -> float:
     if data.shape == mesh.shape:
         """
         Data is evaluated at the nodes of the mesh
-        ╳─╳─╳─╳
+        x─x─x─x
         │ │ │ │
-        ╳─╳─╳─╳
+        x─x─x─x
         """
         return np.trapz(np.trapz(data, dx=dx), dx=dy)
 
@@ -22,7 +22,7 @@ def integrate(data: npt.NDArray[np.float64], mesh: Mesh) -> float:
         """
         Data is evaluated at the centers of the mesh
         ┌─┬─┬─┐
-        │╳│╳│╳│
+        │x│x│x│
         └─┴─┴─┘
         """
         return float(np.sum(data)) * dx * dy
@@ -36,7 +36,7 @@ def integrate(data: npt.NDArray[np.float64], mesh: Mesh) -> float:
 def lerp(a, b, t: float):
     """
     Interpolate between a and b linearly. t∈[0, 1]
-    represents  how far along the segment [a, b] you are
+    represents how far along the segment [a, b] you are
     """
     return a * t + b * (1 - t)
 
@@ -58,6 +58,7 @@ def circular_integral(
             + "You must give CircleDomain a device!"
         )
 
+    # this is inefficient, how to fix?
     center_data = (data[1:, 1:] + data[1:, :-1] + data[:-1, 1:] + data[:-1, :-1]) / 4
 
     values = center_data[tuple(domain.indices.T)]

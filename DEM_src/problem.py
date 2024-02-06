@@ -29,13 +29,13 @@ class DEMProblem(Problem):
         self.dem.objective_calculator.set_penalization(penalization)
 
     @abstractmethod
-    def create_dem_parameters(self) -> tuple[DirichletEnforcer, ObjectiveCalculator]:
-        ...
+    def create_dem_parameters(
+        self,
+    ) -> tuple[DirichletEnforcer, ObjectiveCalculator]: ...
 
     @abstractmethod
     def create_dem(
         self,
         dirichlet_enforcer: DirichletEnforcer,
         objective_calculator: ObjectiveCalculator,
-    ) -> DeepEnergyMethod:
-        ...
+    ) -> DeepEnergyMethod: ...

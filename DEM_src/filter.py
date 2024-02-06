@@ -7,7 +7,7 @@ from DEM_src.domains import Mesh
 
 def create_density_filter(radius: float, mesh: Mesh):
     # we can't use mesh.x_grid as it has shape (Nx+1, Ny+1)
-    x_ray = np.linspace(0, mesh.length, mesh.Nx)
+    x_ray = np.linspace(0, mesh.width, mesh.Nx)
     y_ray = np.linspace(0, mesh.height, mesh.Ny)
     x_grid, y_grid = np.meshgrid(x_ray, y_ray)
     X = x_grid.flatten()

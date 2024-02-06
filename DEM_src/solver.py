@@ -1,5 +1,4 @@
 import os
-import warnings
 
 import torch
 import numpy as np
@@ -26,7 +25,6 @@ class DEMSolver(Solver):
         skip_multiple: int = 1,
         verbose=False,
     ):
-        warnings.filterwarnings("ignore")
         npr.seed(2022)
         torch.manual_seed(2022)
         np.random.seed(2022)

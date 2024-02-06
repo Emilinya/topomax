@@ -10,35 +10,23 @@ class Mesh:
         self,
         Nx: int,
         Ny: int,
-        length: float,
+        width: float,
         height: float,
     ):
         self.Nx = Nx
         self.Ny = Ny
-        self.length = length
+        self.width = width
         self.height = height
 
         # create points
-        x_ray = np.linspace(0.0, self.length, self.Nx + 1)
+        x_ray = np.linspace(0.0, self.width, self.Nx + 1)
         y_ray = np.linspace(0.0, self.height, self.Ny + 1)
 
         self.x_grid, self.y_grid = np.meshgrid(x_ray, y_ray)
 
         self.intervals = (self.Ny, self.Nx)
         self.shape = (self.Ny + 1, self.Nx + 1)
-        self.dxdy = (self.length / self.Nx, self.height / self.Ny)
-
-
-def distance(values: npt.NDArray[np.float64], point: npt.NDArray[np.float64]):
-    ps = point.shape
-    vs = values.shape
-
-    if len(vs) == 1 and ps == vs:
-        return np.sqrt(np.sum((values - point) ** 2))
-    if len(vs) == 2 and ps[0] == vs[1]:
-        return np.sqrt(np.sum((values - point) ** 2, axis=1))
-
-    raise ValueError(f"Incompatible shapes: {vs} and {ps}")
+        self.dxdy = (self.width / self.Nx, self.height / self.Ny)
 
 
 def flatten(grids: Iterable[npt.NDArray[Any]]):

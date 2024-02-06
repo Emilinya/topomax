@@ -26,7 +26,6 @@ class NNParameters:
 
 
 class DeepEnergyMethod:
-    # Instance attributes
     def __init__(
         self,
         device: torch.device,
@@ -36,7 +35,6 @@ class DeepEnergyMethod:
         dirichlet_enforcer: DirichletEnforcer,
         objective_calculator: ObjectiveCalculator,
     ):
-        # self.data = data
         self.model = MultiLayerNet(2, output_size, nn_parameters)
         self.model = self.model.to(device)
 
@@ -74,8 +72,7 @@ class DeepEnergyMethod:
                 u_pred = self.get_u(x)
                 u_pred.double()
 
-                # ---- Calculate internal and external energies------
-                loss = self.objective_calculator.calculate_potential_power(
+                loss = self.objective_calculator.calculate_energy_form(
                     u_pred, mesh.shape, density
                 )
                 optimizer_LBFGS.zero_grad()
@@ -92,11 +89,8 @@ class DeepEnergyMethod:
             return closure
 
         for t in range(self.nn_parameters.iteration_count):
-            # Zero gradients, perform a backward pass, and update the weights.
-
             optimizer_LBFGS.step(closure_generator(t))
 
-            # Check convergence
             if self.convergence_check(
                 self.loss_array,
                 self.nn_parameters.convergence_tolerance,
@@ -115,7 +109,7 @@ class DeepEnergyMethod:
         density = torch.reshape(density, mesh.intervals).to(self.device)
 
         u_pred = self.get_u(mesh=mesh)
-        loss = self.objective_calculator.calculate_potential_power(
+        loss = self.objective_calculator.calculate_energy_form(
             u_pred, mesh.shape, density
         )
 
@@ -136,7 +130,7 @@ class DeepEnergyMethod:
     def convergence_check(self, loss_array: list[float], tolerance: float):
         num_check = 10
 
-        # Run minimum of 2*num_check iterations
+        # Run minimum of 2 * num_check iterations
         if len(loss_array) < 2 * num_check:
             return False
 

@@ -10,7 +10,7 @@ class DummyObjective(ObjectiveCalculator):
     def value(self, u, grad_u):
         return [torch.sum(u**2, 0) + torch.sum(grad_u**2, [0, 1])]
 
-    def calculate_potential_power(
+    def calculate_energy_form(
         self, u: torch.Tensor, shape: tuple[int, int], density: torch.Tensor
     ):
         (value,) = self.evaluate(u, shape, self.value)
@@ -31,7 +31,7 @@ def linear(x_grid, y_grid):
 
 
 def linear_analytic(mesh: Mesh):
-    w, h = mesh.length, mesh.height
+    w, h = mesh.width, mesh.height
 
     return 2 * w * h * (2 + (w**2 + h**2) / 3)
 
@@ -44,7 +44,7 @@ def trig(x_grid, y_grid):
 
 
 def trig_analytic(mesh: Mesh):
-    w, h = mesh.length, mesh.height
+    w, h = mesh.width, mesh.height
 
     t1 = 24 * w * h - 4 * h * np.sin(2 * w) + h * np.sin(4 * w) + 4 * w * np.sin(2 * h)
     t2 = (np.sin(2 * w) - w) * np.sin(4 * h) + np.sin(4 * w) * np.sin(2 * h)
@@ -56,7 +56,7 @@ def compare(f, f_analytic, mesh: Mesh, objective: ObjectiveCalculator):
     u = torch.from_numpy(flatten(f(mesh.x_grid, mesh.y_grid))).float()
 
     numeric = float(
-        objective.calculate_potential_power(u, mesh.shape, torch.ones_like(u))
+        objective.calculate_energy_form(u, mesh.shape, torch.ones_like(u))
     )
     analytic = f_analytic(mesh)
 

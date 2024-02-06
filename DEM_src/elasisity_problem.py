@@ -92,7 +92,7 @@ class StrainEnergy(ObjectiveCalculator):
 
         return [torch.sum(σ * ε, [0, 1])]
 
-    def calculate_potential_power(
+    def calculate_energy_form(
         self, u: torch.Tensor, shape: tuple[int, int], density: torch.Tensor
     ):
         """Calculate ψ(u; ρ) = ½∫r(ρ)σ:ε dx - ∫t·u ds"""
@@ -171,8 +171,7 @@ class ElasticityProblem(DEMProblem):
 
         return float(objective)
 
-    def forward(self, rho: npt.NDArray[np.float64]):
-        ...
+    def forward(self, rho: npt.NDArray[np.float64]): ...
 
     def create_dem_parameters(self):
         body_force = None

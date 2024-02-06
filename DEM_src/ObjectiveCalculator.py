@@ -70,9 +70,9 @@ class ObjectiveCalculator(ABC):
         point_lists: list[list[torch.Tensor]] = []
         for i in range(dim):
             """
-               abcd       abc                    bcd
-            Ux=efgh, UxN1=efg , UxN2=efg , UxN3= fgh, UxN4= fgh.
-               ijkl                  ijk                    jkl
+               │abcd│       │abc │       │    │       │ bcd│       │    │
+            Ux=│efgh│, UxN1=│efg │, UxN2=│efg │, UxN3=│ fgh│, UxN4=│ fgh│.
+               │ijkl│       │    │       │ijk │       │    │       │ jkl│
             """
             Ux = U[:, :, i]
             UxN1 = Ux[:-1, :-1]
@@ -141,10 +141,9 @@ class ObjectiveCalculator(ABC):
         return values
 
     @abstractmethod
-    def calculate_potential_power(
+    def calculate_energy_form(
         self, u: torch.Tensor, shape: tuple[int, int], density: torch.Tensor
-    ) -> torch.Tensor:
-        ...
+    ) -> torch.Tensor: ...
 
     @abstractmethod
     def calculate_objective_and_gradient(

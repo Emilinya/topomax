@@ -22,7 +22,7 @@ class DirichletEnforcer(ABC):
         sides = sorted(list(set(sides)), key=lambda v: v.value)
 
         # normalize x- and y-values
-        flat_norm_x = mesh.x_grid.T.flatten().reshape((-1, 1)) / mesh.length
+        flat_norm_x = mesh.x_grid.T.flatten().reshape((-1, 1)) / mesh.width
         flat_norm_y = mesh.y_grid.T.flatten().reshape((-1, 1)) / mesh.height
 
         zero_enforcer = np.ones((flat_norm_x.size, output_dimension))
@@ -41,8 +41,7 @@ class DirichletEnforcer(ABC):
         return torch.from_numpy(zero_enforcer).to(device).float()
 
     @abstractmethod
-    def __call__(self, u: torch.Tensor) -> torch.Tensor:
-        ...
+    def __call__(self, u: torch.Tensor) -> torch.Tensor: ...
 
 
 class ElasticityEnforcer(DirichletEnforcer):
@@ -95,9 +94,7 @@ class FluidEnforcer(DirichletEnforcer):
 
         return output
 
-    def create_flow_enforcer(
-        self, flows: list[Flow], mesh: Mesh, device: torch.device
-    ):
+    def create_flow_enforcer(self, flows: list[Flow], mesh: Mesh, device: torch.device):
         flow_enforcer_ux = np.zeros_like(mesh.x_grid)
         flow_enforcer_uy = np.zeros_like(mesh.y_grid)
 

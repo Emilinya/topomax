@@ -4,7 +4,7 @@ import torch
 import numpy as np
 import numpy.typing as npt
 
-from DEM_src.utils import Mesh, distance
+from DEM_src.utils import Mesh
 from designs.definitions import Side, CircularRegion
 
 
@@ -20,7 +20,7 @@ class SideDomain:
             side_condition = flat_x == 0
             side_points = flat_y
         elif side == Side.RIGHT:
-            side_condition = flat_x == mesh.length
+            side_condition = flat_x == mesh.width
             side_points = flat_y
         elif side == Side.TOP:
             side_condition = flat_y == mesh.height
@@ -50,6 +50,18 @@ class SideDomain:
         self.indices = load_indices
         self.left_error = load_points[0, self.side_index] - left
         self.right_error = right - load_points[-1, self.side_index]
+
+
+def distance(values: npt.NDArray[np.float64], point: npt.NDArray[np.float64]):
+    point_shape = point.shape
+    value_shape = values.shape
+
+    if len(value_shape) == 1 and point_shape == value_shape:
+        return np.sqrt(np.sum((values - point) ** 2))
+    if len(value_shape) == 2 and point_shape[0] == value_shape[1]:
+        return np.sqrt(np.sum((values - point) ** 2, axis=1))
+
+    raise ValueError(f"Incompatible shapes: {value_shape} and {point_shape}")
 
 
 class CircleDomain:

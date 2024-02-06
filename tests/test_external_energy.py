@@ -38,7 +38,7 @@ def calculate_error(
     numeric = float(calculate_traction_integral(u, mesh, traction_points_list))
 
     if traction.side in (Side.LEFT, Side.RIGHT):
-        analytic = F(mesh.length, traction.center, traction.length)
+        analytic = F(mesh.width, traction.center, traction.length)
     elif traction.side in (Side.TOP, Side.BOTTOM):
         analytic = F(mesh.height, traction.center, traction.length)
     else:
@@ -51,7 +51,7 @@ def test_calculate_traction_integral():
     Ns = list(range(2, 100))
 
     bridge_mesh = Mesh(4, 1, 12, 2)
-    bridge_traction = Traction(Side.TOP, bridge_mesh.length / 2, 0.5, (0.0, 1.0))
+    bridge_traction = Traction(Side.TOP, bridge_mesh.width / 2, 0.5, (0.0, 1.0))
 
     cantilever_mesh = Mesh(10, 5, 2, 1)
     cantilever_traction = Traction(
@@ -62,9 +62,7 @@ def test_calculate_traction_integral():
     def get_get_error_function(mesh, traction):
         def get_error_function(f, F):
             def error_function(N):
-                N_mesh = Mesh(
-                    mesh.Nx * N, mesh.Ny * N, mesh.length, mesh.height
-                )
+                N_mesh = Mesh(mesh.Nx * N, mesh.Ny * N, mesh.width, mesh.height)
                 traction_points_list = [TractionPoints(N_mesh, traction)]
 
                 return calculate_error(f, F, N_mesh, traction, traction_points_list)

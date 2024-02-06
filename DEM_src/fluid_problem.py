@@ -22,25 +22,25 @@ class FluidEnergy(ObjectiveCalculator):
     def set_gamma(self, gamma: float):
         self.gamma = gamma
 
-    def calculate_potential(self, u: torch.Tensor, grad_u: torch.Tensor):
+    def calculate_all_norms(self, u: torch.Tensor, grad_u: torch.Tensor):
         """Calculate |u|², |∇u|² and |∇·u|²."""
 
-        u_norm, grad_u_norm = self.calculate_norms(u, grad_u)
+        u_norm, grad_u_norm = self.calculate_some_norms(u, grad_u)
         div_u = grad_u[0][0] + grad_u[1][1]
 
         return [u_norm, grad_u_norm, div_u**2]
 
-    def calculate_norms(self, u: torch.Tensor, grad_u: torch.Tensor):
+    def calculate_some_norms(self, u: torch.Tensor, grad_u: torch.Tensor):
         """Calculate |u|² and |∇u|²."""
 
         return [torch.sum(u**2, 0), torch.sum(grad_u**2, [0, 1])]
 
-    def calculate_potential_power(
+    def calculate_energy_form(
         self, u: torch.Tensor, shape: tuple[int, int], density: torch.Tensor
     ):
         """Calculate ψ(u; ρ) = ∫½(r(ρ)|u|² + μ|∇u|²) + γ|∇·u|² dx."""
 
-        u_norm, grad_norm, div_norm = self.evaluate(u, shape, self.calculate_potential)
+        u_norm, grad_norm, div_norm = self.evaluate(u, shape, self.calculate_all_norms)
 
         potential = (
             0.5 * (self.penalizer(density) * u_norm + self.viscocity * grad_norm)
@@ -54,7 +54,7 @@ class FluidEnergy(ObjectiveCalculator):
     ):
         """Calculate ∇ϕ(ρ; u) = ½r'(ρ)|u|² and ϕ(ρ; u) = ½∫r(ρ)|u|² + μ|∇u|² dx."""
 
-        u_norm, grad_norm = self.evaluate(u, shape, self.calculate_norms)
+        u_norm, grad_norm = self.evaluate(u, shape, self.calculate_some_norms)
         potential = self.penalizer(density) * u_norm + self.viscocity * grad_norm
 
         objective = 0.5 * torch.sum(potential * self.detJ)
@@ -90,7 +90,6 @@ class FluidProblem(DEMProblem):
     def calculate_objective(self, rho: npt.NDArray[np.float64]):
         assert isinstance(self.dem.objective_calculator, FluidEnergy)
 
-        self.dem.objective_calculator.set_gamma(500)
         objective, objective_gradient = self.dem.train_model(rho, self.mesh)
 
         objective = objective.cpu().detach().numpy()
@@ -98,14 +97,13 @@ class FluidProblem(DEMProblem):
 
         return float(objective)
 
-    def forward(self, rho: npt.NDArray[np.float64]):
-        ...
+    def forward(self, rho: npt.NDArray[np.float64]): ...
 
     def create_dem_parameters(self):
         dirichlet_enforcer = FluidEnforcer(
             self.design.parameters, self.mesh, self.device
         )
-        fluid_energy = FluidEnergy(self.mesh, self.design.parameters.viscosity, 1)
+        fluid_energy = FluidEnergy(self.mesh, self.design.parameters.viscosity, 500)
 
         return dirichlet_enforcer, fluid_energy
 
