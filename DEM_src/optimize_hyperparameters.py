@@ -7,7 +7,7 @@ from hyperopt import fmin, tpe, hp, Trials
 
 from DEM_src.solver import DEMSolver
 from DEM_src.problem import DEMProblem
-from DEM_src.DeepEnergyMethod import NNParameters
+from DEM_src.deep_energy_method import NNParameters
 
 
 def hyperopt_main_generator(

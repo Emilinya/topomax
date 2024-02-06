@@ -10,7 +10,7 @@ import numpy.typing as npt
 
 from DEM_src.utils import Mesh, flatten
 from DEM_src.dirichlet_enforcer import DirichletEnforcer
-from DEM_src.ObjectiveCalculator import ObjectiveCalculator
+from DEM_src.objective_calculator import ObjectiveCalculator
 
 
 @dataclass

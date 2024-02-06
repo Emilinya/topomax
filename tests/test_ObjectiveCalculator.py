@@ -2,7 +2,7 @@ import torch
 import numpy as np
 
 from DEM_src.utils import Mesh, flatten
-from DEM_src.ObjectiveCalculator import ObjectiveCalculator
+from DEM_src.objective_calculator import ObjectiveCalculator
 from src.penalizers import ElasticPenalizer
 from tests.utils import get_convergance
 

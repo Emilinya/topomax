@@ -9,9 +9,9 @@ from DEM_src.utils import Mesh, unflatten
 from DEM_src.filter import create_density_filter
 from DEM_src.domains import SideDomain, CircleDomain
 from DEM_src.dirichlet_enforcer import ElasticityEnforcer
-from DEM_src.ObjectiveCalculator import ObjectiveCalculator
+from DEM_src.objective_calculator import ObjectiveCalculator
 from DEM_src.integrator import boundary_integral, circular_integral
-from DEM_src.DeepEnergyMethod import NNParameters, DeepEnergyMethod
+from DEM_src.deep_energy_method import NNParameters, DeepEnergyMethod
 from designs.definitions import Force, Traction, ElasticityDesign
 from src.penalizers import ElasticPenalizer
 

@@ -5,9 +5,9 @@ import torch
 
 from src.problem import Problem
 from DEM_src.utils import Mesh
-from DEM_src.DeepEnergyMethod import DeepEnergyMethod
+from DEM_src.deep_energy_method import DeepEnergyMethod
 from DEM_src.dirichlet_enforcer import DirichletEnforcer
-from DEM_src.ObjectiveCalculator import ObjectiveCalculator
+from DEM_src.objective_calculator import ObjectiveCalculator
 
 
 class DEMProblem(Problem):
