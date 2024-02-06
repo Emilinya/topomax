@@ -1,7 +1,7 @@
 import os
 from enum import Enum
 
-from src.utils import Timer, constrain
+from src.utils import constrain, prettify_seconds
 
 
 class ColumnType(Enum):
@@ -35,8 +35,8 @@ class Printer:
     def set_objective(self, objective: float):
         previous = self.value_map.get(ColumnType.OBJECTIVE)
 
-        assert not isinstance(previous, str)
         if previous is not None:
+            assert not isinstance(previous, str)
             self.value_map[ColumnType.DELTA_OBJECTIVE] = previous - objective
 
         self.value_map[ColumnType.OBJECTIVE] = objective
@@ -63,20 +63,21 @@ class Printer:
         self.set_time(seconds)
 
     def short_time(self, seconds: float, limit: int):
-        full_time = Timer.prettify_seconds(seconds)
+        if limit < 0:
+            raise ValueError(f"You can't limit time string to {limit} characters!")
 
-        while len(full_time) > limit:
-            full_time = " ".join(full_time.split(" ")[:-1])
-
-        return full_time
+        time = prettify_seconds(seconds)
+        while len(time) > limit:
+            time = " ".join(time.split(" ")[:-1])
+        return time
 
     def get_reduced_spacings(self):
-        length = -1
         try:
             terminal_width = os.get_terminal_size().columns
         except OSError:
             terminal_width = 999
 
+        length = -1
         reduced_spacings: list[int] = []
         for l in self.spacings:
             length += l + 3
@@ -100,13 +101,7 @@ class Printer:
 
     def print_values(self):
         reduced_spacings = self.get_reduced_spacings()
-
-        values: list[float | int | str] = []
-        for i, c in enumerate(self.columns):
-            if i + 1 > len(reduced_spacings):
-                break
-
-            values.append(self.value_map.get(c, ""))
+        values = [self.value_map.get(c, "") for c in self.columns]
 
         print(
             " │ ".join([constrain(v, s) for v, s in zip(values, reduced_spacings)]),

@@ -40,7 +40,7 @@ def logit(x: npt.NDArray):
 class Solver(ABC):
     """
     Class that solves a given topology optimization problem using the
-    entropic mirror descent algorithm by Brendan Keith and Thomas M. Surowiec
+    entropic mirror descent algorithm (EMD) by Brendan Keith and Thomas M. Surowiec
 
     This abstract base class contains the logic for the EMD algorithm,
     without making any assumptions about what object the design function
@@ -100,8 +100,7 @@ class Solver(ABC):
         """Create and return the design function."""
 
     @abstractmethod
-    def create_problem(self, design: FluidDesign | ElasticityDesign) -> Problem:
-        ...
+    def create_problem(self, design: FluidDesign | ElasticityDesign) -> Problem: ...
 
     @abstractmethod
     def to_array(self, rho: Any) -> npt.NDArray:
@@ -125,6 +124,12 @@ class Solver(ABC):
         """
 
     def get_penalty_formatter(self, penalties: list[float]):
+        """
+        To ensure that results are sorted correctly, we must format
+        the penalties to always have the same number of characters.
+        This is done by adding zeros to the start and end where neccesary.
+        """
+
         padding_values = np.array(
             [[len(v) for v in str(p).split(".")] for p in penalties]
         )
@@ -142,6 +147,8 @@ class Solver(ABC):
         Project half_step so the volume constraint is fulfilled
         by first solving '∫expit(half_step + c)dx = volume' for c
         using Newton's method, and then adding c to half_step.
+        Newton's method might fail. In that case, Brent's method
+        is used as a fallback.
         """
 
         def error(c: float):
@@ -151,7 +158,7 @@ class Solver(ABC):
             return self.integrate(expit_diff(half_step + c))
 
         try:
-            # First try with Newton's method
+            # First try Newton's method
             c, result = typeify_optimize(
                 optimize.newton(
                     error,
@@ -163,7 +170,6 @@ class Solver(ABC):
             )
             if result.converged:
                 return half_step + c
-
         except RuntimeError:
             pass
 

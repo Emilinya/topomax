@@ -57,30 +57,43 @@ class Timer:
 
     def get_time_string(self):
         seconds = self.get_time_seconds()
-        return Timer.prettify_seconds(seconds)
+        return prettify_seconds(seconds)
 
-    @classmethod
-    def prettify_seconds(cls, seconds):
-        whole_seconds = int(seconds)
-        milliseconds = (seconds - whole_seconds) * 1000
 
-        if whole_seconds == 0:
-            return f"{milliseconds:.3g}ms"
-        if whole_seconds < 60:
-            return f"{whole_seconds:d}s {milliseconds:.0f}ms"
-        if seconds < 60**2:
-            whole_minutes = int(whole_seconds / 60)
-            whole_seconds = whole_seconds % 60
-            return f"{whole_minutes:d}m {whole_seconds:d}s {milliseconds:.0f}ms"
+def prettify_seconds(seconds: float):
+    """
+    Convert a float containing seconds into a formatted
+    time string.
 
-        # more than one hour
-        whole_hours = int(whole_seconds / (60**2))
-        whole_seconds = whole_seconds % (60**2)
+    Examples
+    --------
+    >>> prettify_seconds(8.53973422)
+    '8s 540ms'
+    >>> prettify_seconds(20631.7879)
+    '5h 43m 51s 788ms'
+    """
+    whole_seconds = int(seconds)
+    milliseconds = (seconds - whole_seconds) * 1000
 
+    if whole_seconds == 0:
+        return f"{milliseconds:.3g}ms"
+    if whole_seconds < 60:
+        return f"{whole_seconds:d}s {milliseconds:.0f}ms"
+    if seconds < 60**2:
         whole_minutes = int(whole_seconds / 60)
         whole_seconds = whole_seconds % 60
+        return f"{whole_minutes:d}m {whole_seconds:d}s {milliseconds:.0f}ms"
 
-        return f"{whole_hours:d}h {whole_minutes:d}m {whole_seconds:d}s {milliseconds:.0f}ms"
+    # more than one hour
+    whole_hours = int(whole_seconds / (60**2))
+    whole_seconds = whole_seconds % (60**2)
+
+    whole_minutes = int(whole_seconds / 60)
+    whole_seconds = whole_seconds % 60
+
+    return (
+        f"{whole_hours:d}h {whole_minutes:d}m {whole_seconds:d}s {milliseconds:.0f}ms"
+    )
 
 
 def get_solver_data(solver: str, design: str, root_folder="output"):

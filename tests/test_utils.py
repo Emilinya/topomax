@@ -1,6 +1,6 @@
 import numpy as np
 
-from src.utils import constrain, Timer
+from src.utils import constrain, prettify_seconds
 
 
 def test_constrain():
@@ -18,8 +18,8 @@ def test_constrain():
 
 
 def test_prettify_seconds():
-    assert Timer.prettify_seconds(0.865255979432265) == "865ms"
-    assert Timer.prettify_seconds(8.539734222673566) == "8s 540ms"
-    assert Timer.prettify_seconds(85.01969522320721) == "1m 25s 20ms"
-    assert Timer.prettify_seconds(20631.78786771343) == "5h 43m 51s 788ms"
-    assert Timer.prettify_seconds(885479.7776801552) == "245h 57m 59s 778ms"
+    assert prettify_seconds(0.865255979) == "865ms"
+    assert prettify_seconds(8.539734222) == "8s 540ms"
+    assert prettify_seconds(85.01969522) == "1m 25s 20ms"
+    assert prettify_seconds(20631.78786) == "5h 43m 51s 788ms"
+    assert prettify_seconds(885479.7776) == "245h 57m 59s 778ms"
