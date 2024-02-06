@@ -3,11 +3,12 @@ from abc import ABC, abstractmethod
 
 import dolfin as df
 from ufl.form import Form
+from ufl.argument import Argument
 
 
 class PDESolver(ABC):
-    LeftCallable = Callable[[df.TrialFunction, df.TestFunction, Any | None], Form]
-    RightCallable = Callable[[df.TestFunction, Any | None], Form]
+    LeftCallable = Callable[[Argument, Argument, Any | None], Form]
+    RightCallable = Callable[[Argument, Any | None], Form]
 
     def __init__(
         self,
@@ -40,8 +41,7 @@ class PDESolver(ABC):
     @abstractmethod
     def solve(
         self, *, a_arg: Any | None = None, L_arg: Any | None = None
-    ) -> df.Function:
-        ...
+    ) -> df.Function: ...
 
 
 class DefaultSolver(PDESolver):
@@ -57,15 +57,6 @@ class DefaultSolver(PDESolver):
 
 
 class SimpleMUMPSSolver(PDESolver):
-    def __init__(
-        self,
-        a_func: PDESolver.LeftCallable,
-        L_func: PDESolver.RightCallable,
-        boundary_conditions: list[df.DirichletBC] | None = None,
-        function_space: df.FunctionSpace | None = None,
-    ):
-        super().__init__(a_func, L_func, boundary_conditions, function_space)
-
     def solve(self, *, a_arg: Any | None = None, L_arg: Any | None = None):
         if self.function_space is None:
             raise ValueError("You must set function space before solving PDE!")

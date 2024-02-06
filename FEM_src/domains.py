@@ -63,12 +63,3 @@ class RegionDomain(df.SubDomain):
 
     def inside(self, pos, _):
         return df.between(pos[0], self.x_region) and df.between(pos[1], self.y_region)
-
-
-class PointDomain(df.SubDomain):
-    def __init__(self, point: tuple[float, float]):
-        super().__init__()
-        self.point = point
-
-    def inside(self, pos, _):
-        return df.near(pos[0], self.point[0]) and df.near(pos[1], self.point[1])

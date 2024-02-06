@@ -103,9 +103,9 @@ class ElasticityProblem(FEMProblem):
 
     def create_solver(self):
         """
-        The weak form of the state equation is `(λα(ξ)∇⋅u, ∇⋅v) + (2μα(ξ)ε(u),
-        ε(v)) = (f, v) + (t, v)∂`, where ξ is the filtered rho and ε(u) is the
-        symmetric gradient of u. This gives a = (λα(ξ)∇⋅u, ∇⋅v) + (2μα(ξ)ε(u), ε(v)),
+        The weak form of the state equation is `(λr(ξ)∇⋅u, ∇⋅v) + (2μr(ξ)ε(u), ε(v))
+        = (f, v) + (t, v)∂`, where ξ is the filtered rho and ε(u) is the symmetric
+        gradient of u. This gives a = (λr(ξ)∇⋅u, ∇⋅v) + (2μr(ξ)ε(u), ε(v)),
         L = (f, v) + (t, v)∂
         """
 
@@ -133,7 +133,7 @@ class ElasticityProblem(FEMProblem):
 
     def calculate_objective_gradient(self):
         """
-        Filter -α'(ξ) (λ|∇⋅u|² + 2μ|ε(u)|²), where ξ is the filtered rho
+        Filter -r'(ξ) (λ|∇⋅u|² + 2μ|ε(u)|²), where ξ is the filtered rho
         and ε(u) = (∇u + ∇uᵀ)/2 is the symmetric gradient of u.
         """
 
@@ -151,8 +151,9 @@ class ElasticityProblem(FEMProblem):
 
     def calculate_objective(self, rho):
         """
-        get reduced objective function ϕ(ρ) = ∫u⋅f dx + ∫u⋅t ds,
-        where f is the body force and t is the traction term.
+        Get objective function ϕ(ρ) = ∫u⋅f dx + ∫u⋅t ds,
+        where u is the solution to the state equation with
+        the given ρ, f is the body force and t is the traction.
         """
 
         self.filtered_rho = self.filter.apply(rho)
@@ -165,11 +166,6 @@ class ElasticityProblem(FEMProblem):
         return float(objective)
 
     def forward(self, rho):
-        """
-        Solve the state equation (λα(ξ)∇⋅u, ∇⋅v) + (2μα(ξ)ε(u), ε(v)) = (f, v),
-        where ξ is the filtered rho and ε(u) is the symmetric gradient of u
-        """
-
         return self.solver.solve(a_arg=rho)
 
     def create_boundary_conditions(self):

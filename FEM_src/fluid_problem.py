@@ -63,7 +63,11 @@ class FluidProblem(FEMProblem):
         self.rho = None
 
     def create_solver(self):
-        """What is the weak equation? Only time will tell"""
+        """
+        The weak form of the state equation is `r(ρ)(u, v) + μ(∇u, ∇v) +
+        (∇p, v) + (∇·u, q) = 0`. This gives a = r(ρ)(u, v) + μ(∇u, ∇v) +
+        (∇p, v) + (∇·u, q), L = 0
+        """
 
         def a_func(trial, test, rho):
             (u, p) = df.split(trial)
@@ -88,7 +92,7 @@ class FluidProblem(FEMProblem):
         )
 
     def calculate_objective_gradient(self):
-        """get objective derivative ϕ'(ρ) = ½α'(ρ)|u|²."""
+        """get objective gradient ϕ'(ρ) = ½r'(ρ)|u|²."""
 
         if self.rho is None or self.u is None:
             raise ValueError(
@@ -102,7 +106,7 @@ class FluidProblem(FEMProblem):
         )
 
     def calculate_objective(self, rho):
-        """get objective function ϕ(ρ) = ½∫α(ρ)|u|²+μ|∇u|² dx."""
+        """get objective function ϕ(ρ) = ½∫r(ρ)|u|² + μ|∇u|² dx."""
         self.rho = rho
         (self.u, _) = df.split(self.forward(rho))
 
@@ -113,7 +117,6 @@ class FluidProblem(FEMProblem):
         return float(objective)
 
     def forward(self, rho):
-        """Solve the forward problem for a given density distribution rho(x)."""
         return self.solver.solve(a_arg=rho)
 
     def create_boundary_conditions(self):
