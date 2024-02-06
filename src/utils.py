@@ -80,9 +80,7 @@ class Timer:
         whole_minutes = int(whole_seconds / 60)
         whole_seconds = whole_seconds % 60
 
-        return (
-            f"{whole_hours:d}h {whole_minutes:d}m {whole_seconds:d}s {milliseconds:d}ms"
-        )
+        return f"{whole_hours:d}h {whole_minutes:d}m {whole_seconds:d}s {milliseconds:.0f}ms"
 
 
 def get_solver_data(solver: str, design: str, root_folder="output"):
