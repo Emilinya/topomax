@@ -42,7 +42,7 @@ def test_fluid_solver(data_path, output_folder, cleanup):
     with open(solver_data, "rb") as datafile:
         solver_obj = pickle.load(datafile)
     solver_rho, mesh, function_space = load_function(solver_rho)
-    solver_objective = solver_obj["objective"]
+    solver_objective = solver_obj.objective
 
     with open(os.path.join(output_folder, "correct_data.dat"), "rb") as datafile:
         correct_obj = pickle.load(datafile)
