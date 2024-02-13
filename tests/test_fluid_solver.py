@@ -33,10 +33,10 @@ def test_fluid_solver(data_path, output_folder, cleanup):
     )
     solver.solve()
 
-    solver_data = os.path.join(output_folder, "N=20_p=0.1_k=18.dat")
+    solver_data = os.path.join(output_folder, "N=20_p=0.1_k=21.dat")
     assert os.path.isfile(solver_data)
 
-    solver_rho = os.path.join(output_folder, "N=20_p=0.1_k=18_rho.dat")
+    solver_rho = os.path.join(output_folder, "N=20_p=0.1_k=21_rho.dat")
     assert os.path.isfile(solver_rho)
 
     with open(solver_data, "rb") as datafile:
@@ -49,7 +49,7 @@ def test_fluid_solver(data_path, output_folder, cleanup):
     correct_rho, *_ = load_function(
         os.path.join(output_folder, "correct_rho.dat"), mesh, function_space
     )
-    correct_objective = correct_obj["objective"]
+    correct_objective = correct_obj.objective
 
     assert abs(solver_objective - correct_objective) < 1e-14
     assert df.assemble((solver_rho - correct_rho) ** 2 * df.dx) < 1e-14
