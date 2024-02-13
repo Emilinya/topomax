@@ -40,7 +40,7 @@ class DEMRhoExpression(df.UserExpression):
         return ()
 
 
-def plot_projection(
+def plot_interpolation(
     method: str,
     design: str,
     N: int,
@@ -65,7 +65,7 @@ def plot_projection(
 
     plt.title(f"Old: {old_objective:.5g}, New: {new_objective:.5g}")
 
-    out_path = f"misc/output/projections/{method}_{N=}_{design}.png"
+    out_path = f"misc/output/interpolations/{method}_{N=}_{design}.png"
     os.makedirs(os.path.dirname(out_path), exist_ok=True)
 
     plt.savefig(out_path, dpi=200, bbox_inches="tight")
@@ -83,7 +83,7 @@ def get_data(method: str, design_file: str, N: int):
     result_file = None
 
     for data_file in os.listdir(data_folder):
-        if "result" in data_file:
+        if data_file[-10:-4] == "result":
             file_N = int(data_file.split("_")[0].split("=")[1])
             if N == file_N:
                 p = float(data_file.split("_")[1].split("=")[1])
@@ -97,11 +97,11 @@ def get_data(method: str, design_file: str, N: int):
     with open(result_path, "rb") as datafile:
         result_obj = pickle.load(datafile)
 
-    design_path = f"{result_path[:-11]}_k={result_obj['min_idx']}.dat"
+    design_path = f"{result_path[:-11]}_k={result_obj.min_index}.dat"
     with open(design_path, "rb") as datafile:
         data_obj = pickle.load(datafile)
 
-    objective = data_obj["objective"]
+    objective = data_obj.objective
     rho_path = design_path[:-4] + "_rho"
 
     return design, objective, rho_path
@@ -110,7 +110,7 @@ def get_data(method: str, design_file: str, N: int):
 def main(method: str, design_file: str, N: int):
     design, old_objective, rho_path = get_data(method, design_file, N)
 
-    big_N = 160
+    big_N = 320
 
     solver = FEMSolver(big_N, design_file)
     solver.problem.set_penalization(max(solver.parameters.penalties))
@@ -125,7 +125,7 @@ def main(method: str, design_file: str, N: int):
 
     new_objective = solver.problem.calculate_objective(rho)
 
-    plot_projection(
+    plot_interpolation(
         method,
         design,
         N,
@@ -148,7 +148,7 @@ def multimain():
 
     for method in ["DEM", "FEM"]:
         for design in elasticity_designs + fluid_designs:
-            for N in [40, 80, 160]:
+            for N in [40, 80, 160, 320]:
                 main(method, f"designs/{design}.json", N)
 
 
