@@ -1,16 +1,15 @@
 import os
-import sys
-import pickle
+import argparse
 from dataclasses import dataclass
 from typing import Literal, Sequence
 
-from tqdm import tqdm
 import numpy as np
 import numpy.typing as npt
-from matplotlib import colors
 import matplotlib.pyplot as plt
-from matplotlib.axes import Axes
 from matplotlib.collections import QuadMesh
+from matplotlib.axes import Axes
+from matplotlib import colors
+from tqdm import tqdm
 
 from designs.definitions import ProblemType
 from designs.design_parser import parse_design
@@ -60,7 +59,7 @@ def create_cmap(start, middle, end, name):
     return colors.LinearSegmentedColormap(name, segmentdata=cdict)
 
 
-def get_design_data(
+def get_rho(
     solver: str, data_folder, data: IterationData, points: int
 ) -> tuple[npt.NDArray[np.float64], float, float, float]:
     objective = data.objective
@@ -97,22 +96,27 @@ def plot_design(
     p: str,
     k: int,
     cmap: colors.Colormap,
+    simple: bool,
 ):
     data_folder = f"output/{solver}/{design}/data"
-    design_data, objective, w, h = get_design_data(solver, data_folder, data, 200)
+    rho, objective, w, h = get_rho(solver, data_folder, data, 200)
 
     fig = plt.figure(figsize=(6.4 * w / h, 4.8))
     plt.rcParams.update({"font.size": 10 * np.sqrt(w / h)})
 
-    mappable = create_design_figure(plt.gca(), design_data, w, h, N, cmap)
-    plt.colorbar(mappable, label=r"$\rho(x, y)$ []")
+    mappable = create_design_figure(plt.gca(), rho, w, h, N, cmap)
+    if simple:
+        plt.xticks([], [])
+        plt.yticks([], [])
+    else:
+        plt.colorbar(mappable, label=r"$\rho(x, y)$ []")
+        plt.xlabel("$x$ []")
+        plt.ylabel("$y$ []")
+        plt.title(f"{N=}, p={float(p):.5g}, k={k:.5g}, objective={objective:.3g}")
+
     plt.xlim(0, w)
     plt.ylim(0, h)
     plt.gca().set_aspect("equal", "box")
-
-    plt.xlabel("$x$ []")
-    plt.ylabel("$y$ []")
-    plt.title(f"{N=}, p={float(p):.5g}, k={k:.5g}, objective={objective:.3g}")
 
     output_file = (
         os.path.join("output", solver, design, "figures", f"{N=}_p={p}_{k=}") + ".png"
@@ -131,7 +135,7 @@ def multiplot(
     cmap: colors.Colormap,
 ):
     data_folder = f"output/{solver}/{design}/data"
-    *_, w, h = get_design_data(solver, data_folder, vals[0], 1)
+    *_, w, h = get_rho(solver, data_folder, vals[0], 1)
     fig, axss = plt.subplots(
         2,
         3,
@@ -153,8 +157,8 @@ def multiplot(
 
         ax.axis("off")
         ax.set_aspect("equal", "box")
-        design_data, _, w, h = get_design_data(solver, data_folder, data, 100)
-        pcolormesh = create_design_figure(ax, design_data, w, h, N, cmap)
+        rho, _, w, h = get_rho(solver, data_folder, data, 100)
+        pcolormesh = create_design_figure(ax, rho, w, h, N, cmap)
         ax.set_title(f"$k={data.iteration}$")
     assert pcolormesh is not None
 
@@ -190,11 +194,11 @@ def reduce_length(long_list: list, desired_length: int):
     return new_list
 
 
-def get_designs(solver: str, selected_designs: list[str] | None):
-    designs: list[DesignData] = []
+def get_design_data_list(solver: str, designs: list[str] | None, Ns: list[int] | None):
+    design_data_list: list[DesignData] = []
 
     for design in os.listdir(os.path.join("output", solver)):
-        if selected_designs is not None and design not in selected_designs:
+        if designs is not None and design not in designs:
             continue
 
         data_folder = os.path.join("output", solver, design, "data")
@@ -203,10 +207,13 @@ def get_designs(solver: str, selected_designs: list[str] | None):
 
         results, data_list = get_solver_data(solver, design)
 
-        designs.append(DesignData(design, {}))
-        design_data = designs[-1]
+        design_data_list.append(DesignData(design, {}))
+        design_data = design_data_list[-1]
 
         for N, p, _, data in data_list:
+            if Ns is not None and N not in Ns:
+                continue
+
             if not design_data.N_datas.get(N):
                 design_data.N_datas[N] = NData(N, {})
 
@@ -219,7 +226,7 @@ def get_designs(solver: str, selected_designs: list[str] | None):
 
             N_data.p_datas[p].data_list.append(data)
 
-    return designs
+    return design_data_list
 
 
 def plot_designs(
@@ -227,6 +234,7 @@ def plot_designs(
     designs: list[DesignData],
     fluid_cmap: colors.Colormap,
     elasticity_cmap: colors.Colormap,
+    simple: bool,
 ):
     plot_count = 0
     for design_data in designs:
@@ -259,13 +267,20 @@ def plot_designs(
             for N, N_data in design_data.N_datas.items():
                 for p, p_data in N_data.p_datas.items():
                     for data in p_data.data_list:
-                        plot_design(solver, design, data, N, p, data.iteration, cmap)
+                        plot_design(
+                            solver, design, data, N, p, data.iteration, cmap, simple
+                        )
                         pbar.update(1)
                     multiplot(solver, design_data.design, N, p, p_data.data_list, cmap)
                     pbar.update(1)
 
 
-def main():
+def main(
+    methods: list[str] | None,
+    designs: list[str] | None,
+    Ns: list[int] | None,
+    simple: bool,
+):
     # colormap with the colors of the trans flag, from red to white to blue
     traa_blue = [91 / 255, 206 / 255, 250 / 255]
     traa_red = [245 / 255, 169 / 255, 184 / 255]
@@ -277,26 +292,59 @@ def main():
     # colormap from white to black
     boring_cmap = create_cmap((1, 1, 1), (0.5, 0.5, 0.5), (0, 0, 0), "boring")
 
-    selected_designs = None
-    if len(sys.argv) > 1:
-        selected_designs = sys.argv[1:]
+    all_methods = ["FEM", "DEM"]
+    if methods is not None:
+        bad_methods = list(set(methods).difference(all_methods))
+        if len(bad_methods) > 0:
+            raise ValueError(
+                f"Unknown method '{bad_methods[0]}'. Allowed methods are "
+                + f"'{' and '.join(all_methods)}'"
+            )
+    else:
+        methods = all_methods
 
-    all_solvers = ["FEM", "DEM"]
-    solvers = []
-    if selected_designs is not None:
-        for solver in all_solvers:
-            if solver in selected_designs and solver not in solvers:
-                solvers.append(solver)
-    if len(solvers) == 0:
-        solvers = all_solvers
-
-    for solver in solvers:
-        if not os.path.isdir(os.path.join("output", solver)):
+    for method in methods:
+        if not os.path.isdir(os.path.join("output", method)):
             continue
 
-        designs = get_designs(solver, selected_designs)
-        plot_designs(solver, designs, traa_cmap, highlight_cmap)
+        design_data = get_design_data_list(method, designs, Ns)
+        plot_designs(method, design_data, traa_cmap, highlight_cmap, simple)
 
 
 if __name__ == "__main__":
-    main()
+    parser = argparse.ArgumentParser()
+
+    parser.add_argument(
+        "-m",
+        "--method",
+        nargs="+",
+        required=False,
+        help="The methods you want to plot the designs form. Allows multiple values, "
+        + "but they must be either 'FEM' or 'DEM'. If not set, both methods will be used.",
+    )
+    parser.add_argument(
+        "-d",
+        "--design",
+        nargs="+",
+        required=False,
+        help="The designs you want to plot. If not set, all designs will be plotted.",
+    )
+    parser.add_argument(
+        "-N",
+        "--elements",
+        type=int,
+        nargs="+",
+        required=False,
+        help="The discritization parameters you want to plot. "
+        + "If not set, all N values will be plotted.",
+    )
+    parser.add_argument(
+        "-s",
+        "--simple",
+        action="store_true",
+        help="With this flag, the figures created will show just the design. "
+        + "They will have have no axis, no title and no colorbar.",
+    )
+
+    args = parser.parse_args()
+    main(args.method, args.design, args.elements, args.simple)
