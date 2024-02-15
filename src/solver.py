@@ -234,7 +234,9 @@ class Solver(ABC):
             objective_timer.restart()
             objectives = [self.problem.calculate_objective(self.rho)]
             times = [objective_timer.get_time_seconds()]
-            printer.set(self.tolerance(0), objectives[0], 0, times[0])
+            printer.set_objective(objectives[0])
+            printer.set_time(times[0])
+            printer.set_iteration(0)
 
             k = 0
             exit_condition = ""
@@ -257,7 +259,7 @@ class Solver(ABC):
 
                 objectives.append(self.problem.calculate_objective(self.rho))
                 times.append(objective_timer.get_time_seconds())
-                printer.set(self.tolerance(k + 1), objectives[-1], k + 1, times[-1])
+                printer.set(self.tolerance(k), objectives[-1], k + 1, times[-1])
 
                 if np.isnan(objectives[-1]):
                     exit_condition = "Objective is NaN"
