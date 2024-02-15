@@ -33,10 +33,10 @@ def test_fluid_solver(data_path, output_folder, cleanup):
     )
     solver.solve()
 
-    solver_data = os.path.join(output_folder, "N=20_p=0.1_k=21.dat")
+    solver_data = os.path.join(output_folder, "N=20_p=0.1_k=20.dat")
     assert os.path.isfile(solver_data)
 
-    solver_rho = os.path.join(output_folder, "N=20_p=0.1_k=21_rho.dat")
+    solver_rho = os.path.join(output_folder, "N=20_p=0.1_k=20_rho.dat")
     assert os.path.isfile(solver_rho)
 
     with open(solver_data, "rb") as datafile:
