@@ -7,7 +7,7 @@ pub fn pipe_bend() -> Design {
             width: 1.0,
             height: 1.0,
             fem_step_size: 0.0015,
-            dem_step_size: 0.00075,
+            dem_step_size: 0.0001,
             penalties: vec![0.1],
             volume_fraction: 0.251,
         },

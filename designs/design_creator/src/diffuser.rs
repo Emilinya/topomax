@@ -7,7 +7,7 @@ pub fn diffuser() -> Design {
             width: 1.0,
             height: 1.0,
             fem_step_size: 0.0011,
-            dem_step_size: 0.0004,
+            dem_step_size: 0.0002,
             penalties: vec![0.1],
             volume_fraction: 0.5,
         },
