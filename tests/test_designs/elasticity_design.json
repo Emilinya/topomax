@@ -29,8 +29,7 @@
         ]
       },
       "tractions": null,
-      "fem_filter_radius": 0.02,
-      "dem_filter_radius": 0.09,
+      "filter_radius": 0.02,
       "young_modulus": 2.5,
       "poisson_ratio": 0.25
     }

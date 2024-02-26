@@ -59,8 +59,7 @@ pub struct ElasticityParameters {
     pub fixed_sides: Vec<Side>,
     pub body_force: Option<Force>,
     pub tractions: Option<Vec<Traction>>,
-    pub fem_filter_radius: f64,
-    pub dem_filter_radius: f64,
+    pub filter_radius: f64,
     pub young_modulus: f64,
     pub poisson_ratio: f64,
 }

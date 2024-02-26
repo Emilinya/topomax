@@ -142,7 +142,9 @@ class ElasticityProblem(DEMProblem):
         self.design = elasticity_design
         super().__init__(mesh, device, verbose)
 
-        filter_radius = elasticity_design.parameters.dem_filter_radius
+        # conversion factor from Helmholtz filter radius
+        # to classical filter radius is 2sqrt(3)
+        filter_radius = elasticity_design.parameters.filter_radius * 2 * np.sqrt(3)
         self.filter = create_density_filter(filter_radius, self.mesh)
         self.objective_gradient: npt.NDArray[np.float64] | None = None
 

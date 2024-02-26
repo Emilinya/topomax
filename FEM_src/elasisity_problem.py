@@ -86,7 +86,7 @@ class ElasticityProblem(FEMProblem):
         self.design = design
         super().__init__(mesh, parameters)
 
-        filter_radius = design.parameters.fem_filter_radius
+        filter_radius = design.parameters.filter_radius
         self.filter = HelmholtzFilter(filter_radius, control_space)
         self.solver = self.create_solver()
 
