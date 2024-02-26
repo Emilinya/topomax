@@ -18,25 +18,17 @@ from src.utils import SolverResult, IterationData, get_solver_data
 
 
 @dataclass
-class PData:
-    p: str
-    data_list: list[IterationData]
-    result: SolverResult
-
-
-@dataclass
-class NData:
-    N: int
-    p_datas: dict[str, PData]
-
-
-@dataclass
 class DesignData:
     design: str
-    N_datas: dict[int, NData]
+    data: dict[int, dict[str, tuple[list[IterationData], SolverResult]]]
 
 
-def create_cmap(start, middle, end, name):
+def create_cmap(
+    start: tuple[float, float, float],
+    middle: tuple[float, float, float],
+    end: tuple[float, float, float],
+    name: str,
+):
     cdict: dict[
         Literal["red", "green", "blue", "alpha"], Sequence[tuple[float, ...]]
     ] = {
@@ -60,14 +52,14 @@ def create_cmap(start, middle, end, name):
 
 
 def get_rho(
-    solver: str, data_folder, data: IterationData, points: int
+    method: str, data_folder, data: IterationData, points: int
 ) -> tuple[npt.NDArray[np.float64], float, float, float]:
     objective = data.objective
     w, h = data.domain_size
 
     rho_path = os.path.join(data_folder, data.rho_file)
 
-    if solver == "FEM":
+    if method == "FEM":
         rho, *_ = load_function(rho_path)
         _, design_data = sample_function(rho, int(points / min(w, h)), "center")
         design_data = design_data[:, :, 0]
@@ -89,17 +81,18 @@ def create_design_figure(
 
 
 def plot_design(
-    solver: str,
-    design: str,
-    data: IterationData,
     N: int,
     p: str,
     k: int,
+    data: IterationData,
     cmap: colors.Colormap,
+    method: str,
+    design: str,
     simple: bool,
+    output_path: str,
 ):
-    data_folder = f"output/{solver}/{design}/data"
-    rho, objective, w, h = get_rho(solver, data_folder, data, 200)
+    data_folder = f"{output_path}/{method}/{design}/data"
+    rho, objective, w, h = get_rho(method, data_folder, data, 200)
 
     fig = plt.figure(figsize=(6.4 * w / h, 4.8))
     plt.rcParams.update({"font.size": 10 * np.sqrt(w / h)})
@@ -119,7 +112,8 @@ def plot_design(
     plt.gca().set_aspect("equal", "box")
 
     output_file = (
-        os.path.join("output", solver, design, "figures", f"{N=}_p={p}_{k=}") + ".png"
+        os.path.join(output_path, method, design, "figures", f"{N=}_p={p}_{k=}")
+        + ".png"
     )
     os.makedirs(os.path.dirname(output_file), exist_ok=True)
     plt.savefig(output_file, dpi=200, bbox_inches="tight")
@@ -127,15 +121,16 @@ def plot_design(
 
 
 def multiplot(
-    solver: str,
-    design: str,
     N: int,
     p: str,
-    vals: list[IterationData],
     cmap: colors.Colormap,
+    vals: list[IterationData],
+    method: str,
+    design: str,
+    output_path: str,
 ):
-    data_folder = f"output/{solver}/{design}/data"
-    *_, w, h = get_rho(solver, data_folder, vals[0], 1)
+    data_folder = f"{output_path}/{method}/{design}/data"
+    *_, w, h = get_rho(method, data_folder, vals[0], 1)
     fig, axss = plt.subplots(
         2,
         3,
@@ -157,14 +152,14 @@ def multiplot(
 
         ax.axis("off")
         ax.set_aspect("equal", "box")
-        rho, _, w, h = get_rho(solver, data_folder, data, 100)
+        rho, _, w, h = get_rho(method, data_folder, data, 100)
         pcolormesh = create_design_figure(ax, rho, w, h, N, cmap)
         ax.set_title(f"$k={data.iteration}$")
     assert pcolormesh is not None
 
     fig.colorbar(pcolormesh, ax=axss[:, -1], shrink=0.8, label=r"$\rho(x, y)$ []")
     output_file = os.path.join(
-        "output", solver, design, "figures", f"{N=}_p={p}_multi.png"
+        output_path, method, design, "figures", f"{N=}_p={p}_multi.png"
     )
     plt.savefig(output_file, dpi=200, bbox_inches="tight")
     plt.close(fig)
@@ -194,85 +189,114 @@ def reduce_length(long_list: list, desired_length: int):
     return new_list
 
 
-def get_design_data_list(solver: str, designs: list[str] | None, Ns: list[int] | None):
-    design_data_list: list[DesignData] = []
+def get_design_data_dict(
+    methods: list[str] | None,
+    designs: list[str] | None,
+    Ns: list[int] | None,
+    output_path: str,
+):
+    design_data_dict: dict[str, list[DesignData]] = {}
 
-    for design in os.listdir(os.path.join("output", solver)):
-        if designs is not None and design not in designs:
+    for method in os.listdir(output_path):
+        if methods is not None and method not in methods:
             continue
 
-        data_folder = os.path.join("output", solver, design, "data")
-        if not os.path.isdir(data_folder):
-            continue
+        design_data_dict[method] = []
 
-        results, data_list = get_solver_data(solver, design)
-
-        design_data_list.append(DesignData(design, {}))
-        design_data = design_data_list[-1]
-
-        for N, p, _, data in data_list:
-            if Ns is not None and N not in Ns:
+        for design in os.listdir(os.path.join(output_path, method)):
+            if designs is not None and design not in designs:
                 continue
 
-            if not design_data.N_datas.get(N):
-                design_data.N_datas[N] = NData(N, {})
+            data_folder = os.path.join(output_path, method, design, "data")
+            if not os.path.isdir(data_folder):
+                continue
 
-            N_data = design_data.N_datas[N]
-            if not N_data.p_datas.get(p):
-                for r_N, r_p, result in results:
-                    if r_N == N and r_p == p:
-                        N_data.p_datas[p] = PData(p, [], result)
-                        break
+            results, data_list = get_solver_data(method, design, output_path)
 
-            N_data.p_datas[p].data_list.append(data)
+            design_data_dict[method].append(DesignData(design, {}))
+            design_data = design_data_dict[method][-1]
 
-    return design_data_list
+            for N, p, _, data in data_list:
+                if Ns is not None and N not in Ns:
+                    continue
+
+                if not design_data.data.get(N):
+                    design_data.data[N] = {}
+
+                p_data = design_data.data[N]
+                if not p_data.get(p):
+                    for r_N, r_p, result in results:
+                        if r_N == N and r_p == p:
+                            p_data[p] = ([], result)
+                            break
+
+                p_data[p][0].append(data)
+
+    return design_data_dict
 
 
 def plot_designs(
-    solver: str,
-    designs: list[DesignData],
+    design_dict: dict[str, list[DesignData]],
     fluid_cmap: colors.Colormap,
     elasticity_cmap: colors.Colormap,
     simple: bool,
+    output_path: str,
 ):
     plot_count = 0
-    for design_data in designs:
-        for N_data in design_data.N_datas.values():
-            for p_data in N_data.p_datas.values():
-                p_data.data_list.sort(key=lambda v: v.iteration)
+    for designs in design_dict.values():
+        for design_data in designs:
+            for p_data in design_data.data.values():
+                for p, (data_list, result) in p_data.items():
+                    data_list.sort(key=lambda v: v.iteration)
 
-                min_index = p_data.result.min_index
-                if min_index != (len(p_data.data_list) - 1):
-                    p_data.data_list = p_data.data_list[: min_index + 1]
+                    min_index = result.min_index
+                    if min_index != (len(data_list) - 1):
+                        data_list = data_list[: min_index + 1]
 
-                p_data.data_list = reduce_length(p_data.data_list, 6)
+                    p_data[p] = (reduce_length(data_list, 6), result)
 
-                plot_count += len(p_data.data_list) + 1
+                    plot_count += len(p_data[p][0]) + 1
 
     # we have no designs :(
     if plot_count == 0:
         return
 
     with tqdm(total=plot_count) as pbar:
-        for design_data in designs:
-            design = design_data.design
+        for method, designs in design_dict.items():
+            for design_data in designs:
+                design = design_data.design
 
-            parameters, *_ = parse_design(os.path.join("designs", design) + ".json")
-            if parameters.problem == ProblemType.FLUID:
-                cmap = fluid_cmap
-            else:
-                cmap = elasticity_cmap
+                parameters, *_ = parse_design(os.path.join("designs", design) + ".json")
+                if parameters.problem == ProblemType.FLUID:
+                    cmap = fluid_cmap
+                else:
+                    cmap = elasticity_cmap
 
-            for N, N_data in design_data.N_datas.items():
-                for p, p_data in N_data.p_datas.items():
-                    for data in p_data.data_list:
-                        plot_design(
-                            solver, design, data, N, p, data.iteration, cmap, simple
+                for N, p_data in design_data.data.items():
+                    for p, (data_list, _) in p_data.items():
+                        for data in data_list:
+                            plot_design(
+                                N,
+                                p,
+                                data.iteration,
+                                data,
+                                cmap,
+                                method,
+                                design,
+                                simple,
+                                output_path,
+                            )
+                            pbar.update(1)
+                        multiplot(
+                            N,
+                            p,
+                            cmap,
+                            data_list,
+                            method,
+                            design_data.design,
+                            output_path,
                         )
                         pbar.update(1)
-                    multiplot(solver, design_data.design, N, p, p_data.data_list, cmap)
-                    pbar.update(1)
 
 
 def main(
@@ -280,35 +304,18 @@ def main(
     designs: list[str] | None,
     Ns: list[int] | None,
     simple: bool,
+    output_path: str,
 ):
     # colormap with the colors of the trans flag, from red to white to blue
-    traa_blue = [91 / 255, 206 / 255, 250 / 255]
-    traa_red = [245 / 255, 169 / 255, 184 / 255]
+    traa_blue = (91 / 255, 206 / 255, 250 / 255)
+    traa_red = (245 / 255, 169 / 255, 184 / 255)
     traa_cmap = create_cmap(traa_red, (1, 1, 1), traa_blue, "traa")
 
     # colormap with between-values highlighted, from white to red to black
     highlight_cmap = create_cmap((1, 1, 1), (1, 0, 0), (0, 0, 0), "highlight")
 
-    # colormap from white to black
-    boring_cmap = create_cmap((1, 1, 1), (0.5, 0.5, 0.5), (0, 0, 0), "boring")
-
-    all_methods = ["FEM", "DEM"]
-    if methods is not None:
-        bad_methods = list(set(methods).difference(all_methods))
-        if len(bad_methods) > 0:
-            raise ValueError(
-                f"Unknown method '{bad_methods[0]}'. Allowed methods are "
-                + f"'{' and '.join(all_methods)}'"
-            )
-    else:
-        methods = all_methods
-
-    for method in methods:
-        if not os.path.isdir(os.path.join("output", method)):
-            continue
-
-        design_data = get_design_data_list(method, designs, Ns)
-        plot_designs(method, design_data, traa_cmap, highlight_cmap, simple)
+    design_data = get_design_data_dict(methods, designs, Ns, output_path)
+    plot_designs(design_data, traa_cmap, highlight_cmap, simple, output_path)
 
 
 if __name__ == "__main__":
@@ -345,6 +352,13 @@ if __name__ == "__main__":
         help="With this flag, the figures created will show just the design. "
         + "They will have have no axis, no title and no colorbar.",
     )
+    parser.add_argument(
+        "-o",
+        "--output_path",
+        required=False,
+        default="output",
+        help="the folder where the data you want to plot is stored (default: 'output')",
+    )
 
     args = parser.parse_args()
-    main(args.method, args.design, args.elements, args.simple)
+    main(args.method, args.design, args.elements, args.simple, args.output_path)
