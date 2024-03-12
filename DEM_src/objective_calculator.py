@@ -141,7 +141,7 @@ class ObjectiveCalculator(ABC):
         return values
 
     @abstractmethod
-    def calculate_energy_form(
+    def calculate_energy(
         self, u: torch.Tensor, shape: tuple[int, int], density: torch.Tensor
     ) -> torch.Tensor: ...
 

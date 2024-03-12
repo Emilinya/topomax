@@ -13,21 +13,18 @@ def create_density_filter(radius: float, mesh: Mesh):
     X = x_grid.flatten()
     Y = y_grid.flatten()
 
-    total = mesh.Nx * mesh.Ny
+    elements = mesh.Nx * mesh.Ny
 
     wi, wj, wv = [], [], []
-    for eid in range(total):
-        my_X = X[eid]
-        my_Y = Y[eid]
-
-        dist = np.sqrt((X - my_X) ** 2 + (Y - my_Y) ** 2)
-        neighbours = np.where(dist <= radius)[0]
-        wi += [eid] * len(neighbours)
+    for i in range(elements):
+        dist = np.sqrt((X - X[i]) ** 2 + (Y - Y[i]) ** 2)
+        (neighbours,) = np.where(dist <= radius)
+        wi += [i] * len(neighbours)
         wj += list(neighbours)
         wv += list(radius - dist[neighbours])
 
     W = normalize(
-        coo_matrix((wv, (wi, wj)), shape=(total, total)), norm="l1", axis=1
+        coo_matrix((wv, (wi, wj)), shape=(elements, elements)), norm="l1", axis=1
     )  # Normalize row-wise
     assert isinstance(W, csr_matrix)
 

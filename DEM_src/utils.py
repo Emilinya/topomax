@@ -63,4 +63,10 @@ def unflatten(flat_values: npt.NDArray | torch.Tensor, shape: tuple[int, int]):
             + f"{Nx}*{Ny}={Nx*Ny} elements"
         )
 
-    return flat_values.reshape(Nx, Ny, dim).T
+    reshaped_values = flat_values.reshape(Nx, Ny, dim)
+
+    if isinstance(reshaped_values, torch.Tensor):
+        # The use of `x.T` on tensors of dimension other
+        # than 2 to reverse their shape is deprecated :(
+        return reshaped_values.permute((2, 1, 0))
+    return reshaped_values.T

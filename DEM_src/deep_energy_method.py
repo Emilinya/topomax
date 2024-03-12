@@ -18,9 +18,9 @@ class NNParameters:
     layer_count: int
     neuron_count: int
     learning_rate: float
-    CNN_deviation: float
-    rff_deviation: float
     iteration_count: int
+    weight_deviation: float
+    fourier_deviation: float
     activation_function: str
     convergence_tolerance: float
 
@@ -72,7 +72,7 @@ class DeepEnergyMethod:
                 u_pred = self.get_u(x)
                 u_pred.double()
 
-                loss = self.objective_calculator.calculate_energy_form(
+                loss = self.objective_calculator.calculate_energy(
                     u_pred, mesh.shape, density
                 )
                 optimizer_LBFGS.zero_grad()
@@ -109,7 +109,7 @@ class DeepEnergyMethod:
         density = torch.reshape(density, mesh.intervals).to(self.device)
 
         u_pred = self.get_u(mesh=mesh)
-        loss = self.objective_calculator.calculate_energy_form(
+        loss = self.objective_calculator.calculate_energy(
             u_pred, mesh.shape, density
         )
 
@@ -151,13 +151,13 @@ class MultiLayerNet(torch.nn.Module):
         super().__init__()
 
         neuron_count = parameters.neuron_count
-        rff_deviation = parameters.rff_deviation
-        CNN_deviation = parameters.CNN_deviation
+        weight_deviation = parameters.weight_deviation
+        fourier_deviation = parameters.fourier_deviation
 
         self.layer_count = parameters.layer_count
         self.activation_function = getattr(torch, parameters.activation_function)
         self.encoding = rff.layers.GaussianEncoding(
-            sigma=rff_deviation, input_size=input_size, encoded_size=neuron_count // 2
+            sigma=fourier_deviation, input_size=input_size, encoded_size=neuron_count // 2
         )
 
         if self.layer_count < 2:
@@ -173,7 +173,7 @@ class MultiLayerNet(torch.nn.Module):
             self.linears.append(torch.nn.Linear(linear_inputs, linear_outputs))
 
             torch.nn.init.constant_(self.linears[i].bias, 0.0)
-            torch.nn.init.normal_(self.linears[i].weight, mean=0, std=CNN_deviation)
+            torch.nn.init.normal_(self.linears[i].weight, mean=0, std=weight_deviation)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         y = self.encoding(x)

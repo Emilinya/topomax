@@ -1,3 +1,4 @@
+import torch
 import numpy as np
 
 from DEM_src.utils import flatten, unflatten
@@ -18,3 +19,10 @@ def test_flatten_and_unflatten():
 
         for i, arr in enumerate(arrs):
             assert np.all(unflat[i, :, :] == arr)
+
+        # unflatten can also operate on tensors!
+        torch_unflat = unflatten(torch.from_numpy(flat), shape)
+        assert torch_unflat.shape == (n, *shape)
+
+        for i, arr in enumerate(arrs):
+            assert torch.all(torch_unflat[i, :, :] == torch.from_numpy(arr))

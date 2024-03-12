@@ -21,8 +21,8 @@ def hyperopt_main_generator(
             layer_count=int(x_var["layer_count"]),
             neuron_count=int(x_var["neuron_count"]),
             learning_rate=float(x_var["learning_rate"]),
-            CNN_deviation=float(x_var["CNN_deviation"]),
-            rff_deviation=float(x_var["rff_deviation"]),
+            weight_deviation=float(x_var["weight_deviation"]),
+            fourier_deviation=float(x_var["fourier_deviation"]),
             iteration_count=int(x_var["iteration_count"]),
             activation_function=str(x_var["activation_function"]),
             convergence_tolerance=5e-5,
@@ -75,8 +75,8 @@ def optimize_hyperparameters(
             "layer_count": hp.quniform("layer_count", 3, 5, 1),
             "neuron_count": 2 * hp.quniform("neuron_count", 10, 60, 1),
             "learning_rate": hp.loguniform("learning_rate", 0, 2),
-            "CNN_deviation": hp.uniform("CNN_deviation", 0, 1),
-            "rff_deviation": hp.uniform("rff_deviation", 0, 1),
+            "weight_deviation": hp.uniform("weight_deviation", 0, 1),
+            "fourier_deviation": hp.uniform("fourier_deviation", 0, 1),
             "iteration_count": hp.quniform("iteration_count", 40, 100, 1),
             "activation_function": hp.choice(
                 "activation_function", activation_functions

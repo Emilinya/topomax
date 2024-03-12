@@ -2,7 +2,6 @@ import os
 
 import torch
 import numpy as np
-import numpy.random as npr
 import numpy.typing as npt
 
 from src.solver import Solver
@@ -25,9 +24,8 @@ class DEMSolver(Solver):
         skip_multiple: int = 1,
         verbose=False,
     ):
-        npr.seed(2022)
-        torch.manual_seed(2022)
         np.random.seed(2022)
+        torch.manual_seed(2022)
 
         if torch.cuda.is_available():
             self.device = torch.device("cuda")

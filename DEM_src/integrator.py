@@ -74,7 +74,7 @@ def boundary_integral(
     if data.shape != (np.prod(mesh.shape)):
         raise ValueError(
             f"Got data with shape {data.shape}, "
-            + f"but it must have shape {(np.prod(mesh.shape))}"
+            + f"but it must have shape ({np.prod(mesh.shape)})"
         )
 
     ds = mesh.dxdy[domain.side_index]

@@ -92,10 +92,10 @@ class StrainEnergy(ObjectiveCalculator):
 
         return [torch.sum(σ * ε, [0, 1])]
 
-    def calculate_energy_form(
+    def calculate_energy(
         self, u: torch.Tensor, shape: tuple[int, int], density: torch.Tensor
     ):
-        """Calculate ψ(u; ρ) = ½∫r(ρ)σ:ε dx - ∫t·u ds"""
+        """Calculate ψ(u; ρ) = ½∫r(ρ)σ:ε dx - ∫f·u dx  - ∫t·u ds"""
 
         (strain_energies,) = self.evaluate(u, shape, self.calculate_strain_energy)
 
@@ -118,7 +118,7 @@ class StrainEnergy(ObjectiveCalculator):
     def calculate_objective_and_gradient(
         self, u: torch.Tensor, shape: tuple[int, int], density: torch.Tensor
     ):
-        """Calculate ∇ϕ(ρ; u) = -r'(ρ)σ:ε and ϕ(ρ; u) = ∫r(ρ)σ:ε dx"""
+        """Calculate ϕ(ρ) = ∫r(ρ)σ:ε dx and ∇ϕ(ρ) = -r'(ρ)σ:ε"""
 
         (strain_energies,) = self.evaluate(u, shape, self.calculate_strain_energy)
         strain_energy_at_element = strain_energies * self.detJ
@@ -211,9 +211,9 @@ class ElasticityProblem(DEMProblem):
             layer_count=5,
             neuron_count=68,
             learning_rate=1.73553,
-            CNN_deviation=0.062264,
-            rff_deviation=0.119297,
             iteration_count=100,
+            weight_deviation=0.062264,
+            fourier_deviation=0.119297,
             activation_function="rrelu",
             convergence_tolerance=5e-5,
         )

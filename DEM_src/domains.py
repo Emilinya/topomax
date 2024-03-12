@@ -71,7 +71,7 @@ class CircleDomain:
         intersections = self.find_intersections(mesh, circle)
         self.indices, self.areas = self.find_areas(mesh, circle, intersections)
 
-        analytial_area = self.get_analytical_area(circle)
+        analytial_area = np.pi * circle.radius**2
         self.area_error = abs(np.sum(self.areas) - analytial_area) / analytial_area
         if self.area_error > 0.1:
             warnings.warn(
@@ -83,9 +83,6 @@ class CircleDomain:
         if device:
             self.torch_areas = torch.from_numpy(self.areas).float().to(device)
 
-    def get_analytical_area(self, circle: CircularRegion):
-        return np.pi * circle.radius**2
-
     def find_intersections(self, mesh: Mesh, circle: CircularRegion):
         """Find every point where the circle intersects the mesh grid"""
         r2 = circle.radius**2
@@ -93,7 +90,7 @@ class CircleDomain:
 
         intersections: list[tuple[float, float]] = []
 
-        # find all intersections
+        # find horizontal intersections
         for y in mesh.y_grid[:, 0]:
             h2 = (y - cy) ** 2
             if h2 > r2:
@@ -103,6 +100,7 @@ class CircleDomain:
             intersections.append((cx - l, y))
             intersections.append((cx + l, y))
 
+        # find vertical intersections
         for x in mesh.x_grid[0, :]:
             h2 = (x - cx) ** 2
             if h2 > r2:
@@ -120,7 +118,7 @@ class CircleDomain:
         intersection_array: npt.NDArray[np.float64] = np.array(intersections)
 
         # remove duplicates
-        duplicate_idxs: list[int] = []
+        duplicate_idxs: set[int] = set()
         for i, p0 in enumerate(intersection_array):
             if i in duplicate_idxs:
                 continue
@@ -129,10 +127,13 @@ class CircleDomain:
                 p1 = intersection_array[j]
 
                 if distance(p0, p1) < 1e-6 * circle.radius:
-                    duplicate_idxs.append(j)
+                    duplicate_idxs.add(j)
 
-        keep_idxs = np.setdiff1d(np.arange(len(intersection_array)), duplicate_idxs)
-        intersection_array = intersection_array[keep_idxs]
+        if len(duplicate_idxs) > 0:
+            keep_idxs = list(
+                set(range(len(intersection_array))).difference(duplicate_idxs)
+            )
+            intersection_array = intersection_array[keep_idxs]
 
         return intersection_array
 

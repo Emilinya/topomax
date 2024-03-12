@@ -14,13 +14,10 @@ from src.penalizers import FluidPenalizer
 
 
 class FluidEnergy(ObjectiveCalculator):
-    def __init__(self, mesh: Mesh, viscocity: float, gamma: float):
+    def __init__(self, mesh: Mesh, viscocity: float, tau: float):
         super().__init__(mesh, FluidPenalizer())
         self.viscocity = viscocity
-        self.gamma = gamma
-
-    def set_gamma(self, gamma: float):
-        self.gamma = gamma
+        self.tau = tau
 
     def calculate_all_norms(self, u: torch.Tensor, grad_u: torch.Tensor):
         """Calculate |u|², |∇u|² and |∇·u|²."""
@@ -35,16 +32,16 @@ class FluidEnergy(ObjectiveCalculator):
 
         return [torch.sum(u**2, 0), torch.sum(grad_u**2, [0, 1])]
 
-    def calculate_energy_form(
+    def calculate_energy(
         self, u: torch.Tensor, shape: tuple[int, int], density: torch.Tensor
     ):
-        """Calculate ψ(u; ρ) = ∫½(r(ρ)|u|² + μ|∇u|²) + γ|∇·u|² dx."""
+        """Calculate ψ(u; ρ) = ∫½(r(ρ)|u|² + μ|∇u|²) + τ|∇·u|² dx."""
 
         u_norm, grad_norm, div_norm = self.evaluate(u, shape, self.calculate_all_norms)
 
         potential = (
             0.5 * (self.penalizer(density) * u_norm + self.viscocity * grad_norm)
-            + self.gamma * div_norm
+            + self.tau * div_norm
         )
 
         return torch.sum(potential * self.detJ)
@@ -52,7 +49,7 @@ class FluidEnergy(ObjectiveCalculator):
     def calculate_objective_and_gradient(
         self, u: torch.Tensor, shape: tuple[int, int], density: torch.Tensor
     ):
-        """Calculate ∇ϕ(ρ; u) = ½r'(ρ)|u|² and ϕ(ρ; u) = ½∫r(ρ)|u|² + μ|∇u|² dx."""
+        """Calculate ϕ(ρ) = ½∫r(ρ)|u|² + μ|∇u|² dx and ∇ϕ(ρ) = ½r'(ρ)|u|²."""
 
         u_norm, grad_norm = self.evaluate(u, shape, self.calculate_some_norms)
         potential = self.penalizer(density) * u_norm + self.viscocity * grad_norm
@@ -116,9 +113,9 @@ class FluidProblem(DEMProblem):
             layer_count=5,
             neuron_count=66,
             learning_rate=1.3330789490587558,
-            CNN_deviation=0.36941508201470885,
-            rff_deviation=0.7239620095758805,
             iteration_count=100,
+            weight_deviation=0.36941508201470885,
+            fourier_deviation=0.7239620095758805,
             activation_function="sigmoid",
             convergence_tolerance=5e-5,
         )

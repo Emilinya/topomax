@@ -10,7 +10,7 @@ class DummyObjective(ObjectiveCalculator):
     def value(self, u, grad_u):
         return [torch.sum(u**2, 0) + torch.sum(grad_u**2, [0, 1])]
 
-    def calculate_energy_form(
+    def calculate_energy(
         self, u: torch.Tensor, shape: tuple[int, int], density: torch.Tensor
     ):
         (value,) = self.evaluate(u, shape, self.value)
@@ -56,7 +56,7 @@ def compare(f, f_analytic, mesh: Mesh, objective: ObjectiveCalculator):
     u = torch.from_numpy(flatten(f(mesh.x_grid, mesh.y_grid))).float()
 
     numeric = float(
-        objective.calculate_energy_form(u, mesh.shape, torch.ones_like(u))
+        objective.calculate_energy(u, mesh.shape, torch.ones_like(u))
     )
     analytic = f_analytic(mesh)
 
