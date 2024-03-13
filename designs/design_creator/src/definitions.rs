@@ -35,8 +35,6 @@ pub struct Flow {
 #[derive(Serialize)]
 pub struct FluidParameters {
     pub flows: Vec<Flow>,
-    pub no_slip: Option<Vec<Side>>,
-    pub zero_pressure: Option<Vec<Side>>,
     pub viscosity: f64,
 }
 

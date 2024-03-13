@@ -26,8 +26,6 @@ pub fn pipe_bend() -> Design {
                     rate: -1.0,
                 },
             ],
-            no_slip: None,
-            zero_pressure: None,
             viscosity: 1.0,
         },
     })

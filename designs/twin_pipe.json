@@ -39,8 +39,6 @@
           "rate": -1.0
         }
       ],
-      "no_slip": null,
-      "zero_pressure": null,
       "viscosity": 1.0
     }
   }

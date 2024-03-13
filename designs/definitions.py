@@ -26,6 +26,10 @@ class Side(Enum):
     BOTTOM = auto()
 
     @classmethod
+    def get_all(cls):
+        return [cls.LEFT, cls.RIGHT, cls.TOP, cls.BOTTOM]
+
+    @classmethod
     def from_string(cls, string: str):
         if string == "Left":
             return cls.LEFT
@@ -88,16 +92,6 @@ class ProblemType(Enum):
 
 
 @dataclass
-class SquareRegion:
-    center: tuple[float, float]
-    size: tuple[float, float]
-
-    @classmethod
-    def from_dict(cls, region_dict: dict):
-        return cls(to_2_tuple(region_dict["center"]), to_2_tuple(region_dict["size"]))
-
-
-@dataclass
 class CircularRegion:
     center: tuple[float, float]
     radius: float
@@ -130,32 +124,13 @@ class Flow:
 @dataclass
 class FluidParameters:
     flows: list[Flow]
-    no_slip: list[Side] | None
-    zero_pressure: list[Side] | None
-    max_region: SquareRegion | None
     viscosity: float
 
     @classmethod
     def from_dict(cls, parameter_dict: dict):
         flows = [Flow.from_dict(flow_dict) for flow_dict in parameter_dict["flows"]]
 
-        no_slip = None
-        if parameter_dict.get("no_slip") is not None:
-            no_slip = [Side.from_string(side) for side in parameter_dict["no_slip"]]
-
-        zero_pressure = None
-        if parameter_dict.get("zero_pressure") is not None:
-            zero_pressure = [
-                Side.from_string(side) for side in parameter_dict["zero_pressure"]
-            ]
-
-        max_region = None
-        if parameter_dict.get("max_region") is not None:
-            max_region = SquareRegion.from_dict(parameter_dict["max_region"])
-
-        return cls(
-            flows, no_slip, zero_pressure, max_region, parameter_dict["viscosity"]
-        )
+        return cls(flows, parameter_dict["viscosity"])
 
 
 @dataclass

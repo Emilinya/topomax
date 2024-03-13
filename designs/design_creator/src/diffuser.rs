@@ -26,8 +26,6 @@ pub fn diffuser() -> Design {
                     rate: -3.0,
                 },
             ],
-            no_slip: None,
-            zero_pressure: None,
             viscosity: 1.0,
         },
     })

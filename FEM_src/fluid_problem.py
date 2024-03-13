@@ -3,8 +3,8 @@ from __future__ import annotations
 import dolfin as df
 
 from FEM_src.problem import FEMProblem
+from FEM_src.domains import SidesDomain
 from FEM_src.pde_solver import SmartMumpsSolver
-from FEM_src.domains import SidesDomain, RegionDomain
 from designs.definitions import DomainParameters, FluidDesign, Side, Flow
 from src.penalizers import FluidPenalizer
 
@@ -123,18 +123,9 @@ class FluidProblem(FEMProblem):
         flow_sides = [flow.side for flow in self.design.parameters.flows]
         self.marker.add(SidesDomain(self.domain_size, flow_sides), "flow")
 
-        if self.design.parameters.no_slip:
-            self.marker.add(
-                SidesDomain(self.domain_size, self.design.parameters.no_slip), "no_slip"
-            )
-        else:
-            # assume no slip conditions where there is no flow
-            all_sides = [Side.LEFT, Side.RIGHT, Side.TOP, Side.BOTTOM]
-            no_slip_sides = list(set(all_sides).difference(flow_sides))
-            self.marker.add(SidesDomain(self.domain_size, no_slip_sides), "no_slip")
-
-        if self.design.parameters.max_region:
-            self.marker.add(RegionDomain(self.design.parameters.max_region), "max")
+        # assume no slip conditions where there is no flow
+        no_slip_sides = list(set(Side.get_all()).difference(flow_sides))
+        self.marker.add(SidesDomain(self.domain_size, no_slip_sides), "no_slip")
 
         self.boundary_flows = BoundaryFlows(
             self.domain_size, self.design.parameters.flows, degree=2
@@ -152,19 +143,6 @@ class FluidProblem(FEMProblem):
                 *self.marker.get("no_slip"),
             ),
         ]
-
-        if self.design.parameters.zero_pressure:
-            self.marker.add(
-                SidesDomain(self.domain_size, self.design.parameters.zero_pressure),
-                "zero_pressure",
-            )
-            boundary_conditions += [
-                df.DirichletBC(
-                    self.solution_space.sub(1),
-                    df.Constant(0.0),
-                    *self.marker.get("zero_pressure"),
-                ),
-            ]
 
         return boundary_conditions
 
