@@ -204,7 +204,7 @@ class Solver(ABC):
     def solve(self):
         """Solve the given topology optimization problem."""
 
-        max_iterations = 500
+        max_iterations = 1000
         objective_increasing_factor = 2
         max_iterations_without_improvement = 50
 

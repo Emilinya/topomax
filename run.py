@@ -26,21 +26,21 @@ if __name__ == "__main__":
         "-n",
         "--use_neural_network_solver",
         action="store_true",
-        help="with this flag, the program wil solve the state equation using the "
-        + "DEM instead of the FEM. The DEM is worse in every way, don't use it.",
+        help="make the program solve the state equation using the "
+        + "DEM instead of the FEM. The DEM is worse in almost every way; don't use it.",
     )
     parser.add_argument(
         "-v",
         "--verbose",
         action="store_true",
-        help="with this flag, the program wil print the loss as the DEM trains, "
-        + "if you are using the DEM solver",
+        help="make the program print the loss as the DEM trains. "
+        + "Only works if you are using the DEM solver.",
     )
     parser.add_argument(
         "-o",
         "--optimize_hyperparameters",
         action="store_true",
-        help="with this flag, the program wil optimize the hyperparameters for the given design",
+        help="make the program optimize the hyperparameters for the given design",
     )
     parser.add_argument(
         "-k",
@@ -48,8 +48,8 @@ if __name__ == "__main__":
         type=int,
         required=False,
         default=1,
-        help="only stores data if the iteration is a multiple of skip_multiple. "
-        + "Last iteration is always stored. (default: 1)",
+        help="the program only stores data if the iteration is a multiple of skip_multiple. "
+        + "First and last iteration is always stored. (default: 1)",
     )
 
     args = parser.parse_args()

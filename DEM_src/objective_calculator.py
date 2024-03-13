@@ -38,32 +38,15 @@ class ObjectiveCalculator(ABC):
 
     def get_shape_derivatives(self) -> list[npt.NDArray[np.float64]]:
         """Differentiation of shape functions at gauss quadrature points"""
-        dN_dsy_1 = np.array(
-            [
-                [-0.394337567, -0.105662433, -0.105662433, -0.394337567],
-                [-0.394337567, -0.394337567, -0.105662433, -0.105662433],
-            ]
-        )
-        dN_dsy_2 = np.array(
-            [
-                [-0.105662433, -0.394337567, -0.394337567, -0.105662433],
-                [0.394337567, 0.394337567, 0.105662433, 0.105662433],
-            ]
-        )
-        dN_dsy_3 = np.array(
-            [
-                [0.394337567, 0.105662433, 0.105662433, 0.394337567],
-                [-0.105662433, -0.105662433, -0.394337567, -0.394337567],
-            ]
-        )
-        dN_dsy_4 = np.array(
-            [
-                [0.105662433, 0.394337567, 0.394337567, 0.105662433],
-                [0.105662433, 0.105662433, 0.394337567, 0.394337567],
-            ]
-        )
-
-        return [dN_dsy_1, dN_dsy_2, dN_dsy_3, dN_dsy_4]
+        # what are these values? idk
+        a = 0.394337567
+        b = 0.105662433
+        return [
+            np.array([[-a, -b, -b, -a], [-a, -a, -b, -b]]),
+            np.array([[-b, -a, -a, -b], [a, a, b, b]]),
+            np.array([[a, b, b, a], [-b, -b, -a, -a]]),
+            np.array([[b, a, a, b], [b, b, a, a]]),
+        ]
 
     def get_gauss_points(self, U: torch.Tensor):
         dim = U.shape[-1]
