@@ -2,7 +2,7 @@
 
 # Topomax
 
-This is a topology optimization program based algorithm 8 from the paper *Proximal Galerkin: A structure-preserving finite element method for pointwise bound constraints* by Brendan Keith and Thomas M. Surowiec. It uses design files to define the boundary conditions and other parameters for your optimization problem in an easy-to-read way. Topomax was made for the paper *Comparing Classical and Machine Learning Based Approaches to Topology Optimization* by Emilie Dørum, and as such, it implements both the finite element method and the deep energy method. The deep energy implementation is based on the paper *Deep energy method in topology optimization applications* by Junyan He, Charul Chadha, Shashank Kushwaha, Seid Koric, Diab Abueidda and Iwona Jasiuk, where I have heavily rewritten the [source code they provided](https://github.com/Jasiuk-Research-Group/DeepEnergy-TopOpt).
+This is a topology optimization program based on the entropic mirror descent algorithm described in the paper *Proximal Galerkin: A structure-preserving finite element method for pointwise bound constraints* by Brendan Keith and Thomas M. Surowiec. It uses design files to define the boundary conditions and other parameters for your optimization problem in an easy-to-read way. Topomax was made for the paper *Comparing Classical and Machine Learning Based Approaches to Topology Optimization* by Emilie Dørum, and as such, it implements both the finite element method and the deep energy method. The DEM implementation is based on the paper *Deep energy method in topology optimization applications* by Junyan He, Charul Chadha, Shashank Kushwaha, Seid Koric, Diab Abueidda and Iwona Jasiuk, where I have heavily rewritten the [source code they provided](https://github.com/Jasiuk-Research-Group/DeepEnergy-TopOpt), as well as fixed some of their bugs.
 
 ## Usage
 
@@ -16,106 +16,116 @@ docker run -it -v "$(pwd):/topomax" -w /topomax ghcr.io/johanneshaubner/topopt
 Then, in the docker container, you can run the program as normal:
 ```bash
 pip install -r requirements.txt
-python3 run.py designs/twin_pipe.json 40
+python3 run.py designs/diffuser.json 40
 ```
 
 This also works if you are using Linux and Mac, but there you can also install FEniCS directly by following [their instalation instructions](https://fenicsproject.org/download/archive/). After installing FEniCS, you can install the rest of the dependencies using the requirements file.
 
 ### Running
-The program is run using `run.py`. This program takes in two command line arguments; a design file and the number of finite elements in a unit length. The folder `designs` contains some design files, and you can easily make a custom design using those files as a template. If the design is `path/to/design.json`, the output of the program is saved to `output/design/data`. The produced data can be visualized with `plot.py`, which automatically reads all the data files, and produces corresponding figures in `output/design/figures`. `plot.py` can also take a list of designs as an argument to limit which designs it will plot. For instance,
-```bash
-python3 plot.py design1 design2
-```
-will only create figures from `output/design1/data` and `output/design2/data`.
+The program is run using `run.py`. This program takes in two command line arguments; a design file and the number of finite elements along the shortest length. The folder `designs` contains some design files, and you can easily make a custom design using those files as a template. If the design is `path/to/design.json`, the output of the program is saved to `output/design/data`. The program also takes in some optional arguments, which you can see by running `run.py -h`. The produced data can be visualized with `plot.py`, which automatically reads all the data files, and produces corresponding figures in `output/design/figures`. You can limit what data is plotted by using some optional command line arguments which are listed when you run `plot.py -h`.
 
 ## Design file format
-The design files are written in json, but they are made by a Rust program. I did this so I could use Rust's rich type system to structure the data. I will therefore explain the design file format using the original Rust types. The root type is
+The design files are written in JSON, but they are made by a Rust program. I did this so I could use Rust's rich type system to structure the data. I will therefore explain the design file format using the original Rust types. The root type is
 
 ```rust
-pub enum Design {
+enum Design {
     Fluid(ProblemDesign<FluidObjective, FluidParameters>),
     Elasticity(ProblemDesign<ElasticityObjective, ElasticityParameters>),
 }
-pub struct ProblemDesign<T, U> {
-    pub objective: T,
-    pub domain_parameters: DomainParameters,
-    pub problem_parameters: U,
+struct ProblemDesign<T, U> {
+    objective: T,
+    domain_parameters: DomainParameters,
+    problem_parameters: U,
 }
 ```
 You can either have a fluid design with a fluid objective and fluid parameters, or you can have an elasticity design with an elasticity objective and elasticity parameters. All designs have domain parameters, which are defined as:
 
 ```rust
-pub struct DomainParameters {
-    pub width: f64,
-    pub height: f64,
-    pub penalties: Vec<f32>,
-    pub volume_fraction: f64,
+struct DomainParameters {
+    width: f64,
+    height: f64,
+    fem_step_size: f64,
+    dem_step_size: f64,
+    penalties: Vec<f32>,
+    volume_fraction: f64,
 }
 ```
-The width and height is the width and height of your domain, and the volume_fraction is the volume fraction for the volume constraint. The program solves the topology optimization problem
-once for each penalty in the penalties list, and uses the result from the previous solution as the initial condition for the next one. This is sometimes necessary in cases where a large penalty is too restrictive.
+The width and height is the width and height of your domain, and the volume_fraction is the volume fraction for the volume constraint. The penalties are a list of either $p$-values for elasticity or $q$-values for fluids. The program will use the finished design for the previous penalty as the initial design for the next penalty, which allows for iterative refinement of a design as seen in the twin pipe example. The two step-size values must be found manually by testing several values and using the best one.
 
 ### Fluid problem
 For a fluid problem, the fluid objectives are
 ```rust
-pub enum FluidObjective {
+enum FluidObjective {
     MinimizePower,
 }
 ```
 where 'MinimizePower' means minimizing the total potential power of your fluid. The fluid parameters are:
 ```rust
-pub struct FluidParameters {
-    pub flows: Vec<Flow>,
-    pub no_slip: Option<Vec<Side>>,
-    pub zero_pressure: Option<Vec<Side>>,
+struct FluidParameters {
+    flows: Vec<Flow>,
+    viscosity: f64,
 }
 ```
-where a side is simply
+where a flow is defined as
 ```rust
-pub enum Side {
+struct Flow {
+    side: Side,
+    center: f64,
+    length: f64,
+    rate: f64,
+}
+```
+and a side is simply
+```rust
+enum Side {
     Left,
     Right,
     Top,
     Bottom,
 }
 ```
-and a flow is defined as
-```rust
-pub struct Flow {
-    pub side: Side,
-    pub center: f64,
-    pub length: f64,
-    pub rate: f64,
-}
-```
-A flow struct represents a parabolic flow out/in from a side, with a value of `rate` at its center. A positive rate represents inflow, and a negative rate represents outflow. Multiple flows can exist on the same side, and the total flow (sum of `length·rate` for all flows) must be 0. The parameter `no_slip` is a list of sides where the fluid velocity is 0. If it is None, it defaults to a list of all sides with no flow. The parameter `zero_pressure` is a list of sides where the fluid pressure is 0. This represents a side where fluid can flow out freely. If it is None, no sides will have zero pressure.
+A flow struct represents a parabolic flow out/in from a side, with a value of `rate` at its center. A positive rate represents inflow, and a negative rate represents outflow. Multiple flows can exist on the same side, and the total flow (sum of `length·rate` for all flows) must be 0. For sides with no defined flow, the flow is assumed to be zero.
 
 ### Elasticity problem
 For an elasticity problem, the elasticity objectives are
 ```rust
-pub enum ElasticityObjective {
+enum ElasticityObjective {
     MinimizeCompliance,
 }
 ```
 where 'MinimizeCompliance' means minimizing the elastic compliance of a material. The elasticity parameters are:
 ```rust
-pub struct ElasticityParameters {
-    pub fixed_sides: Vec<Side>,
-    pub body_force: Force,
+struct ElasticityParameters {
+    fixed_sides: Vec<Side>,
+    body_force: Option<Force>,
+    tractions: Option<Vec<Traction>>,
+    filter_radius: f64,
+    young_modulus: f64,
+    poisson_ratio: f64,
 }
 ```
-Where a force is
+where a force is
 ```rust
-pub struct Force {
-    pub region: CircularRegion,
-    pub value: (f64, f64),
+struct Force {
+    region: CircularRegion,
+    value: (f64, f64),
 }
-pub struct CircularRegion {
-    pub center: (f64, f64),
-    pub radius: f64,
+struct CircularRegion {
+    center: (f64, f64),
+    radius: f64,
 }
 ```
-and represents a force with a given value that acts on a circle with a given center and radius. The `fixed_sides` parameter represents a side where the material is fixed in place.
+and a traction is
+```rust
+struct Traction {
+    side: Side,
+    center: f64,
+    length: f64,
+    value: (f64, f64),
+}
+```
+The force represents a body force with a given value that acts on a circle with a given center and radius, the traction represents a traction applied to a portion of one of the boundary sides, and the `fixed_sides` parameter represents a side where the material is fixed in place.
+The filter radius is the radius for the Helmholtz filter.
 
 ## Running Tests
 This program uses pytest for testing, so running them is simply done by running
