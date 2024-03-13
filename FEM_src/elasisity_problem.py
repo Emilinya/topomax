@@ -117,7 +117,7 @@ class ElasticityProblem(FEMProblem):
 
             return df.inner(self.penalizer(rho) * sigma, df.sym(df.grad(test))) * df.dx
 
-        def L_func(test, _):
+        def l_func(test, _):
             return (
                 df.dot(self.body_force, test) * df.dx
                 + df.dot(self.traction_term, test) * df.ds
@@ -125,10 +125,10 @@ class ElasticityProblem(FEMProblem):
 
         return SmartMumpsSolver(
             a_func,
-            L_func,
+            l_func,
             self.boundary_conditions,
             self.solution_space,
-            L_has_no_args=True,
+            l_has_no_args=True,
         )
 
     def calculate_objective_gradient(self):

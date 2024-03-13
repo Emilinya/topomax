@@ -80,15 +80,15 @@ class FluidProblem(FEMProblem):
                 + df.inner(df.div(u), q)
             ) * df.dx
 
-        def L_func(test, _):
+        def l_func(test, _):
             return df.inner(test, df.Constant([0, 0, 0])) * df.dx
 
         return SmartMumpsSolver(
             a_func,
-            L_func,
+            l_func,
             self.boundary_conditions,
             self.solution_space,
-            L_has_no_args=True,
+            l_has_no_args=True,
         )
 
     def calculate_objective_gradient(self):

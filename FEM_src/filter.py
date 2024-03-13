@@ -30,12 +30,12 @@ class HelmholtzFilter:
                 + df.inner(trial, test)
             ) * df.dx
 
-        def L_func(test, input_function):
+        def l_func(test, input_function):
             return df.inner(input_function, test) * df.dx
 
         self.solver = SmartMumpsSolver(
-            a_func, L_func, function_space=function_space, a_has_no_args=True
+            a_func, l_func, function_space=function_space, a_has_no_args=True
         )
 
     def apply(self, input_function: df.Function):
-        return self.solver.solve(L_arg=input_function)
+        return self.solver.solve(l_arg=input_function)
