@@ -1,15 +1,25 @@
 .vscode/
 __pycache__/
 
-
 output/
 target/
 Cargo.lock
 
+test_output/
 external_energy_bug/
 misc/cint.py
 misc/elastic_deformation.py
 misc/fluid_flow.py
 misc/MMS.py
+misc/gauss_play.py
+misc/timeinator.py
+misc/fem_test.py
+misc/mesh_plotter.py
+misc/timings.txt
+misc/movinator.py
+misc/format_results.py
+misc/format_step_sizes.py
+misc/format_consistent_objectives.py
+misc/analyze_consistent_objectives.py
 
 

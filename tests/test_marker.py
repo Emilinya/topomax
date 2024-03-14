@@ -8,9 +8,7 @@ from src.penalizers import FluidPenalizer
 
 
 def contains_same_elements(list1: list, list2: list):
-    no_extra = set(list1).difference(list2) == set()
-    no_missing = set(list2).difference(list1) == set()
-    return no_extra and no_missing
+    return set(list1).symmetric_difference(set(list2)) == set()
 
 
 def solve_equation(function_space, boundary_conditions):
@@ -39,8 +37,7 @@ def marker_bc(marker, function_space, boundary_flows: BoundaryFlows):
     flow_sides = [flow.side for flow in boundary_flows.flows]
     assert contains_same_elements(flow_sides, [Side.LEFT, Side.RIGHT])
 
-    all_sides = [Side.LEFT, Side.RIGHT, Side.TOP, Side.BOTTOM]
-    no_slip_sides = list(set(all_sides).difference(flow_sides))
+    no_slip_sides = list(set(Side.get_all()).difference(flow_sides))
     assert contains_same_elements(no_slip_sides, [Side.TOP, Side.BOTTOM])
 
     marker.add(SidesDomain(boundary_flows.domain_size, flow_sides), "flow")

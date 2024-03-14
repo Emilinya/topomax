@@ -157,6 +157,33 @@ def smart_brentq(f: Callable[[float], float], initial_radius: float, max_radius:
             r *= 2
 
 
+def sigdig(number: float, digits: int):
+    """
+    Format a number into a string with a given number of significant digits.
+    Most of the time, this gives the same as `f"{number:.{digits}g}"`, but it
+    adds back the zeros the g-formatter removes.
+
+    Examples
+    --------
+    >>> sigdig(15.001, 4)
+    '15.00'
+    >>> sigdig(25.799, 4)
+    '25.80'
+    """
+
+    formatted = f"{number:.{digits}g}"
+    if not "e" in formatted:
+        pre_space = f"{number:.1f}".find(".")
+        missing_digits = digits + 1 - len(formatted)
+        if digits - pre_space > 0:
+            if "." in formatted and missing_digits > 0:
+                return f"{formatted}{'0'*missing_digits}"
+            if not "." in formatted and missing_digits - 1 > 0:
+                return f"{formatted}.{'0'*(missing_digits - 1)}"
+
+    return formatted
+
+
 def constrain(value: str | int | float, space: int):
     """
     Constrain a value so it fits within a given number of characters.
