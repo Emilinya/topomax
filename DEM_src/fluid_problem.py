@@ -9,7 +9,7 @@ from DEM_src.problem import DEMProblem
 from DEM_src.dirichlet_enforcer import FluidEnforcer
 from DEM_src.objective_calculator import ObjectiveCalculator
 from DEM_src.deep_energy_method import NNParameters, DeepEnergyMethod
-from designs.definitions import FluidDesign
+from designs.definitions import FluidParameters
 from src.penalizers import FluidPenalizer
 
 
@@ -68,9 +68,9 @@ class FluidProblem(DEMProblem):
         mesh: Mesh,
         device: torch.device,
         verbose: bool,
-        fluid_design: FluidDesign,
+        parameters: FluidParameters,
     ):
-        self.design = fluid_design
+        self.parameters = parameters
         super().__init__(mesh, device, verbose)
 
         self.objective_gradient: npt.NDArray[np.float64] | None = None
@@ -97,10 +97,8 @@ class FluidProblem(DEMProblem):
     def forward(self, rho: npt.NDArray[np.float64]): ...
 
     def create_dem_parameters(self):
-        dirichlet_enforcer = FluidEnforcer(
-            self.design.parameters, self.mesh, self.device
-        )
-        fluid_energy = FluidEnergy(self.mesh, self.design.parameters.viscosity, 500)
+        dirichlet_enforcer = FluidEnforcer(self.parameters, self.mesh, self.device)
+        fluid_energy = FluidEnergy(self.mesh, self.parameters.viscosity, 500)
 
         return dirichlet_enforcer, fluid_energy
 

@@ -1,6 +1,5 @@
 {
   "Fluid": {
-    "objective": "MinimizePower",
     "domain_parameters": {
       "width": 1.5,
       "height": 1.0,

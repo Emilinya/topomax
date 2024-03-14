@@ -221,29 +221,3 @@ class DomainParameters:
             parameter_dict["penalties"],
             parameter_dict["volume_fraction"],
         )
-
-
-@dataclass
-class FluidDesign:
-    objective: FluidObjective
-    parameters: FluidParameters
-
-    @classmethod
-    def from_dict(cls, objective: str, parameter_dict: dict):
-        return cls(
-            FluidObjective.from_string(objective),
-            FluidParameters.from_dict(parameter_dict),
-        )
-
-
-@dataclass
-class ElasticityDesign:
-    objective: ElasticityObjective
-    parameters: ElasticityParameters
-
-    @classmethod
-    def from_dict(cls, objective: str, parameter_dict: dict):
-        return cls(
-            ElasticityObjective.from_string(objective),
-            ElasticityParameters.from_dict(parameter_dict),
-        )

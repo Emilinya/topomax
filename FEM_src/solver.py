@@ -8,7 +8,7 @@ from FEM_src.problem import FEMProblem
 from FEM_src.utils import save_function
 from FEM_src.fluid_problem import FluidProblem
 from FEM_src.elasisity_problem import ElasticityProblem
-from designs.definitions import FluidDesign, ElasticityDesign
+from designs.definitions import FluidParameters, ElasticityParameters
 
 
 class FEMSolver(Solver):
@@ -53,17 +53,22 @@ class FEMSolver(Solver):
 
         return rho
 
-    def create_problem(self, design: FluidDesign | ElasticityDesign):
-        if isinstance(design, FluidDesign):
-            return FluidProblem(self.mesh, design, self.parameters)
-        if isinstance(design, ElasticityDesign):
+    def create_problem(
+        self, problem_parameters: FluidParameters | ElasticityParameters
+    ):
+        if isinstance(problem_parameters, FluidParameters):
+            return FluidProblem(self.mesh, problem_parameters, self.parameters)
+        if isinstance(problem_parameters, ElasticityParameters):
             return ElasticityProblem(
-                self.mesh, design, self.parameters, self.control_space
+                self.mesh,
+                self.control_space,
+                self.parameters,
+                problem_parameters,
             )
 
         raise ValueError(
             f"Got unknown problem '{self.parameters.problem}' "
-            + f"with design of type '{type(design)}'"
+            + f"with problem parameters of type '{type(problem_parameters)}'"
         )
 
     def to_array(self, rho: df.Function) -> npt.NDArray:

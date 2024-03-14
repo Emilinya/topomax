@@ -60,23 +60,11 @@ class FluidEnforcer(DirichletEnforcer):
     def __init__(
         self, fluid_parameters: FluidParameters, mesh: Mesh, device: torch.device
     ):
-        flow_sides = [flow.side for flow in fluid_parameters.flows]
-        if fluid_parameters.no_slip is None:
-            all_sides = [Side.LEFT, Side.RIGHT, Side.TOP, Side.BOTTOM]
-            no_slips = list(set(all_sides).difference(flow_sides))
-        else:
-            no_slips = fluid_parameters.no_slip
-
-        self.zero_enforcer = self.create_zero_enforcer(
-            flow_sides + no_slips, mesh, device, 2
-        )
+        self.zero_enforcer = self.create_zero_enforcer(Side.get_all(), mesh, device, 2)
 
         self.flow_enforcer = self.create_flow_enforcer(
             fluid_parameters.flows, mesh, device
         )
-
-        if fluid_parameters.zero_pressure is not None:
-            raise ValueError("TODO: handle zero pressure boundary condition")
 
     def get_flow(
         self,

@@ -2,7 +2,6 @@ use crate::definitions::*;
 
 pub fn cantilever() -> Design {
     Design::Elasticity(ProblemDesign {
-        objective: ElasticityObjective::MinimizeCompliance,
         domain_parameters: DomainParameters {
             width: 3.0,
             height: 1.0,

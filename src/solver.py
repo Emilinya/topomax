@@ -17,7 +17,7 @@ from src.utils import (
     IterationData,
     typeify_optimize,
 )
-from designs.definitions import FluidDesign, ElasticityDesign
+from designs.definitions import FluidParameters, ElasticityParameters
 from designs.design_parser import parse_design
 
 
@@ -55,7 +55,7 @@ class Solver(ABC):
         self.output_folder = f"{data_path}/{self.get_name()}/{self.design_str}/data"
         self.skip_multiple = skip_multiple
 
-        self.parameters, design = parse_design(design_file)
+        self.parameters, problem_parameters = parse_design(design_file)
 
         self.width = self.parameters.width
         self.height = self.parameters.height
@@ -71,7 +71,7 @@ class Solver(ABC):
 
         self.prepare_domain()
         self.rho = self.create_rho(volume_fraction)
-        self.problem = self.create_problem(design)
+        self.problem = self.create_problem(problem_parameters)
 
         self.penalty_formatter = self.get_penalty_formatter(self.parameters.penalties)
 
@@ -100,7 +100,9 @@ class Solver(ABC):
         """Create and return the design function."""
 
     @abstractmethod
-    def create_problem(self, design: FluidDesign | ElasticityDesign) -> Problem: ...
+    def create_problem(
+        self, problem_parameters: FluidParameters | ElasticityParameters
+    ) -> Problem: ...
 
     @abstractmethod
     def to_array(self, rho: Any) -> npt.NDArray:

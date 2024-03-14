@@ -12,7 +12,7 @@ from DEM_src.dirichlet_enforcer import ElasticityEnforcer
 from DEM_src.objective_calculator import ObjectiveCalculator
 from DEM_src.integrator import boundary_integral, circular_integral
 from DEM_src.deep_energy_method import NNParameters, DeepEnergyMethod
-from designs.definitions import Force, Traction, ElasticityDesign
+from designs.definitions import Force, Traction, ElasticityParameters
 from src.penalizers import ElasticPenalizer
 
 
@@ -137,14 +137,14 @@ class ElasticityProblem(DEMProblem):
         mesh: Mesh,
         device: torch.device,
         verbose: bool,
-        elasticity_design: ElasticityDesign,
+        parameters: ElasticityParameters,
     ):
-        self.design = elasticity_design
+        self.parameters = parameters
         super().__init__(mesh, device, verbose)
 
         # conversion factor from Helmholtz filter radius
         # to classical filter radius is 2sqrt(3)
-        filter_radius = elasticity_design.parameters.filter_radius * 2 * np.sqrt(3)
+        filter_radius = self.parameters.filter_radius * 2 * np.sqrt(3)
         self.filter = create_density_filter(filter_radius, self.mesh)
         self.objective_gradient: npt.NDArray[np.float64] | None = None
 
@@ -177,26 +177,22 @@ class ElasticityProblem(DEMProblem):
 
     def create_dem_parameters(self):
         body_force = None
-        if self.design.parameters.body_force:
-            body_force = BodyForce(
-                self.mesh, self.design.parameters.body_force, self.device
-            )
+        if self.parameters.body_force:
+            body_force = BodyForce(self.mesh, self.parameters.body_force, self.device)
 
         traction_points_list: list[TractionPoints] | None = None
-        if self.design.parameters.tractions:
+        if self.parameters.tractions:
             traction_points_list = []
-            for traction in self.design.parameters.tractions:
+            for traction in self.parameters.tractions:
                 traction_points_list.append(TractionPoints(self.mesh, traction))
 
-        dirichlet_enforcer = ElasticityEnforcer(
-            self.design.parameters, self.mesh, self.device
-        )
+        dirichlet_enforcer = ElasticityEnforcer(self.parameters, self.mesh, self.device)
 
         strain_energy = StrainEnergy(
             self.mesh,
             body_force,
-            self.design.parameters.young_modulus,
-            self.design.parameters.poisson_ratio,
+            self.parameters.young_modulus,
+            self.parameters.poisson_ratio,
             traction_points_list,
         )
 

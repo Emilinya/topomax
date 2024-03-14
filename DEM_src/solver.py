@@ -10,7 +10,7 @@ from DEM_src.problem import DEMProblem
 from DEM_src.integrator import integrate
 from DEM_src.fluid_problem import FluidProblem
 from DEM_src.elasisity_problem import ElasticityProblem
-from designs.definitions import FluidDesign, ElasticityDesign
+from designs.definitions import FluidParameters, ElasticityParameters
 
 
 class DEMSolver(Solver):
@@ -56,25 +56,27 @@ class DEMSolver(Solver):
     def create_rho(self, volume_fraction: float):
         return np.ones(self.mesh.intervals) * volume_fraction
 
-    def create_problem(self, design: FluidDesign | ElasticityDesign):
-        if isinstance(design, FluidDesign):
+    def create_problem(
+        self, problem_parameters: FluidParameters | ElasticityParameters
+    ):
+        if isinstance(problem_parameters, FluidParameters):
             return FluidProblem(
                 self.mesh,
                 self.device,
                 self.verbose,
-                design,
+                problem_parameters,
             )
-        if isinstance(design, ElasticityDesign):
+        if isinstance(problem_parameters, ElasticityParameters):
             return ElasticityProblem(
                 self.mesh,
                 self.device,
                 self.verbose,
-                design,
+                problem_parameters,
             )
 
         raise ValueError(
             f"Got unknown problem '{self.parameters.problem}' "
-            + f"with design of type '{type(design)}'"
+            + f"with problem parameters of type '{type(problem_parameters)}'"
         )
 
     def to_array(self, rho: npt.NDArray):

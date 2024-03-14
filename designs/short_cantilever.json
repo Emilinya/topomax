@@ -1,6 +1,5 @@
 {
   "Elasticity": {
-    "objective": "MinimizeCompliance",
     "domain_parameters": {
       "width": 10.0,
       "height": 5.0,

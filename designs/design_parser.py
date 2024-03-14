@@ -4,18 +4,9 @@ import json
 from designs.definitions import (
     DomainParameters,
     ProblemType,
-    FluidDesign,
-    ElasticityDesign,
+    FluidParameters,
+    ElasticityParameters,
 )
-
-
-def create_design(problem: ProblemType, objective: str, problem_parameters: dict):
-    if problem == ProblemType.FLUID:
-        return FluidDesign.from_dict(objective, problem_parameters)
-    if problem == ProblemType.ELASTICITY:
-        return ElasticityDesign.from_dict(objective, problem_parameters)
-
-    raise ValueError(f"Unknown problem: {problem}")
 
 
 def parse_design(filename: str):
@@ -27,17 +18,27 @@ def parse_design(filename: str):
         raise ValueError(f"Malformed design: got more than one key: {key}")
     key = key[0]
 
-    parameters = DomainParameters.from_dict(key, design_dict[key]["domain_parameters"])
-    design = create_design(
-        parameters.problem,
-        design_dict[key]["objective"],
-        design_dict[key]["problem_parameters"],
+    domain_parameters = DomainParameters.from_dict(
+        key, design_dict[key]["domain_parameters"]
     )
+    problem = domain_parameters.problem
+    parameters = design_dict[key]["problem_parameters"]
 
-    return parameters, design
+    if problem == ProblemType.FLUID:
+        problem_parameters = FluidParameters.from_dict(parameters)
+    elif problem == ProblemType.ELASTICITY:
+        problem_parameters = ElasticityParameters.from_dict(parameters)
+    else:
+        raise ValueError(f"Unknown problem: {problem}")
+
+    return domain_parameters, problem_parameters
 
 
 if __name__ == "__main__":
-    parameters, design = parse_design("designs/pipe_bend.json")
-    print(parameters)
-    print(design)
+
+    def main():
+        domain_parameters, problem_parameters = parse_design("designs/pipe_bend.json")
+        print(domain_parameters)
+        print(problem_parameters)
+
+    main()

@@ -2,7 +2,6 @@ use crate::definitions::*;
 
 pub fn triangle() -> Design {
     Design::Elasticity(ProblemDesign {
-        objective: ElasticityObjective::MinimizeCompliance,
         domain_parameters: DomainParameters {
             width: 1.0,
             height: 1.0,

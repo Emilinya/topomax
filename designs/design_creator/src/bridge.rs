@@ -2,7 +2,6 @@ use crate::definitions::*;
 
 pub fn bridge() -> Design {
     Design::Elasticity(ProblemDesign {
-        objective: ElasticityObjective::MinimizeCompliance,
         domain_parameters: DomainParameters {
             width: 12.0,
             height: 2.0,

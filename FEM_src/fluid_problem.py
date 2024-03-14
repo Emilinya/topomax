@@ -5,7 +5,7 @@ import dolfin as df
 from FEM_src.problem import FEMProblem
 from FEM_src.domains import SidesDomain
 from FEM_src.pde_solver import SmartMumpsSolver
-from designs.definitions import DomainParameters, FluidDesign, Side, Flow
+from designs.definitions import DomainParameters, FluidParameters, Side, Flow
 from src.penalizers import FluidPenalizer
 
 
@@ -49,14 +49,17 @@ class FluidProblem(FEMProblem):
     """Elastic compliance topology optimization problem."""
 
     def __init__(
-        self, mesh: df.Mesh, design: FluidDesign, parameters: DomainParameters
+        self,
+        mesh: df.Mesh,
+        fluid_parameters: FluidParameters,
+        domain_parameters: DomainParameters,
     ):
-        self.design = design
-        super().__init__(mesh, parameters)
+        self.parameters = fluid_parameters
+        super().__init__(mesh, domain_parameters)
 
         self.solver = self.create_solver()
 
-        self.viscosity = design.parameters.viscosity
+        self.viscosity = self.parameters.viscosity
         self.penalizer: FluidPenalizer = FluidPenalizer()
 
         self.u = None
@@ -120,7 +123,7 @@ class FluidProblem(FEMProblem):
         return self.solver.solve(a_arg=rho)
 
     def create_boundary_conditions(self):
-        flow_sides = [flow.side for flow in self.design.parameters.flows]
+        flow_sides = [flow.side for flow in self.parameters.flows]
         self.marker.add(SidesDomain(self.domain_size, flow_sides), "flow")
 
         # assume no slip conditions where there is no flow
@@ -128,7 +131,7 @@ class FluidProblem(FEMProblem):
         self.marker.add(SidesDomain(self.domain_size, no_slip_sides), "no_slip")
 
         self.boundary_flows = BoundaryFlows(
-            self.domain_size, self.design.parameters.flows, degree=2
+            self.domain_size, self.parameters.flows, degree=2
         )
 
         boundary_conditions = [

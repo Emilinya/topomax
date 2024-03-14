@@ -10,7 +10,7 @@ from FEM_src.pde_solver import SmartMumpsSolver
 from src.penalizers import ElasticPenalizer
 from designs.definitions import (
     DomainParameters,
-    ElasticityDesign,
+    ElasticityParameters,
     Side,
     Traction,
     Force,
@@ -79,19 +79,19 @@ class ElasticityProblem(FEMProblem):
     def __init__(
         self,
         mesh: df.Mesh,
-        design: ElasticityDesign,
-        parameters: DomainParameters,
         control_space: df.FunctionSpace,
+        domain_parameters: DomainParameters,
+        elasticity_parameters: ElasticityParameters,
     ):
-        self.design = design
-        super().__init__(mesh, parameters)
+        self.parameters = elasticity_parameters
+        super().__init__(mesh, domain_parameters)
 
-        filter_radius = design.parameters.filter_radius
+        filter_radius = self.parameters.filter_radius
         self.filter = HelmholtzFilter(filter_radius, control_space)
         self.solver = self.create_solver()
 
-        self.Young_modulus = design.parameters.young_modulus
-        self.Poisson_ratio = design.parameters.poisson_ratio
+        self.Young_modulus = self.parameters.young_modulus
+        self.Poisson_ratio = self.parameters.poisson_ratio
         self.penalizer: ElasticPenalizer = ElasticPenalizer()
 
         # Calculate Lamé parameters from material properties
@@ -170,20 +170,18 @@ class ElasticityProblem(FEMProblem):
 
     def create_boundary_conditions(self):
         self.body_force = df.Constant((0, 0))
-        if self.design.parameters.body_force is not None:
-            self.body_force = BodyForce(
-                self.design.parameters.body_force, self.domain_size
-            )
+        if self.parameters.body_force is not None:
+            self.body_force = BodyForce(self.parameters.body_force, self.domain_size)
 
-        if self.design.parameters.tractions is not None:
+        if self.parameters.tractions is not None:
             self.traction_term = TractionExpression(
-                self.domain_size, self.design.parameters.tractions
+                self.domain_size, self.parameters.tractions
             )
         else:
             self.traction_term = TractionExpression(self.domain_size, [])
 
         self.marker.add(
-            SidesDomain(self.domain_size, self.design.parameters.fixed_sides), "fixed"
+            SidesDomain(self.domain_size, self.parameters.fixed_sides), "fixed"
         )
         return [
             df.DirichletBC(

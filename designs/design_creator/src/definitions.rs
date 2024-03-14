@@ -15,16 +15,6 @@ pub struct CircularRegion {
 }
 
 #[derive(Serialize)]
-pub enum ElasticityObjective {
-    MinimizeCompliance,
-}
-
-#[derive(Serialize)]
-pub enum FluidObjective {
-    MinimizePower,
-}
-
-#[derive(Serialize)]
 pub struct Flow {
     pub side: Side,
     pub center: f64,
@@ -73,14 +63,13 @@ pub struct DomainParameters {
 }
 
 #[derive(Serialize)]
-pub struct ProblemDesign<T, U> {
-    pub objective: T,
+pub struct ProblemDesign<T> {
     pub domain_parameters: DomainParameters,
-    pub problem_parameters: U,
+    pub problem_parameters: T,
 }
 
 #[derive(Serialize)]
 pub enum Design {
-    Fluid(ProblemDesign<FluidObjective, FluidParameters>),
-    Elasticity(ProblemDesign<ElasticityObjective, ElasticityParameters>),
+    Fluid(ProblemDesign<FluidParameters>),
+    Elasticity(ProblemDesign<ElasticityParameters>),
 }

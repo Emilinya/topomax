@@ -29,13 +29,12 @@ The design files are written in JSON, but they are made by a Rust program. I did
 
 ```rust
 enum Design {
-    Fluid(ProblemDesign<FluidObjective, FluidParameters>),
-    Elasticity(ProblemDesign<ElasticityObjective, ElasticityParameters>),
+    Fluid(ProblemDesign<FluidParameters>),
+    Elasticity(ProblemDesign<ElasticityParameters>),
 }
-struct ProblemDesign<T, U> {
-    objective: T,
+struct ProblemDesign<T> {
     domain_parameters: DomainParameters,
-    problem_parameters: U,
+    problem_parameters: T,
 }
 ```
 You can either have a fluid design with a fluid objective and fluid parameters, or you can have an elasticity design with an elasticity objective and elasticity parameters. All designs have domain parameters, which are defined as:
@@ -53,13 +52,7 @@ struct DomainParameters {
 The width and height is the width and height of your domain, and the volume_fraction is the volume fraction for the volume constraint. The penalties are a list of either $p$-values for elasticity or $q$-values for fluids. The program will use the finished design for the previous penalty as the initial design for the next penalty, which allows for iterative refinement of a design as seen in the twin pipe example. The two step-size values must be found manually by testing several values and using the best one.
 
 ### Fluid problem
-For a fluid problem, the fluid objectives are
-```rust
-enum FluidObjective {
-    MinimizePower,
-}
-```
-where 'MinimizePower' means minimizing the total potential power of your fluid. The fluid parameters are:
+For a fluid problem, the fluid parameters are:
 ```rust
 struct FluidParameters {
     flows: Vec<Flow>,
@@ -87,13 +80,7 @@ enum Side {
 A flow struct represents a parabolic flow out/in from a side, with a value of `rate` at its center. A positive rate represents inflow, and a negative rate represents outflow. Multiple flows can exist on the same side, and the total flow (sum of `length·rate` for all flows) must be 0. For sides with no defined flow, the flow is assumed to be zero.
 
 ### Elasticity problem
-For an elasticity problem, the elasticity objectives are
-```rust
-enum ElasticityObjective {
-    MinimizeCompliance,
-}
-```
-where 'MinimizeCompliance' means minimizing the elastic compliance of a material. The elasticity parameters are:
+For an elasticity problem, the elasticity parameters are:
 ```rust
 struct ElasticityParameters {
     fixed_sides: Vec<Side>,
@@ -130,7 +117,7 @@ The filter radius is the radius for the Helmholtz filter.
 ## Running Tests
 This program uses pytest for testing, so running them is simply done by running
 ```bash
-pytest
+pytest tests
 ```
 
 The requirements file does not include pytest, so you first need to run

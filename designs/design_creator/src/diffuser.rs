@@ -2,7 +2,6 @@ use crate::definitions::*;
 
 pub fn diffuser() -> Design {
     Design::Fluid(ProblemDesign {
-        objective: FluidObjective::MinimizePower,
         domain_parameters: DomainParameters {
             width: 1.0,
             height: 1.0,

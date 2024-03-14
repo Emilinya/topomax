@@ -2,7 +2,6 @@ use crate::definitions::*;
 
 pub fn twin_pipe() -> Design {
     Design::Fluid(ProblemDesign {
-        objective: FluidObjective::MinimizePower,
         domain_parameters: DomainParameters {
             width: 1.5,
             height: 1.0,
