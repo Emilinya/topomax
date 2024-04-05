@@ -56,5 +56,5 @@ def test_HelmholtzFilter():
             filtered_rho, filtered_rho_expression, "L2", degree_rise=2, mesh=mesh
         )
 
-    Ns = list(range(10, 90 + 1, 20))
+    Ns = list(range(10, 90 + 1, 10))
     assert get_convergance(Ns, error_func) <= -2
