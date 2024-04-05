@@ -33,15 +33,19 @@ def hyperopt_main_generator(
         min_loss = iteration_data["min_loss"]
         text = f"hyperopt iteration {i+1}/{N} ({int((i+1)/N*100)}%). Min loss: {min_loss:.6g}"
 
-        terminal_width = os.get_terminal_size().columns
+        try:
+            terminal_width = os.get_terminal_size().columns
+        except OSError:
+            terminal_width = 80
+        else:
+            if i != 0:
+                # we don't want to spam the terminal - move cursor up 3 rows
+                # to overwrite previous line (why 3 and not 2?)
+                print("\033[3A")
+
         left_width = int((terminal_width - (len(text) + 2)) / 2)
         right_width = (terminal_width - (len(text) + 2)) - left_width
-
-        if i != 0:
-            # we don't want to spam the terminal - move cursor up 3 rows
-            # to overwrite previous line (why 3 and not 2?)
-            print("\033[3A")
-        print(f"{'─'*left_width} {text} {'─'*right_width}")
+        print(f"{'─'*left_width} {text} {'─'*right_width}", flush=True)
 
         problem.dem.set_nn_parameters(nn_parameters)
         problem.dem.train_model(rho, problem.mesh)
@@ -102,7 +106,16 @@ def optimize_hyperparameters(
 
 
 def run(design_path: str, output_path: str = "output"):
-    solver = DEMSolver(40, design_path, verbose=True)
+    try:
+        os.get_terminal_size()
+    except OSError:
+        # if terminal has no size, \r might not work,
+        # so we don't want the solver to be verbose.
+        solver = DEMSolver(40, design_path, verbose=False)
+    else:
+        solver = DEMSolver(40, design_path, verbose=True)
+
+    solver.problem.set_penalization(solver.parameters.penalties[0])
 
     design = os.path.splitext(os.path.basename(design_path))[0]
     datafile_path = f"{output_path}/hyperopt/{design}_hyperopt.txt"

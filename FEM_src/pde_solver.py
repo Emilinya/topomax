@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from typing import Any, Callable
 from abc import ABC, abstractmethod
 
@@ -7,13 +9,10 @@ from ufl.argument import Argument
 
 
 class PDESolver(ABC):
-    LeftCallable = Callable[[Argument, Argument, Any | None], Form]
-    RightCallable = Callable[[Argument, Any | None], Form]
-
     def __init__(
         self,
-        a_func: LeftCallable,
-        l_func: RightCallable,
+        a_func: Callable[[Argument, Argument, Any | None], Form],
+        l_func: Callable[[Argument, Any | None], Form],
         boundary_conditions: list[df.DirichletBC] | None = None,
         function_space: df.FunctionSpace | None = None,
     ):
@@ -76,8 +75,8 @@ class SimpleMUMPSSolver(PDESolver):
 class SmartMumpsSolver(PDESolver):
     def __init__(
         self,
-        a_func: PDESolver.LeftCallable,
-        l_func: PDESolver.RightCallable,
+        a_func: Callable[[Argument, Argument, Any | None], Form],
+        l_func: Callable[[Argument, Any | None], Form],
         boundary_conditions: list[df.DirichletBC] | None = None,
         function_space: df.FunctionSpace | None = None,
         a_has_no_args: bool = False,
@@ -137,8 +136,8 @@ class SmartMumpsSolver(PDESolver):
 class IterativeReuseSolver(PDESolver):
     def __init__(
         self,
-        a_func: PDESolver.LeftCallable,
-        l_func: PDESolver.RightCallable,
+        a_func: Callable[[Argument, Argument, Any | None], Form],
+        l_func: Callable[[Argument, Any | None], Form],
         boundary_conditions: list[df.DirichletBC] | None = None,
         function_space: df.FunctionSpace | None = None,
         reuse_previous_solution: bool = False,
