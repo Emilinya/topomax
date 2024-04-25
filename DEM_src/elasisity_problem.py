@@ -95,7 +95,7 @@ class StrainEnergy(ObjectiveCalculator):
     def calculate_energy(
         self, u: torch.Tensor, shape: tuple[int, int], density: torch.Tensor
     ):
-        """Calculate ψ(u; ρ) = ½∫r(ρ)σ:ε dx - ∫f·u dx  - ∫t·u ds"""
+        """Calculate ψ(u; ρ) = ½∫r(ρ)σ:ε dx - ∫f·u dx - ∫t·u ds"""
 
         (strain_energies,) = self.evaluate(u, shape, self.calculate_strain_energy)
 

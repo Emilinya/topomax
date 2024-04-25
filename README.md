@@ -2,7 +2,7 @@
 
 # Topomax
 
-This is a topology optimization program based on the entropic mirror descent algorithm described in the paper *Proximal Galerkin: A structure-preserving finite element method for pointwise bound constraints* by Brendan Keith and Thomas M. Surowiec. It uses design files to define the boundary conditions and other parameters for your optimization problem in an easy-to-read way. Topomax was made for the paper *Comparing Classical and Machine Learning Based Approaches to Topology Optimization* by Emilie Dørum, and as such, it implements both the finite element method and the deep energy method. The DEM implementation is based on the paper *Deep energy method in topology optimization applications* by Junyan He, Charul Chadha, Shashank Kushwaha, Seid Koric, Diab Abueidda and Iwona Jasiuk, where I have heavily rewritten the [source code they provided](https://github.com/Jasiuk-Research-Group/DeepEnergy-TopOpt), as well as fixed some of their bugs.
+This is a topology optimization program based on the entropic mirror descent algorithm described in the paper *Proximal Galerkin: A structure-preserving finite element method for pointwise bound constraints* by Brendan Keith and Thomas M. Surowiec. It uses design files to define the boundary conditions and other parameters for your optimization problem in an easy-to-read way. Topomax was made for my master's thesis *Comparing Classical and Machine Learning Based Approaches to Topology Optimization*, available on [my website](http://www.emilie.moe/projects/thesis.pdf), and as such, it implements both the finite element method and the deep energy method. The DEM implementation is based on the paper *Deep energy method in topology optimization applications* by Junyan He et al., where I have heavily rewritten the [source code they provided](https://github.com/Jasiuk-Research-Group/DeepEnergy-TopOpt), as well as [fixed some of their bugs](https://github.com/Jasiuk-Research-Group/DeepEnergy-TopOpt/issues).
 
 ## Usage
 
@@ -25,7 +25,7 @@ This also works if you are using Linux and Mac, but there you can also install F
 The program is run using `run.py`. This program takes in two command line arguments; a design file and the number of finite elements along the shortest length. The folder `designs` contains some design files, and you can easily make a custom design using those files as a template. If the design is `path/to/design.json`, the output of the program is saved to `output/design/data`. The program also takes in some optional arguments, which you can see by running `run.py -h`. The produced data can be visualized with `plot.py`, which automatically reads all the data files, and produces corresponding figures in `output/design/figures`. You can limit what data is plotted by using some optional command line arguments which are listed when you run `plot.py -h`.
 
 ## Design file format
-The design files are written in JSON, but they are made by a Rust program. I did this so I could use Rust's rich type system to structure the data. I will therefore explain the design file format using the original Rust types. The root type is
+The design files are written in JSON, but they are made by a Rust program. I did this so I could use Rust's rich type system to structure the data, and will therefore explain the design file format using the original Rust types. The root type is
 
 ```rust
 enum Design {
@@ -37,7 +37,7 @@ struct ProblemDesign<T> {
     problem_parameters: T,
 }
 ```
-You can either have a fluid design with a fluid objective and fluid parameters, or you can have an elasticity design with an elasticity objective and elasticity parameters. All designs have domain parameters, which are defined as:
+You can either have a fluid design with fluid parameters, or you can have an elasticity design with elasticity parameters. All designs have domain parameters, which are defined as:
 
 ```rust
 struct DomainParameters {

@@ -17,9 +17,9 @@ def get_convergance(Ns: list[int], error_func: Callable[[int], float]) -> float:
 
     if PLOT_ERRORS:
         plt.rcParams.update({"font.size": 14})
-        plt.plot(np.log(Ns), np.log(errors), "go--")
-        plt.xlabel(r"$\ln(N)$")
-        plt.ylabel(r"$\ln(\text{error})$")
+        plt.loglog(Ns, errors, "go--")
+        plt.xlabel("$N$")
+        plt.ylabel("error")
         plt.text(
             0.55,
             0.55,
