@@ -38,7 +38,8 @@ class ObjectiveCalculator(ABC):
 
     def get_shape_derivatives(self) -> list[npt.NDArray[np.float64]]:
         """Differentiation of shape functions at gauss quadrature points"""
-        # what are these values? idk
+        # a, b = (1 ± 1/sqrt(3)) / 4
+        # ±1/sqrt(3) are Gauss–Legendre quadrature points
         a = 0.394337567
         b = 0.105662433
         return [

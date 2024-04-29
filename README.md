@@ -49,7 +49,7 @@ struct DomainParameters {
     volume_fraction: f64,
 }
 ```
-The width and height is the width and height of your domain, and the volume_fraction is the volume fraction for the volume constraint. The penalties are a list of either $p$-values for elasticity or $q$-values for fluids. The program will use the finished design for the previous penalty as the initial design for the next penalty, which allows for iterative refinement of a design as seen in the twin pipe example. The two step-size values must be found manually by testing several values and using the best one.
+Where you specify the width and height of your domain and the volume fraction for the volume constraint. The penalties are a list of either $p$-values for elasticity or $q$-values for fluids. The program will use the finished design for the previous penalty as the initial design for the next penalty, which allows for iterative refinement of a design as seen in the twin pipe example. The two step-size values must be found manually by testing several values and using the best one.
 
 ### Fluid problem
 For a fluid problem, the fluid parameters are:
@@ -77,7 +77,7 @@ enum Side {
     Bottom,
 }
 ```
-A flow struct represents a parabolic flow out/in from a side, with a value of `rate` at its center. A positive rate represents inflow, and a negative rate represents outflow. Multiple flows can exist on the same side, and the total flow (sum of `length·rate` for all flows) must be 0. For sides with no defined flow, the flow is assumed to be zero.
+A flow struct represents a parabolic flow in/out of a side, with a value of `rate` at its center. A positive rate represents inflow, and a negative rate represents outflow. Multiple flows can exist on the same side, and the total flow (sum of `length * rate` for all flows) must be 0. For sides with no defined flow, the flow is assumed to be zero.
 
 ### Elasticity problem
 For an elasticity problem, the elasticity parameters are:
@@ -111,8 +111,7 @@ struct Traction {
     value: (f64, f64),
 }
 ```
-The force represents a body force with a given value that acts on a circle with a given center and radius, the traction represents a traction applied to a portion of one of the boundary sides, and the `fixed_sides` parameter represents a side where the material is fixed in place.
-The filter radius is the radius for the Helmholtz filter.
+The force represents a body force with a given value that acts on a circle with a given center and radius, the traction represents a traction applied to a portion of one of the boundary sides, and the `fixed_sides` parameter represents the sides where the material is fixed in place. The filter radius is the radius for the Helmholtz filter.
 
 ## Running Tests
 This program uses pytest for testing, so running them is simply done by running
