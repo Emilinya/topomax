@@ -6,6 +6,7 @@ target/
 Cargo.lock
 
 test_output/
+thesis_output/
 external_energy_bug/
 misc/cint.py
 misc/elastic_deformation.py
